@@ -1,0 +1,92 @@
+name: Deploy Velocity Branch to Hostinger (Root)
+
+on:
+  push:
+    branches:
+      - velocity
+
+jobs:
+  deploy:
+    name: Deploy Velocity Branch
+    runs-on: ubuntu-latest
+    env:
+      ACTIONS_RUNNER_DEBUG: true
+      ACTIONS_STEP_DEBUG: true
+
+    steps:
+      # Step 1: Checkout the code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Set up PHP
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, bcmath, ctype, json, tokenizer, curl
+          coverage: none
+
+      # Step 3: Install Composer dependencies
+      - name: Install Composer dependencies
+        run: composer install --no-dev --optimize-autoloader --no-interaction
+
+      # Step 4: Install sshpass
+      - name: Install sshpass
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sshpass || { echo "Failed to install sshpass"; exit 1; }
+          sshpass -v || { echo "sshpass not found after installation"; exit 1; }
+
+      # Step 5: Test SSH Connection
+      - name: Test SSH Connection
+        run: |
+          sshpass -p "${{ secrets.FTP_PASSWORD }}" ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} whoami
+          sshpass -p "${{ secrets.FTP_PASSWORD }}" ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} "echo 'Test command execution' && ls -la /home/u894080882/domains/wallet.wearemarz.com/public_html"
+
+      # Step 6: Deploy to Hostinger via SSH
+      - name: Deploy to Hostinger
+        env:
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          # Define deployment directory
+          DEPLOY_DIR="/home/u894080882/domains/wallet.wearemarz.com/public_html"
+
+          # Debug: List local files in GITHUB_WORKSPACE
+          echo "Local files in GITHUB_WORKSPACE:"
+          ls -la $GITHUB_WORKSPACE
+
+          # Copy files using rsync with sshpass, excluding .env and .htaccess
+          sshpass -p "$FTP_PASSWORD" rsync -avz --exclude '.env' --exclude '.htaccess' -e "ssh -p 65002 -o StrictHostKeyChecking=no" $GITHUB_WORKSPACE/ ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }}:"$DEPLOY_DIR"
+
+          # Run SSH commands to verify and configure
+          sshpass -p "$FTP_PASSWORD" ssh -o StrictHostKeyChecking=no -p 65002 ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} bash -c '
+            DEPLOY_DIR="/home/u894080882/domains/wallet.wearemarz.com/public_html"
+            cd "$DEPLOY_DIR" || { echo "Failed to change directory to $DEPLOY_DIR"; exit 1; }
+
+            # Debug: List directory contents after rsync
+            echo "Directory contents after rsync:"
+            ls -la
+
+            # Debug: Check public/build directory
+            echo "Contents of public/build:"
+            ls -la public/build || echo "public/build directory not found (manually uploaded)"
+
+            # Debug: Check .env contents (sanitized)
+            if [ -f ".env" ]; then
+              echo ".env exists"
+              grep -v "DB_" .env || echo "Failed to read .env"
+            else
+              echo "Error: .env file not found"
+              exit 1
+            fi
+
+            # Set permissions for storage and cache directories
+            if [ -d "storage" ] && [ -d "bootstrap/cache" ]; then
+              chmod -R 755 storage bootstrap/cache
+              chown -R u894080882:u894080882 storage bootstrap/cache
+            else
+              echo "Warning: storage or bootstrap/cache directory not found"
+            fi
+
+            # Verify PHP is available
+            if command -v php >/dev/null 2>&1; then

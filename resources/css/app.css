@@ -1,0 +1,21 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+
+/* Additional styles */
+@import 'additional-styles/utility-patterns.css';
+@import 'additional-styles/flatpickr.css';
+
+@import 'tailwindcss/utilities';
+
+
+/* Customise Tailwind */
+@layer base {
+    body {
+        @apply bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-50;
+    }
+    .fi-btn{
+        @apply bg-slate-900 text-slate-50;
+    }
+    
+    
+}

@@ -1,0 +1,13 @@
+* text=auto eol=lf
+
+*.blade.php diff=html
+*.css diff=css
+*.html diff=html
+*.md diff=markdown
+*.php diff=php
+.env
+
+/.github export-ignore
+CHANGELOG.md export-ignore
+.styleci.yml export-ignore
+.u854451300_esafe_prod.sql
