@@ -20,12 +20,11 @@ return new class extends Migration
             $table->string('address');
             $table->string("logo")->nullable();
             $table->date('date')->default(now());
-            // $table->string("percentage_charge")->default(2);
-            // $table->string("minimum_amount")->default(5000);
-            // $table->enum("type", ["individual", "business"]);
             $table->string("account_number");
-            // $table->string("account_balance");
-            // $table->enum("mode", ["sandbox", "live"])->default("sandbox");
+            $table->foreignId('business_category_id')->references('id')->on('business_categories')->onDelete('cascade');
+            $table->string("country")->nullable();
+            $table->string("city")->nullable();
+            $table->json('enabled_feature_ids')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

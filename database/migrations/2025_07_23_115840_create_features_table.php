@@ -11,14 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('qualifications', function (Blueprint $table) {
+        Schema::create('features', function (Blueprint $table) {
             $table->id();
-            $table->uuid('uuid')->unique()->index();
-            $table->string('name')->unique();
+            $table->uuid('uuid')->index();
+            $table->string('name');
             $table->string('description')->nullable();
-            $table->foreignId('business_id')->constrained()->onDelete('cascade');
+            //currency id
+            $table->foreignId('currency_id')->references('id')->on('currencies')->onDelete('cascade');
+            $table->string("price")->default(0);
+            $table->softDeletes();
             $table->timestamps();
-            $table->softDeletes(); // Allows for soft deletion of qualifications
         });
     }
 
@@ -27,6 +29,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('qualifications');
+        Schema::dropIfExists('features');
     }
 };

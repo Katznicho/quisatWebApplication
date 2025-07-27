@@ -16,13 +16,12 @@ class Role extends Model
         'business_id',
         'name',
         'description',
-        'branch_id',
+
     ];
 
     protected $casts = [
         'uuid' => 'string',
         'business_id' => 'integer',
-        'branch_id' => 'integer',
     ];
 
     public function business()
@@ -30,10 +29,7 @@ class Role extends Model
         return $this->belongsTo(Business::class);
     }
 
-    public function branch()
-    {
-        return $this->belongsTo(Branch::class);
-    }
+   
 
     protected static function booted()
     {

@@ -16,7 +16,6 @@ return new class extends Migration
             $table->uuid('uuid')->unique()->index();
             $table->foreignId('user_id')->nullable()->references('id')->on('users')->onDelete('cascade');
             $table->foreignId('business_id')->nullable()->references('id')->on('businesses')->onDelete('cascade');
-            $table->foreignId('branch_id')->nullable()->references('id')->on('branches')->onDelete('cascade');
             $table->string('model_type');        // e.g. App\Models\User
             $table->unsignedBigInteger('model_id')->nullable(); // e.g. User ID = 5
             $table->string('action');            // created / updated / deleted

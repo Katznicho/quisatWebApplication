@@ -5,10 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Business extends Model
 {
     use HasFactory;
+    use SoftDeletes;
 
     protected $fillable = [
         'name',
@@ -22,7 +24,16 @@ class Business extends Model
         'account_number',
         'account_balance',
         'mode',
-        'date'
+        'date',
+        'country',
+        'city',
+        'business_category_id',
+        'enabled_feature_ids'
+    ];
+
+    //cast
+    protected $casts = [
+        'enabled_feature_ids' => 'array',
     ];
 
     // a businness has many users
@@ -37,11 +48,7 @@ class Business extends Model
         return $this->hasMany(Transaction::class);
     }
 
-    //a business has many payment links
-    public function paymentLinks()
-    {
-        return $this->hasMany(PaymentLink::class);
-    }
+    
 
     protected static function booted()
     {

@@ -33,6 +33,7 @@ class User extends Authenticatable
         'status',
         'business_id',
         'branch_id', // Uncomment if you want to allow branch assignment
+        'role_id',
     ];
 
     /**
@@ -70,10 +71,7 @@ class User extends Authenticatable
         return $this->belongsTo(Business::class);
     }
 
-    public function branch()
-    {
-        return $this->belongsTo(Branch::class);
-    }
+    
 
     protected static function booted()
     {

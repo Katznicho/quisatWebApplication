@@ -11,14 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('titles', function (Blueprint $table) {
+        Schema::create('business_categories', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->index();
-            $table->foreignId('business_id')->constrained()->onDelete('cascade');
             $table->string('name');
             $table->string('description')->nullable();
+            //json field for features
+            $table->json('feature_ids')->nullable();
             $table->timestamps();
-            $table->softDeletes(); // Allows for soft deletion of titles
         });
     }
 
@@ -27,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('titles');
+        Schema::dropIfExists('business_categories');
     }
 };

@@ -11,14 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('service_points', function (Blueprint $table) {
+        Schema::create('roles', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique()->index();
             $table->string('name')->unique();
             $table->string('description')->nullable();
-            $table->foreignId('business_id')->constrained()->onDelete('cascade');
+            // $table->foreignId('business_id')->constrained()->onDelete('cascade');
+            $table->foreignId('business_id')->nullable()->references('id')->on('businesses')->onDelete('cascade');
             $table->timestamps();
-            $table->softDeletes(); // Allows for soft deletion of service points
+            $table->softDeletes(); // Allows for soft deletion of roles
         });
     }
 
@@ -27,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('service_points');
+        Schema::dropIfExists('roles');
     }
 };

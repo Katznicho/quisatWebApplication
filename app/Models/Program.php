@@ -7,31 +7,27 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Department extends Model
+class Program extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
+    use SoftDeletes;
 
     protected $fillable = [
         'uuid',
-        'business_id',
         'name',
         'description',
+        'age_group',
+        'status',
     ];
 
-
-    protected $casts = [
-        'uuid' => 'string',
-        'business_id' => 'integer',
-    ];
-
-    public function business()
-    {
-        return $this->belongsTo(Business::class);
-    }
     protected static function booted()
     {
         static::creating(function ($user) {
             $user->uuid = (string) Str::uuid();
         });
+    }
+
+    public function getRouteKeyName(){
+        return 'uuid';
     }
 }

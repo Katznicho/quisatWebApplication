@@ -7,46 +7,27 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class ActivityLog extends Model
+class BusinessCategory extends Model
 {
     use HasFactory;
     use SoftDeletes;
 
     protected $fillable = [
-        'user_id',
-        'business_id',
-        'model_type',
-        'model_id',
-        'action',
-        'old_values',
-        'new_values',
-        'ip_address',
-        'user_agent',
-        'action_type',
+        'name',
         'description',
-        'date',
-
+        'feature_ids',
     ];
 
     //cast
     protected $casts = [
-        'old_values' => 'array',
-        'new_values' => 'array',
+        'feature_ids' => 'array',
     ];
 
-    //
-    public function user()
+    //a business category has many businesses
+    public function businesses()
     {
-        return $this->belongsTo(User::class);
+        return $this->hasMany(Business::class);
     }
-
-    //
-    public function business()
-    {
-        return $this->belongsTo(Business::class);
-    }
-
-    
 
     protected static function booted()
     {

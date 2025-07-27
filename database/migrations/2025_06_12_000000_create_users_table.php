@@ -23,7 +23,7 @@ return new class extends Migration
             $table->string('profile_photo_path', 2048)->nullable();
             $table->enum('status', ['active', 'inactive', 'suspended'])->default('active');
             $table->foreignId('business_id')->references('id')->on('businesses')->onDelete('cascade');
-            $table->foreignId('branch_id')->nullable()->constrained('branches')->nullOnDelete();
+            $table->foreignId('role_id')->references('id')->on('roles')->onDelete('cascade');
             $table->timestamps();
             $table->softDeletes();
         });

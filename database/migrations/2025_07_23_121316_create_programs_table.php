@@ -11,14 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('departments', function (Blueprint $table) {
+        Schema::create('programs', function (Blueprint $table) {
             $table->id();
-            $table->uuid('uuid')->unique()->index();
-            $table->foreignId('business_id')->constrained()->onDelete('cascade');
+            $table->uuid('uuid')->index();
             $table->string('name');
-            $table->string('description')->nullable();  
+            $table->string('description')->nullable();
+            $table->string('age-group')->nullable();
+            $table->string('status');
+            $table->softDeletes();
             $table->timestamps();
-            $table->softDeletes(); // Allows for soft deletion of departments
         });
     }
 
@@ -27,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('departments');
+        Schema::dropIfExists('programs');
     }
 };

@@ -7,32 +7,27 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Title extends Model
+
+class Feature extends Model
 {
     use HasFactory;
-     use SoftDeletes;
+    use SoftDeletes;
 
     protected $fillable = [
         'uuid',
-        'business_id',
         'name',
         'description',
+        'price',
     ];
-
-    protected $casts = [
-        'uuid' => 'string',
-        'business_id' => 'integer',
-    ];
-
-    public function business()
-    {
-        return $this->belongsTo(Business::class);
-    }
 
     protected static function booted()
     {
-        static::creating(function ($title) {
-            $title->uuid = (string) Str::uuid();
+        static::creating(function ($user) {
+            $user->uuid = (string) Str::uuid();
         });
+    }
+
+    public function getRouteKeyName()  {
+        return 'uuid';
     }
 }
