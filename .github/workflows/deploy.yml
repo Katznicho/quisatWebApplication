@@ -1,4 +1,4 @@
-name: Deploy Marz Branch to Hostinger (Root)
+name: Deploy Main Branch to Hostinger (Root)
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   deploy:
-    name: Deploy Marz Branch
+    name: Deploy Main Branch
     runs-on: ubuntu-latest
     env:
       ACTIONS_RUNNER_DEBUG: true
