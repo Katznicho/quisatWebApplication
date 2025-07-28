@@ -23,6 +23,13 @@ class ListBusiness extends Component implements HasForms, HasTable
     use InteractsWithForms;
     use InteractsWithTable;
 
+    public array $features = [];
+
+    public function mount()
+    {
+        $this->features = \App\Models\Feature::pluck('name', 'id')->toArray();
+    }
+
     public function table(Table $table): Table
     {
         $query = Business::query()->latest();
@@ -76,6 +83,19 @@ class ListBusiness extends Component implements HasForms, HasTable
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('businessCategory.name')
+                    ->label('Category')
+                    ->searchable()
+                    ->sortable()
+                    ->default('N/A'),
+                Tables\Columns\TextColumn::make('enabled_feature_ids')
+                    ->label('Enabled Features')
+                    ->getStateUsing(function ($record) {
+                        $state = $record->enabled_feature_ids ?? [];
+                        $state = is_array($state) ? $state : json_decode($state, true) ?? [];
+                        return collect($state)->map(fn($id) => $this->features[$id] ?? null)->filter()->toArray();
+                    })
+                    ->badge(),
             ])
             ->filters([
                 ...(Auth::check() && Auth::user()->business_id === 1 ? [
@@ -88,7 +108,98 @@ class ListBusiness extends Component implements HasForms, HasTable
 
 
             ])
+            ->headerActions([
+                Tables\Actions\CreateAction::make()
+                    ->visible(fn (): bool => Auth::user()->business_id === 1)
+                    ->mutateFormDataUsing(function (array $data): array {
+                        $data['account_number'] = (string) rand(1000000000, 9999999999);
+                        return $data;
+                    })
+                    ->form([
+                        \Filament\Forms\Components\TextInput::make('name')
+                            ->required()
+                            ->placeholder('Enter business name'),
+                        \Filament\Forms\Components\TextInput::make('email')
+                            ->required()
+                            ->email()
+                            ->placeholder('Enter email address'),
+                        \Filament\Forms\Components\TextInput::make('phone')
+                            ->required()
+                            ->placeholder('Enter phone number'),
+                        \Filament\Forms\Components\TextInput::make('address')
+                            ->required()
+                            ->placeholder('Enter address'),
+                        \Filament\Forms\Components\Select::make('business_category_id')
+                            ->relationship('businessCategory', 'name')
+                            ->reactive()
+                            ->afterStateUpdated(function (\Filament\Forms\Set $set, $state) {
+                                $set('enabled_feature_ids', []);
+                            })
+                            ->placeholder('Select category'),
+                        \Filament\Forms\Components\CheckboxList::make('enabled_feature_ids')
+                            ->label('Enabled Features')
+                            ->options(function (\Filament\Forms\Get $get) {
+                                $category = \App\Models\BusinessCategory::find($get('business_category_id'));
+                                return \App\Models\Feature::whereIn('id', $category?->feature_ids ?? [])->pluck('name', 'id');
+                            })
+                            ->reactive(),
+                    ]),
+            ])
             ->actions([
+                Tables\Actions\ViewAction::make()
+                    ->form([
+                        \Filament\Forms\Components\TextInput::make('name')
+                            ->disabled(),
+                        \Filament\Forms\Components\TextInput::make('email')
+                            ->disabled(),
+                        \Filament\Forms\Components\TextInput::make('phone')
+                            ->disabled(),
+                        \Filament\Forms\Components\TextInput::make('address')
+                            ->disabled(),
+                        \Filament\Forms\Components\Select::make('business_category_id')
+                            ->relationship('businessCategory', 'name')
+                            ->disabled(),
+                        \Filament\Forms\Components\CheckboxList::make('enabled_feature_ids')
+                            ->label('Enabled Features')
+                            ->options(function (\Filament\Forms\Get $get) {
+                                $category = \App\Models\BusinessCategory::find($get('business_category_id'));
+                                return \App\Models\Feature::whereIn('id', $category?->feature_ids ?? [])->pluck('name', 'id');
+                            })
+                            ->disabled(),
+                    ]),
+                Tables\Actions\EditAction::make()
+                    ->form([
+                        \Filament\Forms\Components\TextInput::make('name')
+                            ->required()
+                            ->placeholder('Enter business name'),
+                        \Filament\Forms\Components\TextInput::make('email')
+                            ->required()
+                            ->email()
+                            ->placeholder('Enter email address'),
+                        \Filament\Forms\Components\TextInput::make('phone')
+                            ->required()
+                            ->placeholder('Enter phone number'),
+                        \Filament\Forms\Components\TextInput::make('address')
+                            ->required()
+                            ->placeholder('Enter address'),
+                        \Filament\Forms\Components\Select::make('business_category_id')
+                            ->relationship('businessCategory', 'name')
+                            ->reactive()
+                            ->afterStateUpdated(function (\Filament\Forms\Set $set, $state) {
+                                $set('enabled_feature_ids', []);
+                            })
+                            ->placeholder('Select category'),
+                        \Filament\Forms\Components\CheckboxList::make('enabled_feature_ids')
+                            ->label('Enabled Features')
+                            ->options(function (\Filament\Forms\Get $get) {
+                                $category = \App\Models\BusinessCategory::find($get('business_category_id'));
+                                return \App\Models\Feature::whereIn('id', $category?->feature_ids ?? [])->pluck('name', 'id');
+                            })
+                            ->reactive(),
+                    ])
+                    ->visible(fn (Business $record): bool => Auth::user()->business_id === 1 || $record->id === Auth::user()->business_id),
+                Tables\Actions\DeleteAction::make()
+                    ->visible(fn (Business $record): bool => Auth::user()->business_id === 1),
 
                 Tables\Actions\Action::make('update_logo')
                     ->label('Update Logo')

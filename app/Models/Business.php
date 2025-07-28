@@ -48,6 +48,12 @@ class Business extends Model
         return $this->hasMany(Transaction::class);
     }
 
+    //a business has many business categories
+    public function businessCategory()
+    {
+        return $this->belongsTo(BusinessCategory::class);
+    }
+
     
 
     protected static function booted()
@@ -62,8 +68,5 @@ class Business extends Model
         return 'uuid';
     }
 
-    public function branches()
-    {
-        return $this->hasMany(Branch::class);
-    }
+   
 }

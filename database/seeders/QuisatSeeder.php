@@ -38,11 +38,12 @@ class QuisatSeeder extends Seeder
             'name' => 'Admin',
             'description' => 'Admin role',
             'business_id' => $business->id,
+            'permissions' => json_encode(['']),
         ]);
 
         // Step 3: Create a default user assigned to the business and branch
         User::create([
-            'name' => 'Kashtre Admin',
+            'name' => 'Quisat Admin',
             'email' => 'katznicho@gmail.com',
             'password' => Hash::make('password'), // change this in production
             'status' => 'active',

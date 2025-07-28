@@ -13,9 +13,11 @@ class BusinessCategory extends Model
     use SoftDeletes;
 
     protected $fillable = [
+        'uuid',
         'name',
         'description',
         'feature_ids',
+
     ];
 
     //cast

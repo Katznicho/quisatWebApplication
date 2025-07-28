@@ -1,18 +1,16 @@
 <?php
 
 
-use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BusinessController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\SupportController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\RoleController;
-use App\Http\Controllers\DepartmentController;
-use App\Http\Controllers\TitleController;
-use App\Http\Controllers\QualificationController;
-use App\Http\Controllers\RoomController;
-use App\Http\Controllers\ServicePointController;
+use App\Http\Controllers\FeatureController;
+use App\Http\Controllers\CurrencyController;
+use App\Http\Controllers\BusinessCategoryController;
+use App\Http\Controllers\ProgramController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -49,19 +47,14 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
 
 
     Route::resource("businesses", BusinessController::class);
-    Route::resource("branches", BranchController::class);
     Route::resource("support", SupportController::class);
     Route::resource("transactions", TransactionController::class);
     Route::resource("users", UserController::class);
     Route::resource("roles", RoleController::class);
-    Route::resource("departments", DepartmentController::class);
-    Route::resource("titles", TitleController::class);
-    Route::resource("qualifications", QualificationController::class);
-    Route::resource("rooms", RoomController::class);
-    Route::resource("service-points", ServicePointController::class);
-
-    
-    Route::post('/select-room', [RoomController::class, 'selectRoom'])->name('room.select');
+    Route::resource("features", FeatureController::class);
+    Route::resource("currency", CurrencyController::class);
+    Route::resource("business-categories", BusinessCategoryController::class);
+    Route::resource("programs", ProgramController::class);
 
 
 

@@ -71,6 +71,11 @@ class User extends Authenticatable
         return $this->belongsTo(Business::class);
     }
 
+    public function role()
+    {
+        return $this->belongsTo(Role::class);
+    }
+
     
 
     protected static function booted()

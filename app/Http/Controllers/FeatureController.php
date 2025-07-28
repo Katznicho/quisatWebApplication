@@ -12,7 +12,7 @@ class FeatureController extends Controller
      */
     public function index()
     {
-        //
+        return view('features.index');
     }
 
     /**

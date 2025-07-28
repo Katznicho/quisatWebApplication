@@ -3,10 +3,7 @@
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
 
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-bold text-gray-800 dark:text-white">Manage Businesses</h2>
-
-                </div>
+                
 
                 @if (session('success'))
                     <div x-data="{ show: true }" x-show="show"
@@ -20,10 +17,9 @@
                     </div>
                 @endif
 
-
-                @livewire('list-business')
+                @livewire('programs.list-programs')
             </div>
         </div>
- 
+
     </div>
 </x-app-layout>

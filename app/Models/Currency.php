@@ -18,6 +18,8 @@ class Currency extends Model
         'symbol',
         'rate',
         'status',
+        'position',
+        'is_default',
     ];
 
     protected static function booted()

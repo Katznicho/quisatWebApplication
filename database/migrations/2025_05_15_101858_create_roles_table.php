@@ -16,6 +16,7 @@ return new class extends Migration
             $table->uuid('uuid')->unique()->index();
             $table->string('name')->unique();
             $table->string('description')->nullable();
+            $table->json('permissions')->default(json_encode([]));
             // $table->foreignId('business_id')->constrained()->onDelete('cascade');
             $table->foreignId('business_id')->nullable()->references('id')->on('businesses')->onDelete('cascade');
             $table->timestamps();

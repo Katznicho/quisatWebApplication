@@ -51,17 +51,11 @@ class ListUsers extends Component implements HasForms, HasTable
                     })
                     ->sortable()
                     ->searchable(),
-                Tables\Columns\TextColumn::make('business.name')
-                    ->label('Business Name')
+                Tables\Columns\TextColumn::make('role.name')
+                    ->label('Role')
                     ->searchable()
                     ->sortable()
                     ->default('N/A'),
-                //add branch column if needed
-                Tables\Columns\TextColumn::make('branch.name')
-                    ->label('Branch Name')
-                    ->searchable()
-                    ->sortable()
-                    ->default('N/A'),    
                 Tables\Columns\TextColumn::make('email_verified_at')
                     ->dateTime()
                     ->sortable()
@@ -98,6 +92,40 @@ class ListUsers extends Component implements HasForms, HasTable
                     ->multiple(),
             ])
             ->actions([
+                Tables\Actions\EditAction::make()
+                    ->form([
+                        \Filament\Forms\Components\TextInput::make('name')
+                            ->required()
+                            ->placeholder('Enter full name'),
+                        \Filament\Forms\Components\TextInput::make('email')
+                            ->required()
+                            ->email()
+                            ->placeholder('Enter email address'),
+                        \Filament\Forms\Components\Select::make('business_id')
+                            ->relationship('business', 'name')
+                            ->visible(fn () => Auth::user()->business_id === 1)
+                            ->reactive()
+                            ->afterStateUpdated(function (\Filament\Forms\Set $set, $state) {
+                                $set('role_id', null);
+                            })
+                            ->placeholder('Select a business'),
+                        \Filament\Forms\Components\Select::make('role_id')
+                            ->label('Role')
+                            ->options(function (\Filament\Forms\Get $get) {
+                                $businessId = $get('business_id') ?? Auth::user()->business_id;
+                                return \App\Models\Role::where('business_id', $businessId)->pluck('name', 'id');
+                            })
+                            ->reactive()
+                            ->required()
+                            ->placeholder('Select a role'),
+                        \Filament\Forms\Components\Select::make('status')
+                            ->options(['active' => 'Active', 'inactive' => 'Inactive', 'suspended' => 'Suspended'])
+                            ->required()
+                            ->placeholder('Select status'),
+                    ])
+                    ->visible(fn (User $record): bool => Auth::user()->business_id === 1 || $record->business_id === Auth::user()->business_id),
+                Tables\Actions\DeleteAction::make()
+                    ->visible(fn (User $record): bool => Auth::user()->business_id === 1 || $record->business_id === Auth::user()->business_id),
                 Tables\Actions\Action::make('update_status')
                     ->label('Change Status')
                     ->form([
@@ -126,6 +154,50 @@ class ListUsers extends Component implements HasForms, HasTable
                     ->icon('heroicon-o-user')
                     ->visible(fn (User $record): bool => Auth::user()->business_id === 1 && Auth::user()->id !== $record->id)
                     ->requiresConfirmation(),
+            ])
+            ->headerActions([
+                Tables\Actions\CreateAction::make()
+                    ->form([
+                        \Filament\Forms\Components\TextInput::make('name')
+                            ->required()
+                            ->placeholder('Enter full name'),
+                        \Filament\Forms\Components\TextInput::make('email')
+                            ->required()
+                            ->email()
+                            ->placeholder('Enter email address'),
+                        \Filament\Forms\Components\Select::make('business_id')
+                            ->relationship('business', 'name')
+                            ->visible(fn () => Auth::user()->business_id === 1)
+                            ->reactive()
+                            ->afterStateUpdated(function (\Filament\Forms\Set $set, $state) {
+                                $set('role_id', null);
+                            })
+                            ->placeholder('Select a business'),
+                        \Filament\Forms\Components\Select::make('role_id')
+                            ->label('Role')
+                            ->options(function (\Filament\Forms\Get $get) {
+                                $businessId = $get('business_id') ?? Auth::user()->business_id;
+                                return \App\Models\Role::where('business_id', $businessId)->pluck('name', 'id');
+                            })
+                            ->reactive()
+                            ->required()
+                            ->placeholder('Select a role'),
+                        \Filament\Forms\Components\Select::make('status')
+                            ->options(['active' => 'Active', 'inactive' => 'Inactive', 'suspended' => 'Suspended'])
+                            ->required()
+                            ->default('active')
+                            ->placeholder('Select status'),
+                    ])
+                    ->mutateFormDataUsing(function (array $data): array {
+                        if (Auth::user()->business_id !== 1) {
+                            $data['business_id'] = Auth::user()->business_id;
+                        }
+                        $data['password'] = '';
+                        return $data;
+                    })
+                    ->after(function (User $record) {
+                        \Illuminate\Support\Facades\Password::sendResetLink(['email' => $record->email]);
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

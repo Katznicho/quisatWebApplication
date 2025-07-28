@@ -16,12 +16,14 @@ class Role extends Model
         'business_id',
         'name',
         'description',
+        'permissions',
 
     ];
 
     protected $casts = [
         'uuid' => 'string',
         'business_id' => 'integer',
+        'permissions' => 'array',
     ];
 
     public function business()

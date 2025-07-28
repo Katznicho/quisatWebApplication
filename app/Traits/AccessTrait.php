@@ -6,66 +6,96 @@ trait AccessTrait
 {
     public static $admin = [
         "Dashboard" => [
-            "View Dashboard", "View Dashboard Cards",
+            "View Dashboard", "View Dashboard Cards", "View Dashboard Charts", "View Dashboard Tables",
         ]
     ];
 
-    public static $station = [
-        "Module" => ['Station Management'],
-        "Stations" => ['View Station', 'Edit Station', 'Add Statiom', 'Delete Station'],
-    ];
-
-    public static $stages = [
-        "Module" => ['Stage Management'],
-        "Stages" => ['View Stages', 'Edit Stages', 'Add Stages', 'Delete Stages', 'Activate Stage', 'Deactivate Stage'],
-    ];
-    public static $bodas = [
-        "Module" => ['Boda Management'],
-        "Boda" => ['View Bodas', 'Edit Bodas', 'Add Bodas', 'Delete Bodas', 'Activate Boda Riders', 'Deactivate Boda Riders'],
-    ];
-
-    public static $taxis = [
-        "Module" => ['Taxi Management'],
-        "Taxi"=>['View Taxis' , 'Edit Taxis', 'Add Taxis', 'Delete Taxis'],
-    ];
-
-
-    public static $reports = [
-        "Module" => ['Report Management'],
-        "Report" => ['View Report', 'Edit Report', 'Add Report', 'Delete Report'],
-    ];
-
-
-
-    public static $logs = [
-        "Module" => ['Log Management'],
-        "Logs" => ['View Logs', 'Edit Logs', 'Add Logs', 'Delete Logs'],
-    ];
-
-    //roles
-    public static $roles = [
-        "Module" => ['Role Management'],
-        "Role" => ['View Roles', 'Edit Roles', 'Add Roles', 'Delete Roles'],
-    ];
-
-    
-
-    public static $auditLogs = [
-        "Module" => ['Audit Logs Management'],
-        "Audit Logs" => ['View Audit Logs', 'Edit Audit Logs', 'Add Audit Logs', 'Delete Audit Logs'],
-
+    public static $entities = [
+        "Business" => ['View Business', 'Edit Business', 'Add Business', 'Delete Business'],
     ];
 
     public static $staff = [
-        "Module" => ['Staff Management'],
         "Staff" => ['View Staff', 'Edit Staff', 'Add Staff', 'Delete Staff', 'Assign Roles'],
     ];
 
+    public static $reports = [
+        "Reports" => ['View Report', 'Edit Report', 'Add Report', 'Delete Report'],
+    ];
 
+    public static $logs = [
+        "Logs" => ['View Logs'],
+    ];
 
+    public static $adminAccess = [
+        "Admin Users" => ['View Admin Users', 'Edit Admin Users', 'Add Admin Users', 'Delete Admin Users', 'Assign Roles'],
+        "Audit Logs" => ['View Audit Logs'],
+        "System Settings" => ['View System Settings', 'Edit System Settings'],
+    ];
 
+    public static $businessAccess = [
+        "Business" => ['View Business', 'Edit Business', 'Add Business', 'Delete Business'],
+    ];
 
+    public static $clientAccess = [
+        "Clients" => ['View Clients', 'Edit Clients', 'Add Clients', 'Delete Clients'],
+    ];
 
+    public static $staffAccess = [
+        "Staff" => ['View Staff', 'Edit Staff', 'Add Staff', 'Delete Staff', 'Assign Roles'],
+    ];
+
+    public static $reportAccess = [
+        "Reports" => ['View Reports', 'Export Reports', 'Filter Reports'],
+    ];
+
+    public static $bulkUpload = [
+        "Bulk Upload" => ['Bulk Validations Upload'],
+    ];
+
+    // ✅ Individual functional permissions (multi-entity compatible)
+    public static $chat = [
+        "Chat (Communications)" => ['View Chat', 'Add Chat', 'Edit Chat', 'Delete Chat'],
+    ];
+
+    public static $calendar = [
+        "Calendar" => ['View Calendar', 'Add Calendar', 'Edit Calendar', 'Delete Calendar'],
+    ];
+
+    public static $classes = [
+        "Classes" => ['View Classes', 'Add Classes', 'Edit Classes', 'Delete Classes'],
+    ];
+
+    public static $progressReport = [
+        "Progress Report" => ['View Progress Report', 'Add Progress Report', 'Edit Progress Report', 'Delete Progress Report'],
+    ];
+
+    public static $reportCard = [
+        "Report Card" => ['View Report Card', 'Add Report Card', 'Edit Report Card', 'Delete Report Card'],
+    ];
+
+    public static $staffTeachers = [
+        "Staff (Teachers)" => ['View Staff (Teachers)', 'Add Staff (Teachers)', 'Edit Staff (Teachers)', 'Delete Staff (Teachers)'],
+    ];
+
+    public static $timeTable = [
+        "Time Table" => ['View Time Table', 'Add Time Table', 'Edit Time Table', 'Delete Time Table'],
+    ];
+
+    public static $grades = [
+        "Grades" => ['View Grades', 'Add Grades', 'Edit Grades', 'Delete Grades'],
+    ];
+
+    public static $attendance = [
+        "Attendance" => ['View Attendance', 'Add Attendance', 'Edit Attendance', 'Delete Attendance'],
+    ];
+
+    public static $members = [
+        "Members (Students, Parents)" => ['View Members', 'Add Members', 'Edit Members', 'Delete Members'],
+    ];
+
+    public static $assignments = [
+        "Assignments" => ['View Assignments', 'Add Assignments', 'Edit Assignments', 'Delete Assignments'],
+    ];
 
     public static function spreadArrayKeys($assocArray)
     {
@@ -75,13 +105,12 @@ trait AccessTrait
                 $result[] = $key;
             }
             if (is_array($value)) {
-
                 $result = array_merge($result, static::spreadArrayKeys($value));
             } else {
                 $result[] = $value;
             }
         }
-        return  $result;
+        return $result;
     }
 
     public static function getAllPermissions()
@@ -89,48 +118,75 @@ trait AccessTrait
         $roles = static::spreadArrayKeys(
             array_merge(
                 static::$admin,
-                static::$station,
-                static::$stages,
-                static::$bodas,
-                static::$taxis,
+                static::$entities,
                 static::$staff,
+                static::$reports,
                 static::$logs,
-                static::$roles,
-                static::$auditLogs,
+                static::$adminAccess,
+                static::$businessAccess,
+                static::$clientAccess,
+                static::$staffAccess,
+                static::$reportAccess,
+                static::$bulkUpload,
 
+                // ✅ Individually added multi-entity permissions
+                static::$chat,
+                static::$calendar,
+                static::$classes,
+                static::$progressReport,
+                static::$reportCard,
+                static::$staffTeachers,
+                static::$timeTable,
+                static::$grades,
+                static::$attendance,
+                static::$members,
+                static::$assignments
             )
         );
         return $roles;
     }
-    public static function getAccessControl()
+
+    public static function getAccessControl(array $exclude = [])
     {
-
-        $access = [
+        $permissions = [
             "Dashboard" => self::$admin,
-            "Station" => self::$station,
-            "Stages" => self::$stages,
-            "Bodas" => self::$bodas,
-            "Taxis" => self::$taxis,
+            "Entities" => self::$entities,
             "Staff" => self::$staff,
-            "Roles" => self::$roles,
-            "Audit Logs" => self::$auditLogs,
+            "Reports" => self::$reports,
+            "Logs" => self::$logs,
+            "Admin" => self::$adminAccess,
+            "Business" => self::$businessAccess,
+            "Client" => self::$clientAccess,
+            "Staff Access" => self::$staffAccess,
+            "Report Access" => self::$reportAccess,
+            "Bulk Upload" => self::$bulkUpload,
 
-            // "Accounting" => static::$accounting
+            // ✅ Grouped individually for flexibility
+            "Chat (Communications)" => self::$chat,
+            "Calendar" => self::$calendar,
+            "Classes" => self::$classes,
+            "Progress Report" => self::$progressReport,
+            "Report Card" => self::$reportCard,
+            "Staff (Teachers)" => self::$staffTeachers,
+            "Time Table" => self::$timeTable,
+            "Grades" => self::$grades,
+            "Attendance" => self::$attendance,
+            "Members (Students, Parents)" => self::$members,
+            "Assignments" => self::$assignments,
         ];
-        return $access;
+
+        if (!empty($exclude)) {
+            $permissions = collect($permissions)->reject(function ($_, $key) use ($exclude) {
+                return in_array($key, $exclude);
+            })->toArray();
+        }
+
+        return $permissions;
     }
 
-
-    /**
-     * Check if the user has specific role permission.
-     *
-     * @param datatype $pageRole description of page role
-     * @param datatype $actions description of actions
-     * @return boolean
-     */
     public static function userCan($pageRole, $permissions)
     {
-        $permissions =  json_decode($permissions);
+        $permissions = json_decode($permissions);
         return in_array($pageRole, $permissions);
     }
 
@@ -138,15 +194,12 @@ trait AccessTrait
     {
         $actions1 = $_SESSION['actions'];
         $actions = json_decode($actions1);
-        // print_r($actions);
         return in_array($page_role, $actions);
     }
+
     public static function is_assoc(array $array)
     {
-        // Keys of the array
         $keys = array_keys($array);
-        // If the array keys of the keys match the keys, then the array must
-        // not be associative (e.g. the keys array looked like {0:0, 1:1...}).
         return array_keys($keys) !== $keys;
     }
 }

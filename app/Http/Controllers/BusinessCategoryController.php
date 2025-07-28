@@ -12,7 +12,7 @@ class BusinessCategoryController extends Controller
      */
     public function index()
     {
-        //
+        return view('business-categories.index');
     }
 
     /**

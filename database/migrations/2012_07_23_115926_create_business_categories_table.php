@@ -19,6 +19,7 @@ return new class extends Migration
             //json field for features
             $table->json('feature_ids')->nullable();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

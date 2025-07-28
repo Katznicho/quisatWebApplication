@@ -29,9 +29,7 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
         $business = $user->business;
-        $branch = $user->branch;
-        $rooms = Room::where('branch_id', $branch->id)->get();
-
+        
         // Handle POST to set room_id in session
         if ($request->isMethod('post')) {
             $request->validate([
@@ -41,7 +39,7 @@ class DashboardController extends Controller
             return redirect()->route('dashboard'); // or redirect back to same page to avoid resubmission
         }
 
-        return view('pages/dashboard/dashboard', compact('business', 'branch', 'rooms'));
+        return view('pages/dashboard/dashboard', compact('business'));
     }
 
     /**

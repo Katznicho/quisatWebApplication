@@ -18,6 +18,7 @@ class Feature extends Model
         'name',
         'description',
         'price',
+        'currency_id',
     ];
 
     protected static function booted()
@@ -29,5 +30,10 @@ class Feature extends Model
 
     public function getRouteKeyName()  {
         return 'uuid';
+    }
+
+    public function currency()
+    {
+        return $this->belongsTo(Currency::class);
     }
 }
