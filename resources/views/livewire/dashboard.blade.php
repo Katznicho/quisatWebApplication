@@ -1,5 +1,23 @@
 <div class="space-y-6">
     
+    <!-- Dashboard Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Dashboard Overview</h1>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Last updated: {{ $lastUpdate }}</p>
+        </div>
+        <button wire:click="$refresh" wire:loading.attr="disabled" class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg font-medium transition-colors duration-200">
+            <svg wire:loading.remove class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            <svg wire:loading class="animate-spin w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            <span wire:loading.remove>Refresh Data</span>
+            <span wire:loading>Refreshing...</span>
+        </button>
+    </div>
+    
     <!-- Error Messages -->
     @if (session()->has('error'))
         <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
@@ -86,16 +104,23 @@
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         
         <!-- Total Businesses Card -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+        <div class="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl shadow-lg p-6 border border-blue-200 dark:border-blue-700 hover:shadow-xl transition-all duration-300">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">TOTAL BUSINESSES</h3>
+                <div class="flex items-center">
+                    <div class="p-2 bg-blue-500 rounded-lg mr-3">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-sm font-semibold text-blue-700 dark:text-blue-300">TOTAL BUSINESSES</h3>
+                </div>
             </div>
-            <div class="flex items-baseline mb-2">
-                <span class="text-2xl font-bold text-[#011478] dark:text-white">
+            <div class="flex items-baseline mb-3">
+                <span class="text-3xl font-bold text-blue-900 dark:text-white">
                     {{ number_format($totalBusinesses) }}
                 </span>
             </div>
-            <div class="flex items-center text-green-600 text-sm">
+            <div class="flex items-center text-green-600 text-sm font-medium">
                 <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clip-rule="evenodd"></path>
                 </svg>
@@ -104,16 +129,23 @@
         </div>
 
         <!-- Total Users Card -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+        <div class="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl shadow-lg p-6 border border-green-200 dark:border-green-700 hover:shadow-xl transition-all duration-300">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">TOTAL USERS</h3>
+                <div class="flex items-center">
+                    <div class="p-2 bg-green-500 rounded-lg mr-3">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-sm font-semibold text-green-700 dark:text-green-300">TOTAL USERS</h3>
+                </div>
             </div>
-            <div class="flex items-baseline mb-2">
-                <span class="text-2xl font-bold text-[#011478] dark:text-white">
+            <div class="flex items-baseline mb-3">
+                <span class="text-3xl font-bold text-green-900 dark:text-white">
                     {{ number_format($totalUsers) }}
                 </span>
             </div>
-            <div class="flex items-center text-green-600 text-sm">
+            <div class="flex items-center text-green-600 text-sm font-medium">
                 <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clip-rule="evenodd"></path>
                 </svg>
@@ -122,16 +154,23 @@
         </div>
 
         <!-- Active Business Clients Card -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+        <div class="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl shadow-lg p-6 border border-purple-200 dark:border-purple-700 hover:shadow-xl transition-all duration-300">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">ACTIVE BUSINESS CLIENTS</h3>
+                <div class="flex items-center">
+                    <div class="p-2 bg-purple-500 rounded-lg mr-3">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-sm font-semibold text-purple-700 dark:text-purple-300">ACTIVE CLIENTS</h3>
+                </div>
             </div>
-            <div class="flex items-baseline mb-2">
-                <span class="text-2xl font-bold text-[#011478] dark:text-white">
+            <div class="flex items-baseline mb-3">
+                <span class="text-3xl font-bold text-purple-900 dark:text-white">
                     {{ number_format($activeBusinessClients) }}
                 </span>
             </div>
-            <div class="flex items-center text-green-600 text-sm">
+            <div class="flex items-center text-green-600 text-sm font-medium">
                 <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clip-rule="evenodd"></path>
                 </svg>
@@ -140,16 +179,23 @@
         </div>
 
         <!-- Active Business Staff Card -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+        <div class="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-xl shadow-lg p-6 border border-orange-200 dark:border-orange-700 hover:shadow-xl transition-all duration-300">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">ACTIVE BUSINESS STAFF</h3>
+                <div class="flex items-center">
+                    <div class="p-2 bg-orange-500 rounded-lg mr-3">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-sm font-semibold text-orange-700 dark:text-orange-300">ACTIVE STAFF</h3>
+                </div>
             </div>
-            <div class="flex items-baseline mb-2">
-                <span class="text-2xl font-bold text-[#011478] dark:text-white">
+            <div class="flex items-baseline mb-3">
+                <span class="text-3xl font-bold text-orange-900 dark:text-white">
                     {{ number_format($activeBusinessStaff) }}
                 </span>
             </div>
-            <div class="flex items-center text-green-600 text-sm">
+            <div class="flex items-center text-green-600 text-sm font-medium">
                 <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clip-rule="evenodd"></path>
                 </svg>
@@ -240,10 +286,21 @@
 <!-- Chart.js Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+function initializeCharts() {
+    // Simple check for Chart.js
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded');
+        return;
+    }
     // New Users Line Chart
-    const newUsersCtx = document.getElementById('newUsersChart').getContext('2d');
-    const newUsersChart = new Chart(newUsersCtx, {
+    try {
+        const newUsersCtx = document.getElementById('newUsersChart');
+        if (!newUsersCtx) {
+            console.error('newUsersChart element not found');
+            return;
+        }
+        const ctx = newUsersCtx.getContext('2d');
+        const newUsersChart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: @json($newUsersChartData['labels'] ?? []),
@@ -294,10 +351,19 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
+    } catch (error) {
+        console.error('Error creating new users chart:', error);
+    }
 
     // User Distribution Pie Chart
-    const userDistributionCtx = document.getElementById('userDistributionChart').getContext('2d');
-    const userDistributionChart = new Chart(userDistributionCtx, {
+    try {
+        const userDistributionCtx = document.getElementById('userDistributionChart');
+        if (!userDistributionCtx) {
+            console.error('userDistributionChart element not found');
+            return;
+        }
+        const ctx = userDistributionCtx.getContext('2d');
+        const userDistributionChart = new Chart(ctx, {
         type: 'pie',
         data: {
             labels: @json($userDistributionChartData['labels'] ?? []),
@@ -323,10 +389,19 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
+    } catch (error) {
+        console.error('Error creating user distribution chart:', error);
+    }
 
     // User Role Distribution Pie Chart
-    const userRoleDistributionCtx = document.getElementById('userRoleDistributionChart').getContext('2d');
-    const userRoleDistributionChart = new Chart(userRoleDistributionCtx, {
+    try {
+        const userRoleDistributionCtx = document.getElementById('userRoleDistributionChart');
+        if (!userRoleDistributionCtx) {
+            console.error('userRoleDistributionChart element not found');
+            return;
+        }
+        const ctx = userRoleDistributionCtx.getContext('2d');
+        const userRoleDistributionChart = new Chart(ctx, {
         type: 'pie',
         data: {
             labels: @json($userRoleDistributionData['labels'] ?? []),
@@ -355,10 +430,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
+    } catch (error) {
+        console.error('Error creating user role distribution chart:', error);
+    }
 
     // Update charts when Livewire updates
-    window.addEventListener('livewire:load', function () {
-        Livewire.on('chartsUpdated', function () {
+    try {
+        window.addEventListener('livewire:load', function () {
+            Livewire.on('chartsUpdated', function () {
             // Update line chart
             newUsersChart.data.labels = @json($newUsersChartData['labels'] ?? []);
             newUsersChart.data.datasets[0].data = @json($newUsersChartData['data'] ?? []);
@@ -375,6 +454,13 @@ document.addEventListener('DOMContentLoaded', function() {
             userRoleDistributionChart.data.datasets[0].data = @json($userRoleDistributionData['data'] ?? []);
             userRoleDistributionChart.data.datasets[0].backgroundColor = @json($userRoleDistributionData['colors'] ?? []);
             userRoleDistributionChart.update();
+            });
         });
-    });
+    } catch (error) {
+        console.error('Error setting up Livewire chart updates:', error);
+    }
+}
+
+// Initialize charts when DOM is loaded
+document.addEventListener('DOMContentLoaded', initializeCharts);
 </script>

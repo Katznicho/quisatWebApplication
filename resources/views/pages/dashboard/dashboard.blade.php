@@ -60,7 +60,7 @@
             </div>
 
             <!-- Dashboard Content -->
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            <div >
                 @livewire('dashboard')
             </div>
 

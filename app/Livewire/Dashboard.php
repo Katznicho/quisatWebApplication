@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use App\Models\Business;
 use App\Models\User;
 use Carbon\Carbon;
@@ -50,30 +51,63 @@ class Dashboard extends Component
 
     public function mount()
     {
-        $user = Auth::user();
+        try {
+            $user = Auth::user();
+            
+            if (!$user) {
+                throw new \Exception('User not authenticated');
+            }
 
-        // Load the business relationship
-        $this->business = $user->business;
+            // Load the business relationship
+            $this->business = $user->business;
 
-        $this->balance = $user->balance;
-        $this->lastUpdate = now()->format('H:i:s');
-        
-        // Load filter options
-        $this->loadFilterOptions();
-        
-        // Load dashboard metrics
-        $this->loadDashboardMetrics();
-        
-        // Load chart data
-        $this->loadChartData();
+            $this->balance = 0; // User model doesn't have balance property
+            $this->lastUpdate = now()->format('H:i:s');
+            
+            // Load filter options
+            $this->loadFilterOptions();
+            
+            // Load dashboard metrics
+            $this->loadDashboardMetrics();
+            
+            // Load chart data
+            $this->loadChartData();
+            
+        } catch (\Exception $e) {
+            // Log the error
+            Log::error('Dashboard mount error: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            // Set default values to prevent component from breaking
+            $this->totalBusinesses = 0;
+            $this->totalUsers = 0;
+            $this->activeBusinessClients = 0;
+            $this->activeBusinessStaff = 0;
+            $this->newUsersChartData = ['labels' => [], 'data' => []];
+            $this->userDistributionChartData = ['labels' => [], 'data' => [], 'colors' => []];
+            $this->userRoleDistributionData = ['labels' => [], 'data' => [], 'colors' => []];
+            $this->systemHealth = [];
+        }
     }
     
     public function loadChartData()
     {
-        $this->generateNewUsersChartData();
-        $this->generateUserDistributionChartData();
-        $this->generateSystemHealthData();
-        $this->generateUserRoleDistributionData();
+        try {
+            $this->generateNewUsersChartData();
+            $this->generateUserDistributionChartData();
+            $this->generateSystemHealthData();
+            $this->generateUserRoleDistributionData();
+        } catch (\Exception $e) {
+            Log::error('Error loading chart data: ' . $e->getMessage());
+            // Set default chart data
+            $this->newUsersChartData = ['labels' => [], 'data' => []];
+            $this->userDistributionChartData = ['labels' => [], 'data' => [], 'colors' => []];
+            $this->userRoleDistributionData = ['labels' => [], 'data' => [], 'colors' => []];
+            $this->systemHealth = [];
+        }
     }
     
     public function generateNewUsersChartData()
@@ -282,71 +316,86 @@ class Dashboard extends Component
     
     public function loadFilterOptions()
     {
-        // Load categories from business categories
-        $this->categories = \App\Models\BusinessCategory::pluck('name', 'name')->toArray();
-        
-        // Load countries from businesses
-        $this->countries = Business::whereNotNull('country')
-            ->distinct()
-            ->pluck('country', 'country')
-            ->toArray();
+        try {
+            // Load categories from business categories
+            $this->categories = \App\Models\BusinessCategory::pluck('name', 'name')->toArray();
             
-        // Load districts/cities from businesses
-        $this->districts = Business::whereNotNull('city')
-            ->distinct()
-            ->pluck('city', 'city')
-            ->toArray();
+            // Load countries from businesses
+            $this->countries = Business::whereNotNull('country')
+                ->distinct()
+                ->pluck('country', 'country')
+                ->toArray();
+                
+            // Load districts/cities from businesses
+            $this->districts = Business::whereNotNull('city')
+                ->distinct()
+                ->pluck('city', 'city')
+                ->toArray();
+        } catch (\Exception $e) {
+            Log::error('Error loading filter options: ' . $e->getMessage());
+            $this->categories = [];
+            $this->countries = [];
+            $this->districts = [];
+        }
     }
     
     public function loadDashboardMetrics()
     {
-        // Build query based on filters
-        $businessQuery = Business::query();
-        $userQuery = User::query();
-        
-        // Apply filters
-        if ($this->selectedCategory) {
-            $businessQuery->whereHas('businessCategory', function($q) {
-                $q->where('name', 'like', '%' . $this->selectedCategory . '%');
-            });
-        }
-        
-        if ($this->selectedCountry) {
-            $businessQuery->where('country', $this->selectedCountry);
-        }
-        
-        if ($this->selectedDistrict) {
-            $businessQuery->where('city', $this->selectedDistrict);
-        }
-        
-        if ($this->fromDate) {
-            $fromDate = Carbon::createFromFormat('d/m/Y', $this->fromDate)->startOfDay();
-            $businessQuery->where('created_at', '>=', $fromDate);
-            $userQuery->where('created_at', '>=', $fromDate);
-        }
-        
-        if ($this->toDate) {
-            $toDate = Carbon::createFromFormat('d/m/Y', $this->toDate)->endOfDay();
-            $businessQuery->where('created_at', '<=', $toDate);
-            $userQuery->where('created_at', '<=', $toDate);
-        }
-        
-        // Get total businesses
-        $this->totalBusinesses = $businessQuery->count();
-        
-        // Get total users
-        $this->totalUsers = $userQuery->count();
-        
-        // Get active business clients (users with active status)
-        $this->activeBusinessClients = $userQuery->where('status', 'active')->count();
-        
-        // Get active business staff (users with active status and role)
-        $this->activeBusinessStaff = $userQuery->where('status', 'active')
-            ->whereNotNull('role_id')
-            ->count();
+        try {
+            // Build query based on filters
+            $businessQuery = Business::query();
+            $userQuery = User::query();
             
-        // Calculate percentage changes (simplified for demo)
-        $this->calculatePercentageChanges();
+            // Apply filters
+            if ($this->selectedCategory) {
+                $businessQuery->whereHas('businessCategory', function($q) {
+                    $q->where('name', 'like', '%' . $this->selectedCategory . '%');
+                });
+            }
+            
+            if ($this->selectedCountry) {
+                $businessQuery->where('country', $this->selectedCountry);
+            }
+            
+            if ($this->selectedDistrict) {
+                $businessQuery->where('city', $this->selectedDistrict);
+            }
+            
+            if ($this->fromDate) {
+                $fromDate = Carbon::createFromFormat('d/m/Y', $this->fromDate)->startOfDay();
+                $businessQuery->where('created_at', '>=', $fromDate);
+                $userQuery->where('created_at', '>=', $fromDate);
+            }
+            
+            if ($this->toDate) {
+                $toDate = Carbon::createFromFormat('d/m/Y', $this->toDate)->endOfDay();
+                $businessQuery->where('created_at', '<=', $toDate);
+                $userQuery->where('created_at', '<=', $toDate);
+            }
+            
+            // Get total businesses
+            $this->totalBusinesses = $businessQuery->count();
+            
+            // Get total users
+            $this->totalUsers = $userQuery->count();
+            
+            // Get active business clients (users with active status)
+            $this->activeBusinessClients = $userQuery->where('status', 'active')->count();
+            
+            // Get active business staff (users with active status and role)
+            $this->activeBusinessStaff = $userQuery->where('status', 'active')
+                ->whereNotNull('role_id')
+                ->count();
+                
+            // Calculate percentage changes (simplified for demo)
+            $this->calculatePercentageChanges();
+        } catch (\Exception $e) {
+            Log::error('Error loading dashboard metrics: ' . $e->getMessage());
+            $this->totalBusinesses = 0;
+            $this->totalUsers = 0;
+            $this->activeBusinessClients = 0;
+            $this->activeBusinessStaff = 0;
+        }
     }
     
     public function calculatePercentageChanges()
@@ -413,6 +462,18 @@ class Dashboard extends Component
 
     public function render()
     {
-        return view('livewire.dashboard');
+        try {
+            return view('livewire.dashboard');
+        } catch (\Exception $e) {
+            Log::error('Dashboard render error: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+            
+            // Return a simple error view if the main view fails
+            return view('livewire.dashboard-error', [
+                'error' => 'Dashboard is temporarily unavailable. Please try refreshing the page.'
+            ]);
+        }
     }
 }
