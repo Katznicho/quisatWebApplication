@@ -101,6 +101,26 @@
                         </ul>
                     </li>
 
+                    <!-- Payments -->
+                    <li>
+                        <button @click="openGroup === 'payments' ? openGroup = '' : openGroup = 'payments'" :class="openGroup === 'payments' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
+                            <div class="flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 shrink-0">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
+                                </svg>
+                                <span class="ml-3">Payments</span>
+                            </div>
+                            <svg class="w-4 h-4 transform transition-transform duration-200" :class="{ 'rotate-180': openGroup === 'payments' }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <ul x-show="openGroup === 'payments'" x-collapse class="mt-1 space-y-1 pl-10">
+                            <li><a href="{{ route('payments.index') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">All Payments</a></li>
+                            <li><a href="{{ route('payments.pending') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Pending Payments</a></li>
+                            <li><a href="{{ route('payments.reports') }}" class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Payment Reports</a></li>
+                        </ul>
+                    </li>
+
                     <!-- Businesses -->
                     <li>
                         <button @click="openGroup === 'business' ? openGroup = '' : openGroup = 'business'" :class="openGroup === 'business' ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700'" class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">

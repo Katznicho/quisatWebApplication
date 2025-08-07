@@ -57,6 +57,12 @@ class ListBusiness extends Component implements HasForms, HasTable
                 Tables\Columns\TextColumn::make('address')
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('country')
+                    ->searchable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('city')
+                    ->searchable()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
                     ->color(fn(string $state): string => match ($state) {
@@ -129,6 +135,12 @@ class ListBusiness extends Component implements HasForms, HasTable
                         \Filament\Forms\Components\TextInput::make('address')
                             ->required()
                             ->placeholder('Enter address'),
+                        \Filament\Forms\Components\TextInput::make('country')
+                            ->required()
+                            ->placeholder('Enter country'),
+                        \Filament\Forms\Components\TextInput::make('city')
+                            ->required()
+                            ->placeholder('Enter city/district/state'),
                         \Filament\Forms\Components\Select::make('business_category_id')
                             ->relationship('businessCategory', 'name')
                             ->reactive()
@@ -156,6 +168,10 @@ class ListBusiness extends Component implements HasForms, HasTable
                             ->disabled(),
                         \Filament\Forms\Components\TextInput::make('address')
                             ->disabled(),
+                        \Filament\Forms\Components\TextInput::make('country')
+                            ->disabled(),
+                        \Filament\Forms\Components\TextInput::make('city')
+                            ->disabled(),
                         \Filament\Forms\Components\Select::make('business_category_id')
                             ->relationship('businessCategory', 'name')
                             ->disabled(),
@@ -182,6 +198,12 @@ class ListBusiness extends Component implements HasForms, HasTable
                         \Filament\Forms\Components\TextInput::make('address')
                             ->required()
                             ->placeholder('Enter address'),
+                        \Filament\Forms\Components\TextInput::make('country')
+                            ->required()
+                            ->placeholder('Enter country'),
+                        \Filament\Forms\Components\TextInput::make('city')
+                            ->required()
+                            ->placeholder('Enter city/district/state'),
                         \Filament\Forms\Components\Select::make('business_category_id')
                             ->relationship('businessCategory', 'name')
                             ->reactive()

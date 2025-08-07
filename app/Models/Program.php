@@ -16,9 +16,31 @@ class Program extends Model
         'uuid',
         'name',
         'description',
-        'age_group',
+        'age-group',
         'status',
     ];
+
+    protected $casts = [
+        'program_ids' => 'array',
+    ];
+
+    // A program can have many events
+    public function events()
+    {
+        return $this->hasMany(ProgramEvent::class, 'program_ids');
+    }
+
+    // Get events for this program
+    public function getEventsAttribute()
+    {
+        return ProgramEvent::whereJsonContains('program_ids', $this->id)->get();
+    }
+
+    // Get total events count
+    public function getTotalEventsAttribute()
+    {
+        return ProgramEvent::whereJsonContains('program_ids', $this->id)->count();
+    }
 
     protected static function booted()
     {

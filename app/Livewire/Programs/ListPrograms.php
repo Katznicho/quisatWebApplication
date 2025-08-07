@@ -23,16 +23,21 @@ class ListPrograms extends Component implements HasForms, HasTable
         return $table
             ->query(Program::query())
             ->columns([
-                Tables\Columns\TextColumn::make('uuid')
-                    ->label('UUID')
-                    ->searchable(),
                 Tables\Columns\TextColumn::make('name')
-                    ->searchable(),
+                    ->searchable()
+                    ->sortable()
+                    ->weight('bold'),
                 Tables\Columns\TextColumn::make('description')
-                    ->searchable(),
+                    ->searchable()
+                    ->limit(50),
                 Tables\Columns\TextColumn::make('age-group')
                     ->label('Age Group')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('total_events')
+                    ->label('Total Events')
+                    ->counts('events')
+                    ->badge()
+                    ->color('info'),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
@@ -41,35 +46,26 @@ class ListPrograms extends Component implements HasForms, HasTable
                         default => 'gray',
                     })
                     ->searchable(),
-                Tables\Columns\TextColumn::make('deleted_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 Tables\Filters\TrashedFilter::make(),
+                Tables\Filters\SelectFilter::make('status')
+                    ->options([
+                        'active' => 'Active',
+                        'inactive' => 'Inactive',
+                    ]),
             ])
             ->actions([
-                Tables\Actions\ViewAction::make()
-                    ->form([
-                        \Filament\Forms\Components\TextInput::make('name')
-                            ->disabled(),
-                        \Filament\Forms\Components\Textarea::make('description')
-                            ->disabled(),
-                        \Filament\Forms\Components\TextInput::make('age-group')
-                            ->disabled(),
-                        \Filament\Forms\Components\Select::make('status')
-                            ->options(['active' => 'Active', 'inactive' => 'Inactive'])
-                            ->disabled(),
-                    ]),
+                Tables\Actions\Action::make('view')
+                    ->label('View Details')
+                    ->icon('heroicon-o-eye')
+                    ->color('info')
+                    ->url(fn (Program $record): string => route('programs.show', $record))
+                    ->openUrlInNewTab(false),
                 Tables\Actions\EditAction::make()
                     ->form([
                         \Filament\Forms\Components\TextInput::make('name')

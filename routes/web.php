@@ -11,6 +11,7 @@ use App\Http\Controllers\FeatureController;
 use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\BusinessCategoryController;
 use App\Http\Controllers\ProgramController;
+use App\Http\Controllers\PaymentController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -55,6 +56,15 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::resource("currency", CurrencyController::class);
     Route::resource("business-categories", BusinessCategoryController::class);
     Route::resource("programs", ProgramController::class);
+    Route::post('/programs/{program}/events', [ProgramController::class, 'storeEvent'])->name('programs.events.store');
+    Route::post('/events/{event}/attendees', [ProgramController::class, 'storeAttendee'])->name('events.attendees.store');
+    Route::post('/attendees/{attendee}/payments', [ProgramController::class, 'storePayment'])->name('attendees.payments.store');
+    Route::get('/attendees/{attendee}/payments', [ProgramController::class, 'getAttendeePayments'])->name('attendees.payments.index');
+    
+    // Payment management routes
+    Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
+    Route::get('/payments/pending', [PaymentController::class, 'pending'])->name('payments.pending');
+    Route::get('/payments/reports', [PaymentController::class, 'reports'])->name('payments.reports');
 
 
 

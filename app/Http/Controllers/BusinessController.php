@@ -35,6 +35,8 @@ class BusinessController extends Controller
             'email' => 'required|email|unique:businesses,email',
             'phone' => 'required|string|max:20',
             'address' => 'required|string|max:255',
+            'country' => 'required|string|max:255',
+            'city' => 'required|string|max:255',
             'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
 
         ]);
