@@ -61,7 +61,7 @@
 
             <!-- Dashboard Content -->
             <div >
-                {{-- @livewire('dashboard') --}}
+                @livewire('dashboard')
             </div>
 
         </div>
