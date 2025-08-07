@@ -13,6 +13,7 @@ class ActivityLog extends Model
     use SoftDeletes;
 
     protected $fillable = [
+        'uuid',
         'user_id',
         'business_id',
         'model_type',

@@ -36,7 +36,7 @@ Route::redirect('/', 'login');
 
 // Route::get("makePayment",[PaymentController::class,"makePayment"])->name("makePayment");    
 
-Route::middleware(['auth:sanctum', 'verified'])->group(function () {
+Route::middleware(['auth:sanctum'])->group(function () {
 
     // Route for the getting the data feed
     // Route::get('/json-data-feed', [DataFeedController::class, 'getDataFeed'])->name('json_data_feed');
@@ -56,10 +56,10 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::resource("currency", CurrencyController::class);
     Route::resource("business-categories", BusinessCategoryController::class);
     Route::resource("programs", ProgramController::class);
-    Route::post('/programs/{program}/events', [ProgramController::class, 'storeEvent'])->name('programs.events.store');
-    Route::post('/events/{event}/attendees', [ProgramController::class, 'storeAttendee'])->name('events.attendees.store');
-    Route::post('/attendees/{attendee}/payments', [ProgramController::class, 'storePayment'])->name('attendees.payments.store');
-    Route::get('/attendees/{attendee}/payments', [ProgramController::class, 'getAttendeePayments'])->name('attendees.payments.index');
+    Route::post('/programs/{program}/events', [ProgramController::class, 'storeEvent'])->name('programs.events.store')->where('program', '[a-f0-9\-]+');
+    Route::post('/events/{event}/attendees', [ProgramController::class, 'storeAttendee'])->name('events.attendees.store')->where('event', '[a-f0-9\-]+');
+    Route::post('/attendees/{attendee}/payments', [ProgramController::class, 'storePayment'])->name('attendees.payments.store')->where('attendee', '[a-f0-9\-]+');
+    Route::get('/attendees/{attendee}/payments', [ProgramController::class, 'getAttendeePayments'])->name('attendees.payments.index')->where('attendee', '[a-f0-9\-]+');
     
     // Payment management routes
     Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');

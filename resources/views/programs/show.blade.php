@@ -3,7 +3,8 @@
         showEventModal: false, 
         showAttendeeModal: false,
         showPaymentModal: false,
-        selectedEvent: null
+        selectedEvent: null,
+        selectedAttendee: null
     }" x-cloak>
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             
@@ -149,7 +150,9 @@
                             </thead>
                             <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                 @foreach($allAttendees as $index => $attendee)
-                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer" onclick="window.location.href='{{ route('programs.show', $attendee->programEvent->program_ids[0] ?? 1) }}'">
+                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer" 
+                                        data-attendee-uuid="{{ $attendee->uuid }}"
+                                        onclick="window.location.href='{{ route('programs.show', $attendee->programEvent->program_ids[0] ?? 1) }}'">
 
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{{ $attendee->child_name }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ $attendee->child_age }}</td>
@@ -165,20 +168,20 @@
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                             ${{ number_format($attendee->total_paid, 2) }}
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                        <td class="balance-cell px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                             ${{ number_format($attendee->balance, 2) }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             @if($attendee->payment_status === 'paid')
-                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                <span class="status-cell inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                                     Paid
                                                 </span>
                                             @elseif($attendee->payment_status === 'partial')
-                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                                <span class="status-cell inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                                                     Partial
                                                 </span>
                                             @else
-                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                <span class="status-cell inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
                                                     Unpaid
                                                 </span>
                                             @endif
@@ -372,8 +375,8 @@
         </div>
     </div>
 
-    <!-- Payment Modal -->
-    <div x-show="showPaymentModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <!-- Payment Modal -->
+        <div id="paymentModal" x-show="showPaymentModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
         <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div class="mt-3">
                 <div class="flex justify-between items-center mb-4">
@@ -481,7 +484,19 @@
         function openPaymentModal(attendeeUuid) {
             currentAttendeeUuid = attendeeUuid;
             document.getElementById('selectedAttendeeUuid').value = attendeeUuid;
-            document.querySelector('[x-data]').__x.$data.showPaymentModal = true;
+            
+            // Set Alpine.js variable directly
+            const alpineElement = document.querySelector('[x-data]');
+            if (alpineElement && alpineElement.__x) {
+                alpineElement.__x.$data.showPaymentModal = true;
+                alpineElement.__x.$data.selectedAttendee = attendeeUuid;
+            } else {
+                // Fallback: show modal directly
+                const modal = document.getElementById('paymentModal');
+                if (modal) {
+                    modal.style.display = 'block';
+                }
+            }
         }
 
         function submitPaymentForm() {
@@ -493,7 +508,9 @@
                 return false;
             }
             
-            fetch(`/attendees/${currentAttendeeUuid}/payments`, {
+            const url = `/attendees/${currentAttendeeUuid}/payments`;
+            
+            fetch(url, {
                 method: 'POST',
                 body: formData,
                 headers: {
@@ -502,14 +519,39 @@
             })
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('Network response was not ok');
+                    return response.text().then(text => {
+                        throw new Error(`HTTP ${response.status}: ${text}`);
+                    });
                 }
                 return response.json();
             })
             .then(data => {
                 if (data.success) {
-                    alert('Payment recorded successfully!');
-                    window.location.reload();
+                            // Close the payment modal using Alpine.js
+        const alpineElement = document.querySelector('[x-data]');
+        if (alpineElement && alpineElement.__x) {
+            alpineElement.__x.$data.showPaymentModal = false;
+        }
+                    
+                    // Show success message
+                    const successMessage = document.createElement('div');
+                    successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-md shadow-lg z-50';
+                    successMessage.textContent = 'Payment recorded successfully!';
+                    document.body.appendChild(successMessage);
+                    
+                    // Remove success message after 3 seconds
+                    setTimeout(() => {
+                        successMessage.remove();
+                    }, 3000);
+                    
+                            // Update the attendee's payment status in the table
+        updateAttendeePaymentStatus(currentAttendeeUuid, data.new_balance);
+        
+        // Reset the payment form
+        const form = document.getElementById('paymentForm');
+        if (form) {
+            form.reset();
+        }
                 } else {
                     alert('Error: ' + data.message);
                 }
@@ -520,6 +562,29 @@
             });
             
             return false;
+        }
+
+        function updateAttendeePaymentStatus(attendeeUuid, newBalance) {
+            // Find the attendee row and update the balance
+            const attendeeRow = document.querySelector(`[data-attendee-uuid="${attendeeUuid}"]`);
+            if (attendeeRow) {
+                const balanceCell = attendeeRow.querySelector('.balance-cell');
+                if (balanceCell) {
+                    balanceCell.textContent = `$${newBalance}`;
+                }
+                
+                // Update payment status
+                const statusCell = attendeeRow.querySelector('.status-cell');
+                if (statusCell) {
+                    if (newBalance <= 0) {
+                        statusCell.textContent = 'Paid';
+                        statusCell.className = 'status-cell px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium';
+                    } else {
+                        statusCell.textContent = 'Partial';
+                        statusCell.className = 'status-cell px-6 py-4 whitespace-nowrap text-sm text-yellow-600 font-medium';
+                    }
+                }
+            }
         }
 
         function viewPayments(attendeeId) {

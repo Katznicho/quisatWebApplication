@@ -146,8 +146,24 @@ class ProgramController extends Controller
         }
     }
 
-    public function storePayment(Request $request, EventAttendee $attendee)
+    public function storePayment(Request $request, $attendee)
     {
+        Log::info('storePayment method called', [
+            'attendee_uuid' => $attendee,
+            'request_data' => $request->all(),
+            'user_authenticated' => Auth::check(),
+            'user_id' => Auth::id()
+        ]);
+        
+        // Find attendee by UUID manually since route model binding might not work
+        $attendeeModel = EventAttendee::where('uuid', $attendee)->firstOrFail();
+        
+        Log::info('Attendee found', [
+            'attendee_id' => $attendeeModel->id,
+            'attendee_uuid' => $attendeeModel->uuid,
+            'attendee_name' => $attendeeModel->child_name
+        ]);
+
         $request->validate([
             'amount' => 'required|numeric|min:0.01',
             'payment_method' => 'required|in:cash,card,bank_transfer,airtel_money,mtn_mobile_money,other',
@@ -158,27 +174,47 @@ class ProgramController extends Controller
 
         try {
             $payment = Payment::create([
-                'event_attendee_id' => $attendee->id,
+                'event_attendee_id' => $attendeeModel->id,
                 'amount' => $request->amount,
                 'payment_method' => $request->payment_method,
                 'payment_reference' => $request->payment_reference,
                 'notes' => $request->notes,
                 'payment_date' => $request->payment_date,
-                'user_id' => Auth::id(),
+                'user_id' => Auth::id() ?? 1, // Fallback to user ID 1 if not authenticated
             ]);
 
             if ($request->expectsJson()) {
+                // Transform the payment to include accessors
+                $paymentData = [
+                    'id' => $payment->id,
+                    'uuid' => $payment->uuid,
+                    'amount' => $payment->amount,
+                    'payment_method' => $payment->payment_method,
+                    'payment_method_display' => $payment->payment_method_display,
+                    'payment_reference' => $payment->payment_reference,
+                    'notes' => $payment->notes,
+                    'payment_date' => $payment->payment_date,
+                    'formatted_payment_date' => $payment->formatted_payment_date,
+                    'user' => $payment->user ? [
+                        'id' => $payment->user->id,
+                        'name' => $payment->user->name
+                    ] : null
+                ];
+                
                 return response()->json([
                     'success' => true, 
                     'message' => 'Payment recorded successfully!',
-                    'payment' => $payment,
-                    'new_balance' => $attendee->fresh()->balance
+                    'payment' => $paymentData,
+                    'new_balance' => $attendeeModel->fresh()->balance
                 ]);
             }
 
             return redirect()->back()->with('success', 'Payment recorded successfully!');
         } catch (\Exception $e) {
-            Log::error('Error recording payment: ' . $e->getMessage());
+            Log::error('Error recording payment: ' . $e->getMessage(), [
+                'attendee_id' => $attendeeModel->id,
+                'exception' => $e
+            ]);
             
             if ($request->expectsJson()) {
                 return response()->json(['success' => false, 'message' => 'Failed to record payment: ' . $e->getMessage()]);
@@ -188,16 +224,52 @@ class ProgramController extends Controller
         }
     }
 
-    public function getAttendeePayments(EventAttendee $attendee)
+    public function getAttendeePayments($attendee)
     {
-        $attendee->load(['payments.user', 'programEvent']);
+        // Find attendee by UUID manually since route model binding might not work
+        $attendeeModel = EventAttendee::where('uuid', $attendee)->firstOrFail();
+        
+        $attendeeModel->load(['payments.user', 'programEvent']);
+        
+        // Debug: Log the payments and total
+        Log::info('Payment data for attendee', [
+            'attendee_id' => $attendeeModel->id,
+            'attendee_name' => $attendeeModel->child_name,
+            'amount_due' => $attendeeModel->amount_due,
+            'payments_count' => $attendeeModel->payments->count(),
+            'payments_sum' => $attendeeModel->payments->sum('amount'),
+            'total_paid_accessor' => $attendeeModel->total_paid,
+            'balance_accessor' => $attendeeModel->balance
+        ]);
+        
+        // Transform payments to include accessors
+        $payments = $attendeeModel->payments->map(function ($payment) {
+            return [
+                'id' => $payment->id,
+                'uuid' => $payment->uuid,
+                'amount' => $payment->amount,
+                'payment_method' => $payment->payment_method,
+                'payment_method_display' => $payment->payment_method_display,
+                'payment_reference' => $payment->payment_reference,
+                'notes' => $payment->notes,
+                'payment_date' => $payment->payment_date,
+                'formatted_payment_date' => $payment->formatted_payment_date,
+                'user' => $payment->user ? [
+                    'id' => $payment->user->id,
+                    'name' => $payment->user->name
+                ] : null
+            ];
+        });
+        
+        // Calculate total manually to ensure accuracy
+        $manualTotal = $payments->sum('amount');
         
         return response()->json([
-            'attendee' => $attendee,
-            'payments' => $attendee->payments,
-            'total_paid' => $attendee->total_paid,
-            'balance' => $attendee->balance,
-            'payment_status' => $attendee->payment_status
+            'attendee' => $attendeeModel,
+            'payments' => $payments,
+            'total_paid' => $manualTotal,
+            'balance' => $attendeeModel->amount_due - $manualTotal,
+            'payment_status' => $manualTotal >= $attendeeModel->amount_due ? 'paid' : ($manualTotal > 0 ? 'partial' : 'unpaid')
         ]);
     }
 }

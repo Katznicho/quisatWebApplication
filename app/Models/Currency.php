@@ -13,6 +13,7 @@ class Currency extends Model
     use SoftDeletes;
 
     protected $fillable = [
+        'uuid',
         'name',
         'code',
         'symbol',

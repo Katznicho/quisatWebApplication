@@ -39,4 +39,9 @@ class Role extends Model
             $role->uuid = (string) Str::uuid();
         });
     }
+
+    public function getRouteKeyName()
+    {
+        return 'uuid';
+    }
 }
