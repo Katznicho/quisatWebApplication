@@ -22,6 +22,7 @@ class ListPrograms extends Component implements HasForms, HasTable
     {
         return $table
             ->query(Program::query())
+            ->recordUrl(fn (Program $record): string => route('programs.show', $record))
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->searchable()
