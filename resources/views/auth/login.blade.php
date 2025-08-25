@@ -32,6 +32,15 @@
             @endif
         </div>
 
+        <div class="text-center">
+            <p class="text-sm text-gray-600 dark:text-gray-400">
+                Don't have an account? 
+                <a href="{{ route('business.register') }}" class="font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                    Register your business
+                </a>
+            </p>
+        </div>
+
         <div>
             <x-button class="w-full justify-center">
                 🔐 Sign in

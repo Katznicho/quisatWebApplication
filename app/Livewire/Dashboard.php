@@ -7,6 +7,12 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use App\Models\Business;
 use App\Models\User;
+use App\Models\Student;
+use App\Models\ClassRoom;
+use App\Models\Subject;
+use App\Models\Exam;
+use App\Models\ParentGuardian;
+use App\Models\Attendance;
 use Carbon\Carbon;
 
 class Dashboard extends Component
@@ -21,11 +27,27 @@ class Dashboard extends Component
     public $activeBusinessClients;
     public $activeBusinessStaff;
     
+    // School-specific metrics for regular businesses
+    public $totalStudents;
+    public $totalTeachers;
+    public $totalClasses;
+    public $totalSubjects;
+    public $totalExams;
+    public $totalParents;
+    public $attendanceRate;
+    public $averageGrade;
+    
     // Percentage changes
     public $businessesChange = 12;
     public $usersChange = 8;
     public $clientsChange = 5;
     public $staffChange = 3;
+    
+    // School-specific percentage changes
+    public $studentsChange = 0;
+    public $teachersChange = 0;
+    public $classesChange = 0;
+    public $subjectsChange = 0;
     
     // Filter properties
     public $selectedCategory = '';
@@ -117,29 +139,37 @@ class Dashboard extends Component
         $currentYear = Carbon::now()->year;
         
         $monthlyData = [];
+        $user = Auth::user();
+        $isAdmin = $user->business_id == 1;
+        
         foreach ($months as $index => $month) {
             $startDate = Carbon::createFromDate($currentYear, $index + 1, 1)->startOfMonth();
             $endDate = Carbon::createFromDate($currentYear, $index + 1, 1)->endOfMonth();
             
             $query = User::whereBetween('created_at', [$startDate, $endDate]);
             
-            // Apply filters if set
-            if ($this->selectedCountry) {
-                $query->whereHas('business', function($q) {
-                    $q->where('country', $this->selectedCountry);
-                });
-            }
-            
-            if ($this->selectedDistrict) {
-                $query->whereHas('business', function($q) {
-                    $q->where('city', $this->selectedDistrict);
-                });
-            }
-            
-            if ($this->selectedCategory) {
-                $query->whereHas('business.businessCategory', function($q) {
-                    $q->where('name', 'like', '%' . $this->selectedCategory . '%');
-                });
+            if ($isAdmin) {
+                // Apply filters if set for admin
+                if ($this->selectedCountry) {
+                    $query->whereHas('business', function($q) {
+                        $q->where('country', $this->selectedCountry);
+                    });
+                }
+                
+                if ($this->selectedDistrict) {
+                    $query->whereHas('business', function($q) {
+                        $q->where('city', $this->selectedDistrict);
+                    });
+                }
+                
+                if ($this->selectedCategory) {
+                    $query->whereHas('business.businessCategory', function($q) {
+                        $q->where('name', 'like', '%' . $this->selectedCategory . '%');
+                    });
+                }
+            } else {
+                // For regular businesses, only show their own data
+                $query->where('business_id', $user->business_id);
             }
             
             $count = $query->count();
@@ -342,53 +372,16 @@ class Dashboard extends Component
     public function loadDashboardMetrics()
     {
         try {
-            // Build query based on filters
-            $businessQuery = Business::query();
-            $userQuery = User::query();
+            $user = Auth::user();
+            $isAdmin = $user->business_id == 1;
             
-            // Apply filters
-            if ($this->selectedCategory) {
-                $businessQuery->whereHas('businessCategory', function($q) {
-                    $q->where('name', 'like', '%' . $this->selectedCategory . '%');
-                });
+            if ($isAdmin) {
+                // Admin dashboard - show system-wide metrics
+                $this->loadAdminDashboardMetrics();
+            } else {
+                // Regular business dashboard - show business-specific metrics
+                $this->loadBusinessDashboardMetrics();
             }
-            
-            if ($this->selectedCountry) {
-                $businessQuery->where('country', $this->selectedCountry);
-            }
-            
-            if ($this->selectedDistrict) {
-                $businessQuery->where('city', $this->selectedDistrict);
-            }
-            
-            if ($this->fromDate) {
-                $fromDate = Carbon::createFromFormat('d/m/Y', $this->fromDate)->startOfDay();
-                $businessQuery->where('created_at', '>=', $fromDate);
-                $userQuery->where('created_at', '>=', $fromDate);
-            }
-            
-            if ($this->toDate) {
-                $toDate = Carbon::createFromFormat('d/m/Y', $this->toDate)->endOfDay();
-                $businessQuery->where('created_at', '<=', $toDate);
-                $userQuery->where('created_at', '<=', $toDate);
-            }
-            
-            // Get total businesses
-            $this->totalBusinesses = $businessQuery->count();
-            
-            // Get total users
-            $this->totalUsers = $userQuery->count();
-            
-            // Get active business clients (users with active status)
-            $this->activeBusinessClients = $userQuery->where('status', 'active')->count();
-            
-            // Get active business staff (users with active status and role)
-            $this->activeBusinessStaff = $userQuery->where('status', 'active')
-                ->whereNotNull('role_id')
-                ->count();
-                
-            // Calculate percentage changes (simplified for demo)
-            $this->calculatePercentageChanges();
         } catch (\Exception $e) {
             Log::error('Error loading dashboard metrics: ' . $e->getMessage());
             $this->totalBusinesses = 0;
@@ -396,6 +389,108 @@ class Dashboard extends Component
             $this->activeBusinessClients = 0;
             $this->activeBusinessStaff = 0;
         }
+    }
+    
+    public function loadAdminDashboardMetrics()
+    {
+        // Build query based on filters
+        $businessQuery = Business::query();
+        $userQuery = User::query();
+        
+        // Apply filters
+        if ($this->selectedCategory) {
+            $businessQuery->whereHas('businessCategory', function($q) {
+                $q->where('name', 'like', '%' . $this->selectedCategory . '%');
+            });
+        }
+        
+        if ($this->selectedCountry) {
+            $businessQuery->where('country', $this->selectedCountry);
+        }
+        
+        if ($this->selectedDistrict) {
+            $businessQuery->where('city', $this->selectedDistrict);
+        }
+        
+        if ($this->fromDate) {
+            $fromDate = Carbon::createFromFormat('d/m/Y', $this->fromDate)->startOfDay();
+            $businessQuery->where('created_at', '>=', $fromDate);
+            $userQuery->where('created_at', '>=', $fromDate);
+        }
+        
+        if ($this->toDate) {
+            $toDate = Carbon::createFromFormat('d/m/Y', $this->toDate)->endOfDay();
+            $businessQuery->where('created_at', '<=', $toDate);
+            $userQuery->where('created_at', '<=', $toDate);
+        }
+        
+        // Get total businesses
+        $this->totalBusinesses = $businessQuery->count();
+        
+        // Get total users
+        $this->totalUsers = $userQuery->count();
+        
+        // Get active business clients (users with active status)
+        $this->activeBusinessClients = $userQuery->where('status', 'active')->count();
+        
+        // Get active business staff (users with active status and role)
+        $this->activeBusinessStaff = $userQuery->where('status', 'active')
+            ->whereNotNull('role_id')
+            ->count();
+            
+        // Calculate percentage changes (simplified for demo)
+        $this->calculatePercentageChanges();
+    }
+    
+    public function loadBusinessDashboardMetrics()
+    {
+        $user = Auth::user();
+        $businessId = $user->business_id;
+        
+        // Build query based on filters for this specific business
+        $userQuery = User::where('business_id', $businessId);
+        
+        // Apply date filters if set
+        if ($this->fromDate) {
+            $fromDate = Carbon::createFromFormat('d/m/Y', $this->fromDate)->startOfDay();
+            $userQuery->where('created_at', '>=', $fromDate);
+        }
+        
+        if ($this->toDate) {
+            $toDate = Carbon::createFromFormat('d/m/Y', $this->toDate)->endOfDay();
+            $userQuery->where('created_at', '<=', $toDate);
+        }
+        
+        // For regular businesses, show business-specific metrics
+        $this->totalBusinesses = 1; // This business only
+        $this->totalUsers = $userQuery->count();
+        $this->activeBusinessClients = $userQuery->where('status', 'active')->count();
+        $this->activeBusinessStaff = $userQuery->where('status', 'active')
+            ->whereNotNull('role_id')
+            ->count();
+        
+        // School-specific metrics
+        $this->totalStudents = Student::where('business_id', $businessId)->count();
+        $this->totalTeachers = User::where('business_id', $businessId)
+            ->whereHas('role', function($q) {
+                $q->where('name', 'like', '%teacher%');
+            })->count();
+        $this->totalClasses = ClassRoom::where('business_id', $businessId)->count();
+        $this->totalSubjects = Subject::where('business_id', $businessId)->count();
+        $this->totalExams = Exam::where('business_id', $businessId)->count();
+        $this->totalParents = ParentGuardian::where('business_id', $businessId)->count();
+        
+        // Calculate attendance rate (simplified)
+        $totalAttendanceRecords = Attendance::where('business_id', $businessId)->count();
+        $presentRecords = Attendance::where('business_id', $businessId)
+            ->where('status', 'present')->count();
+        $this->attendanceRate = $totalAttendanceRecords > 0 ? round(($presentRecords / $totalAttendanceRecords) * 100, 1) : 0;
+        
+        // Average grade (simplified - you might want to implement this based on your grade system)
+        $this->averageGrade = 85.5; // Placeholder
+        
+        // Calculate percentage changes for this business
+        $this->calculateBusinessPercentageChanges();
     }
     
     public function calculatePercentageChanges()
@@ -428,6 +523,59 @@ class Dashboard extends Component
         if ($lastMonthStaff > 0) {
             $this->staffChange = round((($this->activeBusinessStaff - $lastMonthStaff) / $lastMonthStaff) * 100);
         }
+    }
+    
+    public function calculateBusinessPercentageChanges()
+    {
+        // Calculate percentage changes for a specific business
+        $user = Auth::user();
+        $businessId = $user->business_id;
+        $lastMonth = Carbon::now()->subMonth();
+        
+        // Calculate users change for this business
+        $lastMonthUsers = User::where('business_id', $businessId)->where('created_at', '<', $lastMonth)->count();
+        if ($lastMonthUsers > 0) {
+            $this->usersChange = round((($this->totalUsers - $lastMonthUsers) / $lastMonthUsers) * 100);
+        }
+        
+        // Calculate clients change for this business
+        $lastMonthClients = User::where('business_id', $businessId)->where('status', 'active')->where('created_at', '<', $lastMonth)->count();
+        if ($lastMonthClients > 0) {
+            $this->clientsChange = round((($this->activeBusinessClients - $lastMonthClients) / $lastMonthClients) * 100);
+        }
+        
+        // Calculate staff change for this business
+        $lastMonthStaff = User::where('business_id', $businessId)->where('status', 'active')->whereNotNull('role_id')->where('created_at', '<', $lastMonth)->count();
+        if ($lastMonthStaff > 0) {
+            $this->staffChange = round((($this->activeBusinessStaff - $lastMonthStaff) / $lastMonthStaff) * 100);
+        }
+        
+        // Calculate school-specific changes
+        $lastMonthStudents = Student::where('business_id', $businessId)->where('created_at', '<', $lastMonth)->count();
+        if ($lastMonthStudents > 0) {
+            $this->studentsChange = round((($this->totalStudents - $lastMonthStudents) / $lastMonthStudents) * 100);
+        }
+        
+        $lastMonthTeachers = User::where('business_id', $businessId)
+            ->whereHas('role', function($q) {
+                $q->where('name', 'like', '%teacher%');
+            })->where('created_at', '<', $lastMonth)->count();
+        if ($lastMonthTeachers > 0) {
+            $this->teachersChange = round((($this->totalTeachers - $lastMonthTeachers) / $lastMonthTeachers) * 100);
+        }
+        
+        $lastMonthClasses = ClassRoom::where('business_id', $businessId)->where('created_at', '<', $lastMonth)->count();
+        if ($lastMonthClasses > 0) {
+            $this->classesChange = round((($this->totalClasses - $lastMonthClasses) / $lastMonthClasses) * 100);
+        }
+        
+        $lastMonthSubjects = Subject::where('business_id', $businessId)->where('created_at', '<', $lastMonth)->count();
+        if ($lastMonthSubjects > 0) {
+            $this->subjectsChange = round((($this->totalSubjects - $lastMonthSubjects) / $lastMonthSubjects) * 100);
+        }
+        
+        // For regular businesses, businesses change is always 0 since they only have 1 business
+        $this->businessesChange = 0;
     }
     
     public function applyFilters()

@@ -16,75 +16,99 @@ return new class extends Migration
         // Generate UUIDs for existing records in all tables
         
         // Users table
-        $users = DB::table('users')->whereNull('uuid')->get();
-        foreach ($users as $user) {
-            DB::table('users')->where('id', $user->id)->update(['uuid' => (string) Str::uuid()]);
+        if (Schema::hasTable('users')) {
+            $users = DB::table('users')->whereNull('uuid')->get();
+            foreach ($users as $user) {
+                DB::table('users')->where('id', $user->id)->update(['uuid' => (string) Str::uuid()]);
+            }
         }
         
         // Businesses table
-        $businesses = DB::table('businesses')->whereNull('uuid')->get();
-        foreach ($businesses as $business) {
-            DB::table('businesses')->where('id', $business->id)->update(['uuid' => (string) Str::uuid()]);
+        if (Schema::hasTable('businesses')) {
+            $businesses = DB::table('businesses')->whereNull('uuid')->get();
+            foreach ($businesses as $business) {
+                DB::table('businesses')->where('id', $business->id)->update(['uuid' => (string) Str::uuid()]);
+            }
         }
         
         // Currencies table
-        $currencies = DB::table('currencies')->whereNull('uuid')->get();
-        foreach ($currencies as $currency) {
-            DB::table('currencies')->where('id', $currency->id)->update(['uuid' => (string) Str::uuid()]);
+        if (Schema::hasTable('currencies')) {
+            $currencies = DB::table('currencies')->whereNull('uuid')->get();
+            foreach ($currencies as $currency) {
+                DB::table('currencies')->where('id', $currency->id)->update(['uuid' => (string) Str::uuid()]);
+            }
         }
         
         // Transactions table
-        $transactions = DB::table('transactions')->whereNull('uuid')->get();
-        foreach ($transactions as $transaction) {
-            DB::table('transactions')->where('id', $transaction->id)->update(['uuid' => (string) Str::uuid()]);
+        if (Schema::hasTable('transactions')) {
+            $transactions = DB::table('transactions')->whereNull('uuid')->get();
+            foreach ($transactions as $transaction) {
+                DB::table('transactions')->where('id', $transaction->id)->update(['uuid' => (string) Str::uuid()]);
+            }
         }
         
-        // Activity logs table
-        $activityLogs = DB::table('activity_logs')->whereNull('uuid')->get();
-        foreach ($activityLogs as $activityLog) {
-            DB::table('activity_logs')->where('id', $activityLog->id)->update(['uuid' => (string) Str::uuid()]);
+        // Activity logs table (if exists)
+        if (Schema::hasTable('activity_logs')) {
+            $activityLogs = DB::table('activity_logs')->whereNull('uuid')->get();
+            foreach ($activityLogs as $activityLog) {
+                DB::table('activity_logs')->where('id', $activityLog->id)->update(['uuid' => (string) Str::uuid()]);
+            }
         }
         
         // Business categories table
-        $businessCategories = DB::table('business_categories')->whereNull('uuid')->get();
-        foreach ($businessCategories as $businessCategory) {
-            DB::table('business_categories')->where('id', $businessCategory->id)->update(['uuid' => (string) Str::uuid()]);
+        if (Schema::hasTable('business_categories')) {
+            $businessCategories = DB::table('business_categories')->whereNull('uuid')->get();
+            foreach ($businessCategories as $businessCategory) {
+                DB::table('business_categories')->where('id', $businessCategory->id)->update(['uuid' => (string) Str::uuid()]);
+            }
         }
         
         // Features table
-        $features = DB::table('features')->whereNull('uuid')->get();
-        foreach ($features as $feature) {
-            DB::table('features')->where('id', $feature->id)->update(['uuid' => (string) Str::uuid()]);
+        if (Schema::hasTable('features')) {
+            $features = DB::table('features')->whereNull('uuid')->get();
+            foreach ($features as $feature) {
+                DB::table('features')->where('id', $feature->id)->update(['uuid' => (string) Str::uuid()]);
+            }
         }
         
         // Programs table
-        $programs = DB::table('programs')->whereNull('uuid')->get();
-        foreach ($programs as $program) {
-            DB::table('programs')->where('id', $program->id)->update(['uuid' => (string) Str::uuid()]);
+        if (Schema::hasTable('programs')) {
+            $programs = DB::table('programs')->whereNull('uuid')->get();
+            foreach ($programs as $program) {
+                DB::table('programs')->where('id', $program->id)->update(['uuid' => (string) Str::uuid()]);
+            }
         }
         
         // Program events table
-        $programEvents = DB::table('program_events')->whereNull('uuid')->get();
-        foreach ($programEvents as $programEvent) {
-            DB::table('program_events')->where('id', $programEvent->id)->update(['uuid' => (string) Str::uuid()]);
+        if (Schema::hasTable('program_events')) {
+            $programEvents = DB::table('program_events')->whereNull('uuid')->get();
+            foreach ($programEvents as $programEvent) {
+                DB::table('program_events')->where('id', $programEvent->id)->update(['uuid' => (string) Str::uuid()]);
+            }
         }
         
         // Event attendees table
-        $eventAttendees = DB::table('event_attendees')->whereNull('uuid')->get();
-        foreach ($eventAttendees as $eventAttendee) {
-            DB::table('event_attendees')->where('id', $eventAttendee->id)->update(['uuid' => (string) Str::uuid()]);
+        if (Schema::hasTable('event_attendees')) {
+            $eventAttendees = DB::table('event_attendees')->whereNull('uuid')->get();
+            foreach ($eventAttendees as $eventAttendee) {
+                DB::table('event_attendees')->where('id', $eventAttendee->id)->update(['uuid' => (string) Str::uuid()]);
+            }
         }
         
         // Roles table
-        $roles = DB::table('roles')->whereNull('uuid')->get();
-        foreach ($roles as $role) {
-            DB::table('roles')->where('id', $role->id)->update(['uuid' => (string) Str::uuid()]);
+        if (Schema::hasTable('roles')) {
+            $roles = DB::table('roles')->whereNull('uuid')->get();
+            foreach ($roles as $role) {
+                DB::table('roles')->where('id', $role->id)->update(['uuid' => (string) Str::uuid()]);
+            }
         }
         
         // Payments table
-        $payments = DB::table('payments')->whereNull('uuid')->get();
-        foreach ($payments as $payment) {
-            DB::table('payments')->where('id', $payment->id)->update(['uuid' => (string) Str::uuid()]);
+        if (Schema::hasTable('payments')) {
+            $payments = DB::table('payments')->whereNull('uuid')->get();
+            foreach ($payments as $payment) {
+                DB::table('payments')->where('id', $payment->id)->update(['uuid' => (string) Str::uuid()]);
+            }
         }
     }
 

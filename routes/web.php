@@ -2,6 +2,7 @@
 
 
 use App\Http\Controllers\BusinessController;
+use App\Http\Controllers\BusinessRegistrationController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\SupportController;
 use App\Http\Controllers\TransactionController;
@@ -12,6 +13,9 @@ use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\BusinessCategoryController;
 use App\Http\Controllers\ProgramController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\AdminManagementController;
+use App\Http\Controllers\CalendarEventController;
+use App\Http\Controllers\TermController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -33,6 +37,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', 'login');
 
+// Business Registration Routes (Public)
+Route::get('/business/register', [BusinessRegistrationController::class, 'showRegistrationForm'])->name('business.register');
+Route::post('/business/register', [BusinessRegistrationController::class, 'register'])->name('business.register');
+Route::get('/business/registration/success', [BusinessRegistrationController::class, 'registrationSuccess'])->name('business.registration.success');
 
 // Route::get("makePayment",[PaymentController::class,"makePayment"])->name("makePayment");    
 
@@ -56,6 +64,22 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::resource("currency", CurrencyController::class);
     Route::resource("business-categories", BusinessCategoryController::class);
     Route::resource("programs", ProgramController::class);
+
+    // Admin Management Routes
+    Route::prefix('admin')->name('admin.')->group(function () {
+        Route::get('/dashboard', [AdminManagementController::class, 'index'])->name('dashboard');
+        Route::get('/create-admin', [AdminManagementController::class, 'createAdmin'])->name('create-admin');
+        Route::post('/create-admin', [AdminManagementController::class, 'storeAdmin'])->name('store-admin');
+        Route::get('/create-staff', [AdminManagementController::class, 'createStaff'])->name('create-staff');
+        Route::post('/create-staff', [AdminManagementController::class, 'storeStaff'])->name('store-staff');
+        Route::get('/edit-user/{user}', [AdminManagementController::class, 'editUser'])->name('edit-user');
+        Route::put('/update-user/{user}', [AdminManagementController::class, 'updateUser'])->name('update-user');
+        Route::delete('/delete-user/{user}', [AdminManagementController::class, 'destroyUser'])->name('delete-user');
+        Route::post('/reset-password/{user}', [AdminManagementController::class, 'resetPassword'])->name('reset-password');
+        Route::post('/toggle-status/{user}', [AdminManagementController::class, 'toggleStatus'])->name('toggle-status');
+        Route::get('/users-by-business', [AdminManagementController::class, 'getUsersByBusiness'])->name('users-by-business');
+        Route::get('/users-by-role', [AdminManagementController::class, 'getUsersByRole'])->name('users-by-role');
+    });
     Route::post('/programs/{program}/events', [ProgramController::class, 'storeEvent'])->name('programs.events.store')->where('program', '[a-f0-9\-]+');
     Route::post('/events/{event}/attendees', [ProgramController::class, 'storeAttendee'])->name('events.attendees.store')->where('event', '[a-f0-9\-]+');
     Route::post('/attendees/{attendee}/payments', [ProgramController::class, 'storePayment'])->name('attendees.payments.store')->where('attendee', '[a-f0-9\-]+');
@@ -74,11 +98,65 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // routes/web.php
     Route::get('/users/{user:uuid}', [UserController::class, 'show']);
 
+    // Calendar & Events Routes
+    Route::resource('calendar-events', CalendarEventController::class);
+    Route::get('/calendar', [CalendarEventController::class, 'calendar'])->name('calendar-events.calendar');
+    Route::get('/calendar-events/api/events', [CalendarEventController::class, 'apiEvents'])->name('calendar-events.api');
+    Route::get('/calendar-events/upcoming', [CalendarEventController::class, 'upcoming'])->name('calendar-events.upcoming');
 
+    // Term Management Routes
+    Route::resource('terms', TermController::class);
+    Route::get('/terms/current', [TermController::class, 'current'])->name('terms.current');
+    Route::post('/terms/{term}/activate', [TermController::class, 'activate'])->name('terms.activate');
+    Route::post('/terms/{term}/complete', [TermController::class, 'complete'])->name('terms.complete');
+    Route::get('/terms/{term}/statistics', [TermController::class, 'statistics'])->name('terms.statistics');
 
-
-
-
+    // School Management Routes
+    Route::prefix('school-management')->name('school-management.')->group(function () {
+        Route::get('/students', function () {
+            return view('school-management.students');
+        })->name('students');
+        
+        Route::get('/attendance', function () {
+            return view('school-management.attendance');
+        })->name('attendance');
+        
+        Route::get('/calendar-events', function () {
+            return view('school-management.calendar-events');
+        })->name('calendar-events');
+        
+        Route::get('/classrooms', function () {
+            return view('school-management.classrooms');
+        })->name('classrooms');
+        
+        Route::get('/subjects', function () {
+            return view('school-management.subjects');
+        })->name('subjects');
+        
+        Route::get('/grades', function () {
+            return view('school-management.grades');
+        })->name('grades');
+        
+        Route::get('/exams', function () {
+            return view('school-management.exams');
+        })->name('exams');
+        
+        Route::get('/fees', function () {
+            return view('school-management.fees');
+        })->name('fees');
+        
+        Route::get('/timetable', function () {
+            return view('school-management.timetable');
+        })->name('timetable');
+        
+        Route::get('/parents', function () {
+            return view('school-management.parents');
+        })->name('parents');
+        
+        Route::get('/terms', function () {
+            return view('school-management.terms');
+        })->name('terms');
+    });
 
     Route::get('/test-mail-view', function () {
         return view('mail.bot'); // 
