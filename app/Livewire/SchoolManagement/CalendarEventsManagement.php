@@ -23,6 +23,7 @@ use Filament\Tables\Filters\TrashedFilter;
 use Livewire\Component;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 
 class CalendarEventsManagement extends Component implements HasForms, HasTable
 {
@@ -32,22 +33,22 @@ class CalendarEventsManagement extends Component implements HasForms, HasTable
     public function table(Table $table): Table
     {
         return $table
-            ->query(CalendarEvent::query())
+            ->query(CalendarEvent::query()->where('business_id', Auth::user()->business_id))
             ->columns([
                 Tables\Columns\TextColumn::make('title')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('description')
                     ->limit(50),
-                Tables\Columns\TextColumn::make('category')
+                Tables\Columns\TextColumn::make('event_type')
                     ->badge()
                     ->colors([
-                        'primary' => 'academic',
-                        'success' => 'sports',
-                        'warning' => 'cultural',
-                        'danger' => 'holidays',
-                        'info' => 'meetings',
-                        'secondary' => 'exams',
+                        'primary' => 'meeting',
+                        'success' => 'class',
+                        'warning' => 'exam',
+                        'danger' => 'holiday',
+                        'info' => 'activity',
+                        'secondary' => 'other',
                     ]),
                 Tables\Columns\TextColumn::make('start_date')
                     ->dateTime()
@@ -73,18 +74,19 @@ class CalendarEventsManagement extends Component implements HasForms, HasTable
                     ->form([
                         TextInput::make('title')
                             ->required()
+                            ->maxLength(255)
                             ->placeholder('Enter event title'),
                         Textarea::make('description')
                             ->placeholder('Enter event description')
                             ->rows(3),
-                        Select::make('category')
+                        Select::make('event_type')
                             ->options([
-                                'academic' => 'Academic',
-                                'sports' => 'Sports',
-                                'cultural' => 'Cultural',
-                                'holidays' => 'Holidays',
-                                'meetings' => 'Meetings',
-                                'exams' => 'Exams',
+                                'meeting' => 'Meeting',
+                                'class' => 'Class',
+                                'exam' => 'Exam',
+                                'holiday' => 'Holiday',
+                                'activity' => 'Activity',
+                                'other' => 'Other',
                             ])
                             ->required(),
                         DatePicker::make('start_date')
@@ -96,10 +98,49 @@ class CalendarEventsManagement extends Component implements HasForms, HasTable
                         TimePicker::make('end_time')
                             ->label('End Time'),
                         TextInput::make('location')
+                            ->maxLength(255)
                             ->placeholder('Enter event location'),
                         Toggle::make('is_all_day')
                             ->label('All Day Event'),
+                        Select::make('priority')
+                            ->options([
+                                'low' => 'Low',
+                                'medium' => 'Medium',
+                                'high' => 'High',
+                                'urgent' => 'Urgent',
+                            ])
+                            ->default('medium')
+                            ->required(),
                     ])
+                    ->using(function (array $data, CalendarEvent $record): CalendarEvent {
+                        $data['business_id'] = Auth::user()->business_id;
+                        $data['created_by'] = Auth::id();
+                        
+                        // Combine date and time for start_date
+                        if (isset($data['start_date'])) {
+                            if (isset($data['start_time'])) {
+                                $data['start_date'] = $data['start_date'] . ' ' . $data['start_time'];
+                                unset($data['start_time']);
+                            } else {
+                                $data['start_date'] = $data['start_date'] . ' 00:00:00';
+                            }
+                        }
+                        
+                        // Combine date and time for end_date
+                        if (isset($data['end_date'])) {
+                            if (isset($data['end_time'])) {
+                                $data['end_date'] = $data['end_date'] . ' ' . $data['end_time'];
+                                unset($data['end_time']);
+                            } else {
+                                $data['end_date'] = $data['end_date'] . ' 23:59:59';
+                            }
+                        }
+                        
+                        $record->fill($data);
+                        $record->save();
+                        
+                        return $record;
+                    })
                     ->successNotificationTitle('Event updated successfully.'),
                 DeleteAction::make()
                     ->modalHeading('Delete Event')
@@ -119,18 +160,19 @@ class CalendarEventsManagement extends Component implements HasForms, HasTable
                     ->form([
                         TextInput::make('title')
                             ->required()
+                            ->maxLength(255)
                             ->placeholder('Enter event title'),
                         Textarea::make('description')
                             ->placeholder('Enter event description')
                             ->rows(3),
-                        Select::make('category')
+                        Select::make('event_type')
                             ->options([
-                                'academic' => 'Academic',
-                                'sports' => 'Sports',
-                                'cultural' => 'Cultural',
-                                'holidays' => 'Holidays',
-                                'meetings' => 'Meetings',
-                                'exams' => 'Exams',
+                                'meeting' => 'Meeting',
+                                'class' => 'Class',
+                                'exam' => 'Exam',
+                                'holiday' => 'Holiday',
+                                'activity' => 'Activity',
+                                'other' => 'Other',
                             ])
                             ->required(),
                         DatePicker::make('start_date')
@@ -142,11 +184,48 @@ class CalendarEventsManagement extends Component implements HasForms, HasTable
                         TimePicker::make('end_time')
                             ->label('End Time'),
                         TextInput::make('location')
+                            ->maxLength(255)
                             ->placeholder('Enter event location'),
                         Toggle::make('is_all_day')
                             ->label('All Day Event'),
+                        Select::make('priority')
+                            ->options([
+                                'low' => 'Low',
+                                'medium' => 'Medium',
+                                'high' => 'High',
+                                'urgent' => 'Urgent',
+                            ])
+                            ->default('medium')
+                            ->required(),
                     ])
                     ->createAnother(false)
+                    ->using(function (array $data): CalendarEvent {
+                        $data['business_id'] = Auth::user()->business_id;
+                        $data['created_by'] = Auth::id();
+                        $data['status'] = 'published';
+                        
+                        // Combine date and time for start_date
+                        if (isset($data['start_date'])) {
+                            if (isset($data['start_time'])) {
+                                $data['start_date'] = $data['start_date'] . ' ' . $data['start_time'];
+                                unset($data['start_time']);
+                            } else {
+                                $data['start_date'] = $data['start_date'] . ' 00:00:00';
+                            }
+                        }
+                        
+                        // Combine date and time for end_date
+                        if (isset($data['end_date'])) {
+                            if (isset($data['end_time'])) {
+                                $data['end_date'] = $data['end_date'] . ' ' . $data['end_time'];
+                                unset($data['end_time']);
+                            } else {
+                                $data['end_date'] = $data['end_date'] . ' 23:59:59';
+                            }
+                        }
+                        
+                        return CalendarEvent::create($data);
+                    })
                     ->after(function (CalendarEvent $record) {
                         Notification::make()
                             ->title('Event created successfully.')

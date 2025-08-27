@@ -1,26 +1,26 @@
 <x-mail::message>
-    <img src="https://app.nextgentraderai.com/public/images/logo.png" alt="{{ config('app.name') }}" style="width: 150px; margin-bottom: 20px;">
+    <img src="{{ asset('images/logo.png') }}" alt="{{ config('app.name') }}" style="width: 150px; margin-bottom: 20px;">
 
-# Welcome to {{ config('app.name') }}, {{ $user->name }}! 💰
+# Welcome to {{ config('app.name') }}, {{ $user->name }}! 🎓
 
-Thank you for joining **{{ config('app.name') }}**, your trusted automated trading platform.
+Thank you for joining **{{ config('app.name') }}**, your comprehensive school and business management platform.
 
-You're just one step away from activating your trading bot.
+You're now ready to start managing your institution with our powerful tools.
 
 ---
 
-## 🚀 Choose Your Subscription Package & Get Started:
-To begin trading, please select a subscription package and make your first deposit.  
-Once subscribed, your trading bot will start analyzing the markets and executing strategies on your behalf — automatically.
+## 🚀 Get Started with {{ config('app.name') }}:
+Access your dashboard to begin managing students, staff, finances, and more.  
+Our platform provides everything you need to run your institution efficiently.
 
-<x-mail::button :url="config('app.url') . '/subscriptions'">
-Choose Your Subscription Package
+<x-mail::button :url="config('app.url') . '/dashboard'">
+Access Your Dashboard
 </x-mail::button>
 
 > Need help? Our support team is ready to assist you at any time.
 
 Thanks for choosing **{{ config('app.name') }}**.  
-We’re excited to help you on your trading journey!
+We're excited to help you streamline your institution's management!
 
 Warm regards,  
 **The {{ config('app.name') }} Team**

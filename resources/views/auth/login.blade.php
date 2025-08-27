@@ -1,7 +1,7 @@
 <x-authentication-layout>
     <div class="text-center mb-6">
         <h1 class="text-3xl font-extrabold text-gray-800 dark:text-white">Welcome back to {{env('APP_NAME')}}</h1>
-        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Secure access to your payment dashboard</p>
+        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Secure access to your admin dashboard</p>
     </div>
 
     @if (session('status'))

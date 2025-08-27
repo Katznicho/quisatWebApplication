@@ -25,7 +25,7 @@ class QuisatSeeder extends Seeder
             'description' => 'School business category',
         ]);
 
-        // Step 1: Create the MarzPay business
+        // Step 1: Create the Quisat business
         $business = Business::create([
             'name' => 'Quisat School',
             'email' => 'katznicho@gmail.com',
@@ -33,7 +33,7 @@ class QuisatSeeder extends Seeder
             'address' => 'Kampala, Uganda',
             'country' => 'Uganda',
             'city' => 'Kampala',
-            'logo' => 'logos/marzpay.png',
+            'logo' => 'logos/quisat.png',
             'account_number' => 'KS12345678',
             'business_category_id' => $businessCategory->id,
         ]);

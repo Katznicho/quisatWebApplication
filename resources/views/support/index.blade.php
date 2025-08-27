@@ -3,7 +3,7 @@
         <!-- Header -->
         <div class="mb-10">
             <h2 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Support Center</h2>
-            <p class="mt-2 text-base text-gray-600 dark:text-gray-400">Reach out to us for help with your trading bot or account. We're here to help you succeed.</p>
+            <p class="mt-2 text-base text-gray-600 dark:text-gray-400">Reach out to us for help with your {{ env('APP_NAME') }} account. We're here to help you succeed.</p>
         </div>
 
         <!-- Quick Support Options -->
@@ -44,7 +44,7 @@
             <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4">Frequently Asked Questions</h3>
             <ul class="space-y-4 text-gray-700 dark:text-gray-300">
                 <li>
-                    <strong>How do I set up my trading bot?</strong>
+                    <strong>How do I set up my institution?</strong>
                     <p class="text-sm mt-1">Visit the setup guide in the documentation or reach out via Telegram for live assistance.</p>
                 </li>
                 <li>

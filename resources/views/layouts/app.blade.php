@@ -6,27 +6,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>{{ config('app.name', 'Laravel') }}</title>
-    <title>{{ env('APP_NAME') }} – Smart Payments and Collections Platform</title>
-    <meta name="title" content="MarzPay – Smart Payments and Collections Platform">
+    <title>{{ env('APP_NAME') }} – Admin Portal</title>
+    <meta name="title" content="{{ env('APP_NAME') }} – Admin Portal">
     <meta name="description"
-        content="MarzPay is a powerful platform for managing digital transactions, collections, and payouts with ease. Trusted by businesses across Africa.">
+        content="{{ env('APP_NAME') }} is a comprehensive school and business management platform. Manage your institution with ease.">
     <meta name="keywords"
-        content="MarzPay, payments, digital wallet, collections, payouts, mobile money, financial platform, business payments, bulk payments, Uganda fintech">
-    <meta name="author" content="Marz Innovations Ltd">
+        content="{{ env('APP_NAME') }}, school management, business management, admin portal, education platform, Uganda">
+    <meta name="author" content="{{ env('APP_COMPANY_NAME', 'Quisat Technologies Ltd') }}">
     <meta name="robots" content="index, follow">
     <meta name="language" content="en">
     <meta name="theme-color" content="#011478" />
-    <meta property="og:title" content="MarzPay – Smart Payments and Collections Platform" />
+    <meta property="og:title" content="{{ env('APP_NAME') }} – Admin Portal" />
     <meta property="og:description"
-        content="MarzPay enables businesses to send and receive payments securely through mobile money and bank integrations." />
+        content="{{ env('APP_NAME') }} provides comprehensive management tools for schools and businesses." />
     <meta property="og:image" content="{{ asset('images/logo.png') }}" />
     <meta property="og:url" content="{{ url()->current() }}" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="MarzPay – Smart Payments and Collections Platform">
+    <meta name="twitter:title" content="{{ env('APP_NAME') }} – Admin Portal">
     <meta name="twitter:description"
-        content="MarzPay simplifies business payments and collections for growing organizations.">
+        content="{{ env('APP_NAME') }} simplifies school and business management for growing organizations.">
     <meta name="twitter:image" content="{{ asset('images/logo.png') }}">
 
 

@@ -32,7 +32,7 @@ class SendApiCredentials extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Your MarzPay API Credentials',
+            subject: 'Your ' . env('APP_NAME') . ' API Credentials',
         );
     }
 

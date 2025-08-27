@@ -1,7 +1,7 @@
 <x-mail::message>
 <img src="https://yourdomain.com/logo.png" alt="{{ config('app.name') }}" style="width: 150px; margin-bottom: 20px;">
 
-# 🔐 Your MarzPay API Credentials
+# 🔐 Your {{ env('APP_NAME') }} API Credentials
 
 Hi {{ auth()->user()->name }},
 
