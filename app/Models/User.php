@@ -115,4 +115,27 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return 'uuid';
     }
+
+    // Chat relationships
+    public function conversations()
+    {
+        return $this->belongsToMany(Conversation::class, 'conversation_participants')
+                    ->withPivot(['joined_at', 'last_read_at', 'is_active'])
+                    ->withTimestamps();
+    }
+
+    public function sentMessages()
+    {
+        return $this->hasMany(Message::class, 'sender_id');
+    }
+
+    public function conversationParticipants()
+    {
+        return $this->hasMany(ConversationParticipant::class);
+    }
+
+    public function sentBroadcasts()
+    {
+        return $this->hasMany(BroadcastAnnouncement::class, 'sender_id');
+    }
 }

@@ -16,6 +16,42 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\AdminManagementController;
 use App\Http\Controllers\CalendarEventController;
 use App\Http\Controllers\TermController;
+use App\Http\Controllers\ChatController;
+use App\Http\Controllers\AdvertisementController;
+use App\Http\Controllers\KidsEventController;
+
+// Test route for chat functionality (no auth required)
+Route::get('/chat-test', function () {
+    return view('chat.test');
+})->name('chat.test');
+
+// Test route with real contacts (no auth required)
+Route::get('/chat-demo', function () {
+    $contacts = \App\Models\User::whereNotNull('business_id')->take(5)->get();
+    return view('chat.demo', compact('contacts'));
+})->name('chat.demo');
+
+// Test route that mimics the main chat page (no auth required)
+Route::get('/chat-test-main', function () {
+    $user = \App\Models\User::first(); // Get first user for testing
+    if (!$user) {
+        return 'No users found in database';
+    }
+    
+    // Get contacts for this user
+    $contacts = \App\Models\User::where('business_id', $user->business_id)
+        ->where('id', '!=', $user->id)
+        ->with('role')
+        ->get();
+    
+    // Get conversations (empty for testing)
+    $conversations = collect();
+    
+    // Mock the authenticated user for the view
+    auth()->login($user);
+    
+    return view('chat.index', compact('conversations', 'contacts'));
+})->name('chat.test-main');
 
 use Illuminate\Support\Facades\Route;
 
@@ -63,6 +99,19 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::resource("features", FeatureController::class);
     Route::resource("currency", CurrencyController::class);
     Route::resource("business-categories", BusinessCategoryController::class);
+    
+    // Advertisement routes
+    Route::resource("advertisements", AdvertisementController::class);
+    Route::get('advertisements/{advertisement}/analytics', [AdvertisementController::class, 'analytics'])->name('advertisements.analytics');
+    Route::post('advertisements/{advertisement}/track', [AdvertisementController::class, 'track'])->name('advertisements.track');
+    Route::get('advertisements/export/report', [AdvertisementController::class, 'export'])->name('advertisements.export');
+    Route::post('advertisements/publish-selected', [AdvertisementController::class, 'publishSelected'])->name('advertisements.publish-selected');
+    
+    // Kids Events routes
+    Route::resource("kids-events", KidsEventController::class);
+    Route::post('kids-events/{kidsEvent}/toggle-featured', [KidsEventController::class, 'toggleFeatured'])->name('kids-events.toggle-featured');
+    Route::post('kids-events/{kidsEvent}/update-status', [KidsEventController::class, 'updateStatus'])->name('kids-events.update-status');
+    
     Route::resource("programs", ProgramController::class);
 
     // Admin Management Routes
@@ -160,5 +209,19 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::get('/test-mail-view', function () {
         return view('mail.bot'); // 
+    });
+
+    // Chat & Communications Routes
+    Route::prefix('chat')->name('chat.')->group(function () {
+        Route::get('/', [ChatController::class, 'index'])->name('index');
+        Route::get('/conversations', [ChatController::class, 'conversations'])->name('conversations');
+        Route::get('/conversations/{conversation}', [ChatController::class, 'show'])->name('show');
+        Route::post('/conversations', [ChatController::class, 'store'])->name('store');
+        Route::post('/conversations/{conversation}/messages', [ChatController::class, 'sendMessage'])->name('send-message');
+        Route::get('/conversations/{conversation}/messages', [ChatController::class, 'getMessages'])->name('messages');
+        Route::post('/conversations/{conversation}/mark-read', [ChatController::class, 'markAsRead'])->name('mark-read');
+        Route::get('/contacts', [ChatController::class, 'getContacts'])->name('contacts');
+        Route::post('/broadcast', [ChatController::class, 'sendBroadcast'])->name('broadcast');
+        Route::post('/meetings', [ChatController::class, 'createMeeting'])->name('create-meeting');
     });
 });

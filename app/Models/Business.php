@@ -69,5 +69,31 @@ class Business extends Model
         return 'uuid';
     }
 
+    /**
+     * Check if a business has a specific feature enabled
+     */
+    public function hasFeature($featureId)
+    {
+        if (!$this->enabled_feature_ids) {
+            return false;
+        }
+        
+        return in_array($featureId, $this->enabled_feature_ids);
+    }
+
+    /**
+     * Check if a business has a feature by name
+     */
+    public function hasFeatureByName($featureName)
+    {
+        $feature = \App\Models\Feature::where('name', $featureName)->first();
+        
+        if (!$feature) {
+            return false;
+        }
+        
+        return $this->hasFeature($feature->id);
+    }
+
    
 }
