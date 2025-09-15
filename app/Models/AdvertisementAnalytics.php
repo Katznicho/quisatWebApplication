@@ -48,3 +48,4 @@ class AdvertisementAnalytics extends Model
     }
 }
 
+
