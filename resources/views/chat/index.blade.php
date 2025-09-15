@@ -57,9 +57,6 @@
                         @else
                             <div class="text-center text-gray-500 dark:text-gray-400 py-8">
                                 <p class="text-sm">No contacts found</p>
-                                <p class="text-xs mt-1">Debug: User business_id = {{ auth()->user()->business_id ?? 'null' }}</p>
-                                <p class="text-xs">Total users: {{ \App\Models\User::count() }}</p>
-                                <p class="text-xs">Contacts variable: {{ $contacts->count() ?? 'null' }}</p>
                             </div>
                         @endif
                     </div>
@@ -170,44 +167,22 @@
         let currentConversationId = null;
         let currentContactId = null;
         
-        // Debug: Check if buttons exist
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 DOM loaded, checking buttons...');
             const contactInfoBtn = document.getElementById('contactInfoBtn');
             const callBtn = document.getElementById('callBtn');
-            
-            console.log('Contact Info button found:', contactInfoBtn);
-            console.log('Call button found:', callBtn);
-            
-            if (contactInfoBtn) {
-                console.log('✅ Contact Info button is ready');
-            } else {
-                console.error('❌ Contact Info button not found!');
-            }
-            
-            if (callBtn) {
-                console.log('✅ Call button is ready');
-            } else {
-                console.error('❌ Call button not found!');
-            }
             
             // Check if there's a last selected contact in localStorage
             const lastSelectedContact = localStorage.getItem('lastSelectedContact');
             if (lastSelectedContact) {
-                console.log('🔄 Restoring last selected contact:', lastSelectedContact);
                 const contactData = JSON.parse(lastSelectedContact);
                 
                 // Function to try restoring the contact
                 function tryRestoreContact(attempt = 1) {
-                    console.log(`🔄 Attempt ${attempt} to restore contact ${contactData.id}`);
-                    
                     const contactElement = document.querySelector(`[data-contact-id="${contactData.id}"]`);
                     if (contactElement) {
-                        console.log('✅ Found contact element, clicking it');
                         contactElement.click();
                         return true;
                     } else {
-                        console.log(`❌ Contact element not found on attempt ${attempt}`);
                         return false;
                     }
                 }
@@ -224,10 +199,8 @@
                                     setTimeout(() => {
                                         if (!tryRestoreContact(4)) {
                                             // Fallback: select the first contact
-                                            console.log('🔄 Fallback: selecting first available contact');
                                             const firstContact = document.querySelector('.contact-item');
                                             if (firstContact) {
-                                                console.log('✅ Selecting first contact as fallback');
                                                 firstContact.click();
                                             }
                                         }
@@ -240,10 +213,8 @@
             } else {
                 // No localStorage data, select the first contact after a delay
                 setTimeout(() => {
-                    console.log('🔄 No saved contact, selecting first available contact');
                     const firstContact = document.querySelector('.contact-item');
                     if (firstContact) {
-                        console.log('✅ Selecting first contact');
                         firstContact.click();
                     }
                 }, 1000);
@@ -252,15 +223,12 @@
             // Add contact info functionality
             if (contactInfoBtn) {
                 contactInfoBtn.addEventListener('click', function() {
-                    console.log('Contact info button clicked!');
-                    
                     if (!currentContactId) {
                         alert('Please select a contact first');
                         return;
                     }
                     
                     const contactName = document.getElementById('chatTitle').textContent.replace('Chat with ', '');
-                    console.log('Contact name:', contactName);
                     
                     // Show contact info modal
                     const contactInfoModal = `
@@ -297,15 +265,12 @@
             // Add call functionality (simplified for in-app messaging)
             if (callBtn) {
                 callBtn.addEventListener('click', function() {
-                    console.log('Call button clicked!');
-                    
                     if (!currentContactId) {
                         alert('Please select a contact first');
                         return;
                     }
                     
                     const contactName = document.getElementById('chatTitle').textContent.replace('Chat with ', '');
-                    console.log('Contact name for call:', contactName);
                     
                     // Show simple call options
                     const callOptions = `
@@ -350,23 +315,9 @@
 
             // Contact click handler
             const contactItems = document.querySelectorAll('.contact-item');
-            console.log('Found contact items:', contactItems.length);
-            
-            // Debug: Check if contacts are visible
-            if (contactItems.length === 0) {
-                console.error('No contact items found! Check if contacts are being rendered.');
-                const contactsList = document.getElementById('contactsList');
-                if (contactsList) {
-                    console.log('Contacts list element found:', contactsList);
-                    console.log('Contacts list HTML:', contactsList.innerHTML);
-                } else {
-                    console.error('Contacts list element not found!');
-                }
-            }
             
             contactItems.forEach(contact => {
                 contact.addEventListener('click', function() {
-                    console.log('Contact clicked:', this.dataset.contactName);
                     const contactId = this.dataset.contactId;
                     const contactName = this.dataset.contactName;
                     
@@ -404,7 +355,6 @@
 
         // Load conversation and messages
         function loadConversation(contactId, contactName) {
-            console.log('🔍 Loading conversation for contact:', contactId, contactName);
             
             // Show loading state
             document.getElementById('messagesContainer').innerHTML = `
@@ -423,36 +373,25 @@
                 }
             })
                 .then(response => {
-                    console.log('📡 Conversations response status:', response.status);
                     return response.json();
                 })
                 .then(conversations => {
-                    console.log('📋 All conversations:', conversations);
-                    
                     // Check if conversations is an array
                     if (!Array.isArray(conversations)) {
-                        console.error('❌ Conversations is not an array:', conversations);
                         throw new Error('Invalid response format');
                     }
                     
-                    console.log('📊 Total conversations found:', conversations.length);
-                    
                     // Find conversation with this contact
                     const conversation = conversations.find(conv => {
-                        console.log('🔍 Checking conversation:', conv.id, 'participants:', conv.participants);
                         return conv.participants.some(p => p.id == contactId);
                     });
-
-                    console.log('💬 Found conversation:', conversation);
 
                     if (conversation) {
                         // Load messages for existing conversation
                         currentConversationId = conversation.id;
-                        console.log('📨 Loading messages for conversation ID:', conversation.id);
                         loadMessages(conversation.id);
                     } else {
                         // No existing conversation, show start message
-                        console.log('❌ No existing conversation found');
                         currentConversationId = null;
                         document.getElementById('messagesContainer').innerHTML = `
                             <div class="text-center text-gray-500 dark:text-gray-400 mt-20">
@@ -463,7 +402,6 @@
                     }
                 })
                 .catch(error => {
-                    console.error('❌ Error loading conversations:', error);
                     document.getElementById('messagesContainer').innerHTML = `
                         <div class="text-center text-gray-500 dark:text-gray-400 mt-20">
                             <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">Start a conversation with ${contactName}</h3>
@@ -475,7 +413,6 @@
 
         // Load messages for a conversation
         function loadMessages(conversationId) {
-            console.log('📨 Loading messages for conversation ID:', conversationId);
             
             fetch(`/chat/conversations/${conversationId}/messages`, {
                 headers: {
@@ -485,23 +422,18 @@
                 }
             })
                 .then(response => {
-                    console.log('📡 Messages response status:', response.status);
                     if (!response.ok) {
-                        console.error('❌ Messages response not OK:', response.status, response.statusText);
                         return response.text().then(text => {
-                            console.error('❌ Messages response body:', text);
                             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                         });
                     }
                     return response.json();
                 })
                 .then(messages => {
-                    console.log('💬 Loaded messages:', messages);
                     const messagesContainer = document.getElementById('messagesContainer');
                     
                     // Check if messages is an array
                     if (!Array.isArray(messages)) {
-                        console.error('❌ Messages is not an array:', messages);
                         messagesContainer.innerHTML = `
                             <div class="text-center text-red-500 dark:text-red-400 mt-20">
                                 <h3 class="text-sm font-medium">Error loading messages</h3>
@@ -512,7 +444,6 @@
                     }
                     
                     if (messages.length === 0) {
-                        console.log('❌ No messages found');
                         messagesContainer.innerHTML = `
                             <div class="text-center text-gray-500 dark:text-gray-400 mt-20">
                                 <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">No messages yet</h3>
@@ -522,7 +453,6 @@
                         return;
                     }
 
-                    console.log('✅ Rendering', messages.length, 'messages');
                     
                     // Render messages
                     let messagesHtml = '';
@@ -550,11 +480,9 @@
                     markMessagesAsRead(conversationId);
                 })
                 .catch(error => {
-                    console.error('❌ Error loading messages:', error);
                     
                     // If it's a 404 error, treat it as if no conversation exists
                     if (error.message.includes('404')) {
-                        console.log('🔄 404 error - treating as no conversation exists');
                         currentConversationId = null;
                         document.getElementById('messagesContainer').innerHTML = `
                             <div class="text-center text-gray-500 dark:text-gray-400 mt-20">
@@ -584,12 +512,10 @@
             })
             .then(response => response.json())
             .then(data => {
-                console.log('Messages marked as read:', data);
                 // Update unread count in UI
                 updateUnreadCounts();
             })
             .catch(error => {
-                console.error('Error marking messages as read:', error);
             });
         }
 
@@ -597,7 +523,6 @@
         function updateUnreadCounts() {
             // This would typically refresh the contacts list or update specific counts
             // For now, we'll just log that it should be updated
-            console.log('Unread counts should be updated');
         }
 
         // Send message functionality
@@ -621,11 +546,6 @@
                     ? { content: content }
                     : { participant_ids: [currentContactId], message_content: content };
 
-                console.log('🚀 Sending message...');
-                console.log('📡 URL:', url);
-                console.log('📦 Request body:', requestBody);
-                console.log('👤 Current conversation ID:', currentConversationId);
-                console.log('👥 Current contact ID:', currentContactId);
 
                 fetch(url, {
                     method: 'POST',
@@ -637,19 +557,14 @@
                     body: JSON.stringify(requestBody)
                 })
                 .then(response => {
-                    console.log('📡 Response status:', response.status);
-                    console.log('📡 Response headers:', response.headers);
                     if (!response.ok) {
-                        console.error('❌ Response not OK:', response.status, response.statusText);
                         return response.text().then(text => {
-                            console.error('❌ Response body:', text);
                             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                         });
                     }
                     return response.json();
                 })
                 .then(data => {
-                    console.log('✅ Message sent successfully:', data);
                     
                     // Add message to UI
                     const messagesContainer = document.getElementById('messagesContainer');
@@ -677,8 +592,6 @@
                     }
                 })
         .catch(error => {
-            console.error('❌ Error sending message:', error);
-            console.error('❌ Error details:', {
                 message: error.message,
                 stack: error.stack,
                 url: url,
@@ -687,7 +600,6 @@
             
             // If it's a 404 error, the conversation doesn't exist or user doesn't have access
             if (error.message.includes('404')) {
-                console.log('🔄 404 error - conversation not accessible, creating new conversation');
                 // Reset conversation ID and try to create a new conversation
                 currentConversationId = null;
                 
@@ -699,8 +611,6 @@
                     message_content: messageInput.value
                 };
                 
-                console.log('🔄 Retrying with new conversation URL:', newUrl);
-                console.log('🔄 New request body:', newRequestBody);
                 
                 fetch(newUrl, {
                     method: 'POST',
@@ -718,7 +628,6 @@
                     return response.json();
                 })
                 .then(data => {
-                    console.log('✅ New conversation created successfully:', data);
                     // Clear the input
                     messageInput.value = '';
                     // Update current conversation ID
@@ -731,7 +640,6 @@
                     }
                 })
                 .catch(retryError => {
-                    console.error('❌ Error creating new conversation:', retryError);
                     alert('Failed to create new conversation: ' + retryError.message);
                 });
             } else {
@@ -761,7 +669,6 @@
             const data = Object.fromEntries(formData);
             
             // Here you would send the broadcast via AJAX
-            console.log('Sending broadcast:', data);
             
             // Show success message
             alert('Broadcast sent successfully!');

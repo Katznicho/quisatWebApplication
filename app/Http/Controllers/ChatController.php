@@ -20,9 +20,6 @@ class ChatController extends Controller
     {
         $user = Auth::user();
         
-        // Debug: Log user info
-        \Log::info('Chat index - User ID: ' . $user->id . ', Business ID: ' . $user->business_id);
-        
         // Get user's conversations with latest message
         $conversations = $user->conversations()
             ->with(['latestMessage.sender', 'users'])
@@ -65,8 +62,6 @@ class ChatController extends Controller
                 ];
             });
 
-        // Debug: Log contacts count
-        \Log::info('Chat index - Contacts found: ' . $contacts->count());
 
         return view('chat.index', compact('conversations', 'contacts'));
     }
