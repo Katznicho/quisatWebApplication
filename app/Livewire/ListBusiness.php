@@ -232,7 +232,7 @@ class ListBusiness extends Component implements HasForms, HasTable
                             ->label('Upload Logo')
                             ->image()
                             ->preserveFilenames()
-                            ->directory('business-logos')
+                            ->directory('logos')
                             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
                             ->maxSize(1024) // 1MB in KB
                             ->required()

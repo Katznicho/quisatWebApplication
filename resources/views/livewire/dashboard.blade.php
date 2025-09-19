@@ -207,10 +207,11 @@
 
     </div>
     @else
-        <!-- Business Dashboard Cards -->
+        <!-- Business Dashboard Cards - Dynamic based on features -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             
-            <!-- Total Students Card -->
+            <!-- Total Students Card - Only show if Student Management feature is enabled -->
+            @if($this->hasFeature('Student Management'))
             <div class="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl shadow-lg p-6 border border-blue-200 dark:border-blue-700 hover:shadow-xl transition-all duration-300">
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center">
@@ -234,8 +235,10 @@
                     ↑ {{ $studentsChange }}% from last month
                 </div>
             </div>
+            @endif
 
-            <!-- Total Teachers Card -->
+            <!-- Total Teachers Card - Only show if Staff Management feature is enabled -->
+            @if($this->hasFeature('Staff Management'))
             <div class="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl shadow-lg p-6 border border-green-200 dark:border-green-700 hover:shadow-xl transition-all duration-300">
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center">
@@ -259,8 +262,10 @@
                     ↑ {{ $teachersChange }}% from last month
                 </div>
             </div>
+            @endif
 
-            <!-- Total Classes Card -->
+            <!-- Total Classes Card - Only show if Class Room Management feature is enabled -->
+            @if($this->hasFeature('Class Room Management'))
             <div class="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl shadow-lg p-6 border border-purple-200 dark:border-purple-700 hover:shadow-xl transition-all duration-300">
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center">
@@ -284,8 +289,10 @@
                     ↑ {{ $classesChange }}% from last month
                 </div>
             </div>
+            @endif
 
-            <!-- Attendance Rate Card -->
+            <!-- Attendance Rate Card - Only show if Attendance Management feature is enabled -->
+            @if($this->hasFeature('Attendance Management'))
             <div class="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-xl shadow-lg p-6 border border-orange-200 dark:border-orange-700 hover:shadow-xl transition-all duration-300">
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center">
@@ -309,13 +316,15 @@
                     Excellent attendance
                 </div>
             </div>
+            @endif
 
         </div>
 
-        <!-- Additional Business Metrics -->
+        <!-- Additional Business Metrics - Dynamic based on features -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
             
-            <!-- Total Subjects Card -->
+            <!-- Total Subjects Card - Only show if Subject Management feature is enabled -->
+            @if($this->hasFeature('Subject Management'))
             <div class="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 rounded-xl shadow-lg p-6 border border-indigo-200 dark:border-indigo-700 hover:shadow-xl transition-all duration-300">
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center">
@@ -339,8 +348,10 @@
                     ↑ {{ $subjectsChange }}% from last month
                 </div>
             </div>
+            @endif
 
-            <!-- Total Exams Card -->
+            <!-- Total Exams Card - Only show if Exam Management feature is enabled -->
+            @if($this->hasFeature('Exam Management'))
             <div class="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 rounded-xl shadow-lg p-6 border border-red-200 dark:border-red-700 hover:shadow-xl transition-all duration-300">
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center">
@@ -364,8 +375,10 @@
                     Scheduled this term
                 </div>
             </div>
+            @endif
 
-            <!-- Total Parents Card -->
+            <!-- Total Parents Card - Only show if Parent Guardian Management feature is enabled -->
+            @if($this->hasFeature('Parent Guardian Management'))
             <div class="bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/20 dark:to-teal-800/20 rounded-xl shadow-lg p-6 border border-teal-200 dark:border-teal-700 hover:shadow-xl transition-all duration-300">
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center">
@@ -389,8 +402,10 @@
                     Registered parents
                 </div>
             </div>
+            @endif
 
-            <!-- Average Grade Card -->
+            <!-- Average Grade Card - Only show if Grade Management feature is enabled -->
+            @if($this->hasFeature('Grade Management'))
             <div class="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 rounded-xl shadow-lg p-6 border border-yellow-200 dark:border-yellow-700 hover:shadow-xl transition-all duration-300">
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center">
@@ -414,6 +429,120 @@
                     Above average
                 </div>
             </div>
+            @endif
+
+        </div>
+
+        <!-- Additional Feature-Based Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+            
+            <!-- Chat & Communication Card -->
+            @if($this->hasFeature('Chat & Communication'))
+            <div class="bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-cyan-900/20 dark:to-cyan-800/20 rounded-xl shadow-lg p-6 border border-cyan-200 dark:border-cyan-700 hover:shadow-xl transition-all duration-300">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center">
+                        <div class="p-2 bg-cyan-500 rounded-lg mr-3">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                        </div>
+                        <h3 class="text-sm font-semibold text-cyan-700 dark:text-cyan-300">CHAT MESSAGES</h3>
+                    </div>
+                </div>
+                <div class="flex items-baseline mb-3">
+                    <span class="text-3xl font-bold text-cyan-900 dark:text-white">
+                        {{ number_format($totalChatMessages) }}
+                    </span>
+                </div>
+                <div class="flex items-center text-green-600 text-sm font-medium">
+                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clip-rule="evenodd"></path>
+                    </svg>
+                    Active conversations
+                </div>
+            </div>
+            @endif
+
+            <!-- Business Advertising Card -->
+            @if($this->hasFeature('Business Advertising'))
+            <div class="bg-gradient-to-br from-pink-50 to-pink-100 dark:from-pink-900/20 dark:to-pink-800/20 rounded-xl shadow-lg p-6 border border-pink-200 dark:border-pink-700 hover:shadow-xl transition-all duration-300">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center">
+                        <div class="p-2 bg-pink-500 rounded-lg mr-3">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                            </svg>
+                        </div>
+                        <h3 class="text-sm font-semibold text-pink-700 dark:text-pink-300">ACTIVE ADS</h3>
+                    </div>
+                </div>
+                <div class="flex items-baseline mb-3">
+                    <span class="text-3xl font-bold text-pink-900 dark:text-white">
+                        {{ number_format($totalActiveAds) }}
+                    </span>
+                </div>
+                <div class="flex items-center text-green-600 text-sm font-medium">
+                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clip-rule="evenodd"></path>
+                    </svg>
+                    Running campaigns
+                </div>
+            </div>
+            @endif
+
+            <!-- Kids Events Management Card -->
+            @if($this->hasFeature('Kids Events Management'))
+            <div class="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 rounded-xl shadow-lg p-6 border border-emerald-200 dark:border-emerald-700 hover:shadow-xl transition-all duration-300">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center">
+                        <div class="p-2 bg-emerald-500 rounded-lg mr-3">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                        <h3 class="text-sm font-semibold text-emerald-700 dark:text-emerald-300">UPCOMING EVENTS</h3>
+                    </div>
+                </div>
+                <div class="flex items-baseline mb-3">
+                    <span class="text-3xl font-bold text-emerald-900 dark:text-white">
+                        {{ number_format($totalUpcomingEvents) }}
+                    </span>
+                </div>
+                <div class="flex items-center text-green-600 text-sm font-medium">
+                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clip-rule="evenodd"></path>
+                    </svg>
+                    This month
+                </div>
+            </div>
+            @endif
+
+            <!-- Fee Management Card -->
+            @if($this->hasFeature('Fee Management'))
+            <div class="bg-gradient-to-br from-violet-50 to-violet-100 dark:from-violet-900/20 dark:to-violet-800/20 rounded-xl shadow-lg p-6 border border-violet-200 dark:border-violet-700 hover:shadow-xl transition-all duration-300">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center">
+                        <div class="p-2 bg-violet-500 rounded-lg mr-3">
+                            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                            </svg>
+                        </div>
+                        <h3 class="text-sm font-semibold text-violet-700 dark:text-violet-300">PENDING FEES</h3>
+                    </div>
+                </div>
+                <div class="flex items-baseline mb-3">
+                    <span class="text-3xl font-bold text-violet-900 dark:text-white">
+                        {{ number_format($totalPendingFees) }}
+                    </span>
+                </div>
+                <div class="flex items-center text-orange-600 text-sm font-medium">
+                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                    </svg>
+                    Need attention
+                </div>
+            </div>
+            @endif
 
         </div>
     @endif
@@ -423,7 +552,13 @@
         
         <!-- New Users Line Chart -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">New Users</h3>
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+                @if(auth()->user()->business_id == 1)
+                    New Users
+                @else
+                    My New Users
+                @endif
+            </h3>
             <div class="relative" style="height: 300px;">
                 <canvas id="newUsersChart" width="400" height="300"></canvas>
             </div>
@@ -431,7 +566,13 @@
 
         <!-- User Distribution Pie Chart -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">User Distribution</h3>
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+                @if(auth()->user()->business_id == 1)
+                    User Distribution
+                @else
+                    My User Roles
+                @endif
+            </h3>
             <div class="relative" style="height: 300px;">
                 <canvas id="userDistributionChart" width="400" height="300"></canvas>
             </div>
@@ -442,51 +583,103 @@
     <!-- System Health and User Role Distribution Section -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        <!-- System Health -->
+        <!-- System Health / Business Health -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">System Health</h3>
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+                @if(auth()->user()->business_id == 1)
+                    System Health
+                @else
+                    Business Health
+                @endif
+            </h3>
             <div class="space-y-4">
-                <!-- Server Status -->
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-3 h-3 rounded-full bg-green-500"></div>
-                        <span class="text-gray-700 dark:text-gray-300">Server Status</span>
+                @if(auth()->user()->business_id == 1)
+                    <!-- Admin System Health -->
+                    <!-- Server Status -->
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                            <span class="text-gray-700 dark:text-gray-300">Server Status</span>
+                        </div>
+                        <span class="text-sm text-gray-600 dark:text-gray-400">{{ $systemHealth['server']['status'] ?? 'Online' }} ({{ $systemHealth['server']['uptime'] ?? '99.98%' }} uptime)</span>
                     </div>
-                    <span class="text-sm text-gray-600 dark:text-gray-400">{{ $systemHealth['server']['status'] ?? 'Online' }} ({{ $systemHealth['server']['uptime'] ?? '99.98%' }} uptime)</span>
-                </div>
 
-                <!-- Database -->
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-3 h-3 rounded-full bg-green-500"></div>
-                        <span class="text-gray-700 dark:text-gray-300">Database</span>
+                    <!-- Database -->
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                            <span class="text-gray-700 dark:text-gray-300">Database</span>
+                        </div>
+                        <span class="text-sm text-gray-600 dark:text-gray-400">{{ $systemHealth['database']['status'] ?? 'Operational' }}</span>
                     </div>
-                    <span class="text-sm text-gray-600 dark:text-gray-400">{{ $systemHealth['database']['status'] ?? 'Operational' }}</span>
-                </div>
 
-                <!-- Storage -->
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-3 h-3 rounded-full bg-orange-500"></div>
-                        <span class="text-gray-700 dark:text-gray-300">Storage</span>
+                    <!-- Storage -->
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-3 h-3 rounded-full bg-orange-500"></div>
+                            <span class="text-gray-700 dark:text-gray-300">Storage</span>
+                        </div>
+                        <span class="text-sm text-gray-600 dark:text-gray-400">{{ $systemHealth['storage']['status'] ?? '78%' }} ({{ $systemHealth['storage']['warning'] ?? 'Warning' }})</span>
                     </div>
-                    <span class="text-sm text-gray-600 dark:text-gray-400">{{ $systemHealth['storage']['status'] ?? '78%' }} ({{ $systemHealth['storage']['warning'] ?? 'Warning' }})</span>
-                </div>
 
-                <!-- API Services -->
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-3 h-3 rounded-full bg-green-500"></div>
-                        <span class="text-gray-700 dark:text-gray-300">API Services</span>
+                    <!-- API Services -->
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                            <span class="text-gray-700 dark:text-gray-300">API Services</span>
+                        </div>
+                        <span class="text-sm text-gray-600 dark:text-gray-400">{{ $systemHealth['api_services']['status'] ?? 'All Operational' }}</span>
                     </div>
-                    <span class="text-sm text-gray-600 dark:text-gray-400">{{ $systemHealth['api_services']['status'] ?? 'All Operational' }}</span>
-                </div>
+                @else
+                    <!-- Regular Business Health -->
+                    <!-- Active Users -->
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-3 h-3 rounded-full bg-{{ $systemHealth['active_users']['color'] ?? 'green' }}-500"></div>
+                            <span class="text-gray-700 dark:text-gray-300">Active Users</span>
+                        </div>
+                        <span class="text-sm text-gray-600 dark:text-gray-400">{{ $systemHealth['active_users']['status'] ?? '0 Active' }} ({{ $systemHealth['active_users']['percentage'] ?? '0%' }})</span>
+                    </div>
+
+                    <!-- Data Sync -->
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-3 h-3 rounded-full bg-{{ $systemHealth['data_sync']['color'] ?? 'green' }}-500"></div>
+                            <span class="text-gray-700 dark:text-gray-300">Data Sync</span>
+                        </div>
+                        <span class="text-sm text-gray-600 dark:text-gray-400">{{ $systemHealth['data_sync']['status'] ?? 'Up to Date' }}</span>
+                    </div>
+
+                    <!-- Features -->
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-3 h-3 rounded-full bg-{{ $systemHealth['features']['color'] ?? 'green' }}-500"></div>
+                            <span class="text-gray-700 dark:text-gray-300">Features</span>
+                        </div>
+                        <span class="text-sm text-gray-600 dark:text-gray-400">{{ $systemHealth['features']['status'] ?? '0 Enabled' }}</span>
+                    </div>
+
+                    <!-- Last Backup -->
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-3 h-3 rounded-full bg-{{ $systemHealth['last_backup']['color'] ?? 'green' }}-500"></div>
+                            <span class="text-gray-700 dark:text-gray-300">Last Backup</span>
+                        </div>
+                        <span class="text-sm text-gray-600 dark:text-gray-400">{{ $systemHealth['last_backup']['status'] ?? 'Today' }}</span>
+                    </div>
+                @endif
             </div>
         </div>
 
         <!-- User Role Distribution -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">User Role Distribution</h3>
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+                @if(auth()->user()->business_id == 1)
+                    System Role Distribution
+                @else
+                    My Role Distribution
+                @endif
+            </h3>
             <div class="relative" style="height: 200px;">
                 <canvas id="userRoleDistributionChart" width="400" height="200"></canvas>
             </div>

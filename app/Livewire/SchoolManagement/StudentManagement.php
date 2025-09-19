@@ -41,9 +41,9 @@ class StudentManagement extends Component implements HasForms, HasTable
         return $table
             ->query($query)
             ->columns([
-                Tables\Columns\TextColumn::make('uuid')
-                    ->label('Student ID')
-                    ->searchable(),
+                // Tables\Columns\TextColumn::make('uuid')
+                //     ->label('Student ID')
+                //     ->searchable(),
                 Tables\Columns\TextColumn::make('first_name')
                     ->searchable()
                     ->sortable(),

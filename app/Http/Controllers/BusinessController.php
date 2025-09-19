@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Business;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class BusinessController extends Controller
 {
@@ -13,7 +14,15 @@ class BusinessController extends Controller
      */
     public function index()
     {
-        //
+        $user = Auth::user();
+        
+        // For regular businesses, show a different view
+        if ($user->business_id != 1) {
+            $business = Business::findOrFail($user->business_id);
+            return view('businesses.show', compact('business'));
+        }
+        
+        // For super business, show the table view
         return view('businesses.index');
     }
 
@@ -105,5 +114,39 @@ class BusinessController extends Controller
     public function destroy(Business $business)
     {
         //
+    }
+
+    /**
+     * Update the business logo.
+     */
+    public function updateLogo(Request $request, Business $business)
+    {
+        // Check if user can update this business
+        if (Auth::user()->business_id != 1 && Auth::user()->business_id != $business->id) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $request->validate([
+            'logo' => 'required|image|mimes:jpeg,png,jpg,gif,svg,webp|max:1024', // 1MB max
+        ]);
+
+        try {
+            // Handle logo upload
+            if ($request->hasFile('logo')) {
+                $logoPath = $request->file('logo')->store('logos', 'public');
+                $business->update(['logo' => $logoPath]);
+                
+                Log::info('Logo updated successfully', [
+                    'business_id' => $business->id,
+                    'logo_path' => $logoPath,
+                    'full_path' => public_path('storage/' . $logoPath)
+                ]);
+                
+                return redirect()->back()->with('success', 'Business logo updated successfully!');
+            }
+        } catch (\Exception $e) {
+            Log::error('Error updating business logo: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'An error occurred while updating the logo. Please try again.');
+        }
     }
 }

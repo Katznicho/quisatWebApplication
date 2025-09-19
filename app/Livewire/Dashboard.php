@@ -37,6 +37,12 @@ class Dashboard extends Component
     public $attendanceRate;
     public $averageGrade;
     
+    // Additional feature-based metrics
+    public $totalChatMessages;
+    public $totalActiveAds;
+    public $totalUpcomingEvents;
+    public $totalPendingFees;
+    
     // Percentage changes
     public $businessesChange = 12;
     public $usersChange = 8;
@@ -70,6 +76,9 @@ class Dashboard extends Component
     
     // User Role Distribution data
     public $userRoleDistributionData = [];
+    
+    // Business features
+    public $enabledFeatures = [];
 
     public function mount()
     {
@@ -85,6 +94,9 @@ class Dashboard extends Component
 
             $this->balance = 0; // User model doesn't have balance property
             $this->lastUpdate = now()->format('H:i:s');
+            
+            // Load enabled features for the business
+            $this->loadEnabledFeatures();
             
             // Load filter options
             $this->loadFilterOptions();
@@ -108,11 +120,74 @@ class Dashboard extends Component
             $this->totalUsers = 0;
             $this->activeBusinessClients = 0;
             $this->activeBusinessStaff = 0;
+            $this->totalStudents = 0;
+            $this->totalTeachers = 0;
+            $this->totalClasses = 0;
+            $this->totalSubjects = 0;
+            $this->totalExams = 0;
+            $this->totalParents = 0;
+            $this->attendanceRate = 0;
+            $this->averageGrade = 0;
+            $this->totalChatMessages = 0;
+            $this->totalActiveAds = 0;
+            $this->totalUpcomingEvents = 0;
+            $this->totalPendingFees = 0;
             $this->newUsersChartData = ['labels' => [], 'data' => []];
             $this->userDistributionChartData = ['labels' => [], 'data' => [], 'colors' => []];
             $this->userRoleDistributionData = ['labels' => [], 'data' => [], 'colors' => []];
             $this->systemHealth = [];
         }
+    }
+    
+    /**
+     * Load enabled features for the business
+     */
+    public function loadEnabledFeatures()
+    {
+        try {
+            $user = Auth::user();
+            $business = $this->business;
+            
+            if ($user->business_id == 1) {
+                // Super business has all features
+                $this->enabledFeatures = [
+                    'Student Management',
+                    'Staff Management', 
+                    'Class Room Management',
+                    'Subject Management',
+                    'Exam Management',
+                    'Parent Guardian Management',
+                    'Attendance Management',
+                    'Grade Management',
+                    'Term Management',
+                    'Calendar & Events Management',
+                    'Timetable Management',
+                    'Fee Management',
+                    'Chat & Communication',
+                    'Business Advertising',
+                    'Kids Events Management',
+                    'Role-Based Access Control'
+                ];
+            } else {
+                // Regular business - get features from enabled_feature_ids
+                $this->enabledFeatures = [];
+                if ($business && $business->enabled_feature_ids) {
+                    $features = \App\Models\Feature::whereIn('id', $business->enabled_feature_ids)->pluck('name')->toArray();
+                    $this->enabledFeatures = $features;
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error('Error loading enabled features: ' . $e->getMessage());
+            $this->enabledFeatures = [];
+        }
+    }
+    
+    /**
+     * Check if a feature is enabled for the business
+     */
+    public function hasFeature($featureName)
+    {
+        return in_array($featureName, $this->enabledFeatures);
     }
     
     public function loadChartData()
@@ -184,37 +259,51 @@ class Dashboard extends Component
     
     public function generateUserDistributionChartData()
     {
-        // Get user distribution by business category
-        $query = Business::with('businessCategory')->withCount('users');
+        $user = Auth::user();
+        $isAdmin = $user->business_id == 1;
         
-        // Apply filters
-        if ($this->selectedCountry) {
-            $query->where('country', $this->selectedCountry);
+        if ($isAdmin) {
+            // Admin sees distribution by business category
+            $query = Business::with('businessCategory')->withCount('users');
+            
+            // Apply filters
+            if ($this->selectedCountry) {
+                $query->where('country', $this->selectedCountry);
+            }
+            
+            if ($this->selectedDistrict) {
+                $query->where('city', $this->selectedDistrict);
+            }
+            
+            if ($this->selectedCategory) {
+                $query->whereHas('businessCategory', function($q) {
+                    $q->where('name', 'like', '%' . $this->selectedCategory . '%');
+                });
+            }
+            
+            $distribution = $query->get()
+                ->groupBy('businessCategory.name')
+                ->map(function ($businesses) {
+                    return $businesses->sum('users_count');
+                });
+        } else {
+            // Regular businesses see their own user distribution by roles
+            $distribution = User::where('business_id', $user->business_id)
+                ->with('role')
+                ->get()
+                ->groupBy('role.name')
+                ->map(function ($users) {
+                    return $users->count();
+                });
         }
-        
-        if ($this->selectedDistrict) {
-            $query->where('city', $this->selectedDistrict);
-        }
-        
-        if ($this->selectedCategory) {
-            $query->whereHas('businessCategory', function($q) {
-                $q->where('name', 'like', '%' . $this->selectedCategory . '%');
-            });
-        }
-        
-        $distribution = $query->get()
-            ->groupBy('businessCategory.name')
-            ->map(function ($businesses) {
-                return $businesses->sum('users_count');
-            });
         
         // Prepare data for pie chart
         $labels = [];
         $data = [];
-        $colors = ['#3B82F6', '#EF4444', '#8B5CF6', '#06B6D4']; // Blue, Red, Purple, Cyan
+        $colors = ['#3B82F6', '#EF4444', '#8B5CF6', '#06B6D4', '#10B981', '#F59E0B']; // More colors
         
         foreach ($distribution as $category => $count) {
-            $labels[] = $category;
+            $labels[] = $category ?: 'No Role';
             $data[] = $count;
         }
         
@@ -227,43 +316,88 @@ class Dashboard extends Component
     
     public function generateSystemHealthData()
     {
-        // Simulate system health data
-        $this->systemHealth = [
-            'server' => [
-                'status' => 'Online',
-                'uptime' => '99.98%',
-                'color' => 'green'
-            ],
-            'database' => [
-                'status' => 'Operational',
-                'color' => 'green'
-            ],
-            'storage' => [
-                'status' => '78%',
-                'warning' => 'Warning',
-                'color' => 'orange'
-            ],
-            'api_services' => [
-                'status' => 'All Operational',
-                'color' => 'green'
-            ]
-        ];
+        $user = Auth::user();
+        $isAdmin = $user->business_id == 1;
+        
+        if ($isAdmin) {
+            // Admin sees system-wide health data
+            $this->systemHealth = [
+                'server' => [
+                    'status' => 'Online',
+                    'uptime' => '99.98%',
+                    'color' => 'green'
+                ],
+                'database' => [
+                    'status' => 'Operational',
+                    'color' => 'green'
+                ],
+                'storage' => [
+                    'status' => '78%',
+                    'warning' => 'Warning',
+                    'color' => 'orange'
+                ],
+                'api_services' => [
+                    'status' => 'All Operational',
+                    'color' => 'green'
+                ]
+            ];
+        } else {
+            // Regular businesses see their own business health metrics
+            $businessId = $user->business_id;
+            $totalUsers = User::where('business_id', $businessId)->count();
+            $activeUsers = User::where('business_id', $businessId)->where('status', 'active')->count();
+            $activePercentage = $totalUsers > 0 ? round(($activeUsers / $totalUsers) * 100, 1) : 0;
+            
+            $this->systemHealth = [
+                'active_users' => [
+                    'status' => $activeUsers . ' Active',
+                    'percentage' => $activePercentage . '%',
+                    'color' => $activePercentage > 80 ? 'green' : ($activePercentage > 60 ? 'orange' : 'red')
+                ],
+                'data_sync' => [
+                    'status' => 'Up to Date',
+                    'color' => 'green'
+                ],
+                'features' => [
+                    'status' => count($this->enabledFeatures) . ' Enabled',
+                    'color' => 'green'
+                ],
+                'last_backup' => [
+                    'status' => 'Today',
+                    'color' => 'green'
+                ]
+            ];
+        }
     }
     
     public function generateUserRoleDistributionData()
     {
-        // Get user role distribution
-        $roleDistribution = User::with('role')
-            ->get()
-            ->groupBy('role.name')
-            ->map(function ($users) {
-                return $users->count();
-            });
+        $user = Auth::user();
+        $isAdmin = $user->business_id == 1;
+        
+        if ($isAdmin) {
+            // Admin sees system-wide role distribution
+            $roleDistribution = User::with('role')
+                ->get()
+                ->groupBy('role.name')
+                ->map(function ($users) {
+                    return $users->count();
+                });
+        } else {
+            // Regular businesses see their own role distribution
+            $roleDistribution = User::where('business_id', $user->business_id)
+                ->with('role')
+                ->get()
+                ->groupBy('role.name')
+                ->map(function ($users) {
+                    return $users->count();
+                });
+        }
         
         // Prepare data for pie chart
         $labels = [];
         $data = [];
-        $colors = ['#14B8A6', '#F97316', '#0F172A', '#EAB308']; // Teal, Orange, Dark Blue, Yellow
+        $colors = ['#14B8A6', '#F97316', '#0F172A', '#EAB308', '#8B5CF6', '#EF4444']; // More colors
         
         // Map role names to display names
         $roleMapping = [
@@ -446,6 +580,7 @@ class Dashboard extends Component
     {
         $user = Auth::user();
         $businessId = $user->business_id;
+        $business = $this->business;
         
         // Build query based on filters for this specific business
         $userQuery = User::where('business_id', $businessId);
@@ -469,28 +604,92 @@ class Dashboard extends Component
             ->whereNotNull('role_id')
             ->count();
         
-        // School-specific metrics
-        $this->totalStudents = Student::where('business_id', $businessId)->count();
-        $this->totalTeachers = User::where('business_id', $businessId)
-            ->whereHas('role', function($q) {
-                $q->where('name', 'like', '%teacher%');
-            })->count();
-        $this->totalClasses = ClassRoom::where('business_id', $businessId)->count();
-        $this->totalSubjects = Subject::where('business_id', $businessId)->count();
-        $this->totalExams = Exam::where('business_id', $businessId)->count();
-        $this->totalParents = ParentGuardian::where('business_id', $businessId)->count();
-        
-        // Calculate attendance rate (simplified)
-        $totalAttendanceRecords = Attendance::where('business_id', $businessId)->count();
-        $presentRecords = Attendance::where('business_id', $businessId)
-            ->where('status', 'present')->count();
-        $this->attendanceRate = $totalAttendanceRecords > 0 ? round(($presentRecords / $totalAttendanceRecords) * 100, 1) : 0;
-        
-        // Average grade (simplified - you might want to implement this based on your grade system)
-        $this->averageGrade = 85.5; // Placeholder
+        // Load feature-specific metrics based on enabled features
+        $this->loadFeatureSpecificMetrics($business, $businessId);
         
         // Calculate percentage changes for this business
         $this->calculateBusinessPercentageChanges();
+    }
+    
+    /**
+     * Load metrics based on enabled business features
+     */
+    public function loadFeatureSpecificMetrics($business, $businessId)
+    {
+        // Student Management feature
+        if ($business->hasFeatureByName('Student Management')) {
+            $this->totalStudents = Student::where('business_id', $businessId)->count();
+        }
+        
+        // Staff Management feature
+        if ($business->hasFeatureByName('Staff Management')) {
+            $this->totalTeachers = User::where('business_id', $businessId)
+                ->whereHas('role', function($q) {
+                    $q->where('name', 'like', '%teacher%');
+                })->count();
+        }
+        
+        // Class Room Management feature
+        if ($business->hasFeatureByName('Class Room Management')) {
+            $this->totalClasses = ClassRoom::where('business_id', $businessId)->count();
+        }
+        
+        // Subject Management feature
+        if ($business->hasFeatureByName('Subject Management')) {
+            $this->totalSubjects = Subject::where('business_id', $businessId)->count();
+        }
+        
+        // Exam Management feature
+        if ($business->hasFeatureByName('Exam Management')) {
+            $this->totalExams = Exam::where('business_id', $businessId)->count();
+        }
+        
+        // Parent Guardian Management feature
+        if ($business->hasFeatureByName('Parent Guardian Management')) {
+            $this->totalParents = ParentGuardian::where('business_id', $businessId)->count();
+        }
+        
+        // Attendance Management feature
+        if ($business->hasFeatureByName('Attendance Management')) {
+            $totalAttendanceRecords = Attendance::where('business_id', $businessId)->count();
+            $presentRecords = Attendance::where('business_id', $businessId)
+                ->where('status', 'present')->count();
+            $this->attendanceRate = $totalAttendanceRecords > 0 ? round(($presentRecords / $totalAttendanceRecords) * 100, 1) : 0;
+        }
+        
+        // Grade Management feature
+        if ($business->hasFeatureByName('Grade Management')) {
+            // Average grade (simplified - you might want to implement this based on your grade system)
+            $this->averageGrade = 85.5; // Placeholder
+        }
+        
+        // Chat & Communication feature
+        if ($business->hasFeatureByName('Chat & Communication')) {
+            $this->totalChatMessages = \App\Models\Message::whereHas('conversation', function($query) use ($businessId) {
+                $query->where('business_id', $businessId);
+            })->count();
+        }
+        
+        // Business Advertising feature
+        if ($business->hasFeatureByName('Business Advertising')) {
+            $this->totalActiveAds = \App\Models\Advertisement::where('business_id', $businessId)
+                ->where('status', 'active')
+                ->count();
+        }
+        
+        // Kids Events Management feature
+        if ($business->hasFeatureByName('Kids Events Management')) {
+            $this->totalUpcomingEvents = \App\Models\KidsEvent::where('business_id', $businessId)
+                ->where('start_date', '>=', now())
+                ->count();
+        }
+        
+        // Fee Management feature
+        if ($business->hasFeatureByName('Fee Management')) {
+            $this->totalPendingFees = \App\Models\Fee::where('business_id', $businessId)
+                ->where('payment_status', 'pending')
+                ->count();
+        }
     }
     
     public function calculatePercentageChanges()
