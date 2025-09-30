@@ -52,7 +52,7 @@
                             </div>
                             <div class="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-4 text-white">
                                 <div class="text-sm font-medium opacity-90">Current Time</div>
-                                <div class="text-lg font-semibold font-mono">{{ now()->format('H:i:s') }} UTC</div>
+                                <div class="text-lg font-semibold font-mono">{{ now()->format('H:i:s') }} EAT</div>
                             </div>
                         </div>
                     </div>

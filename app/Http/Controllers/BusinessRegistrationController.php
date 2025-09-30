@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Auth\Events\Registered;
 
 class BusinessRegistrationController extends Controller
 {
@@ -112,6 +113,9 @@ class BusinessRegistrationController extends Controller
                 'branch_id' => $defaultBranch->id,
             ]);
 
+            // Fire the Registered event to trigger email verification
+            event(new Registered($adminUser));
+
             DB::commit();
 
             // Send welcome emails
@@ -142,6 +146,28 @@ class BusinessRegistrationController extends Controller
     public function registrationSuccess()
     {
         return view('businesses.registration-success');
+    }
+
+    public function resendVerification(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users,email'
+        ]);
+
+        try {
+            $user = User::where('email', $request->email)->first();
+            
+            if ($user && !$user->hasVerifiedEmail()) {
+                $user->sendEmailVerificationNotification();
+                
+                return redirect()->back()->with('success', 'Verification email has been sent to ' . $user->email);
+            } else {
+                return redirect()->back()->with('error', 'Email not found or already verified.');
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to resend verification email: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to send verification email. Please try again.');
+        }
     }
 
     public function verifyEmail(Request $request, $id, $hash)

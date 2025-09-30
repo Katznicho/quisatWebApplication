@@ -77,6 +77,7 @@ Route::redirect('/', 'login');
 Route::get('/business/register', [BusinessRegistrationController::class, 'showRegistrationForm'])->name('business.register');
 Route::post('/business/register', [BusinessRegistrationController::class, 'register'])->name('business.register');
 Route::get('/business/registration/success', [BusinessRegistrationController::class, 'registrationSuccess'])->name('business.registration.success');
+Route::post('/business/resend-verification', [BusinessRegistrationController::class, 'resendVerification'])->name('business.resend.verification');
 
 // Route::get("makePayment",[PaymentController::class,"makePayment"])->name("makePayment");    
 
