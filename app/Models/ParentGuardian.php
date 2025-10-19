@@ -15,6 +15,7 @@ class ParentGuardian extends Model
         'first_name',
         'last_name',
         'email',
+        'password',
         'phone',
         'address',
         'city',
@@ -24,6 +25,10 @@ class ParentGuardian extends Model
         'emergency_contact',
         'business_id',
         'status',
+    ];
+
+    protected $hidden = [
+        'password',
     ];
 
     protected $casts = [
