@@ -101,7 +101,7 @@ class AuthController extends Controller
                         'role' => $user->role ? [
                             'id' => $user->role->id,
                             'name' => $user->role->name,
-                            'permissions' => json_decode($user->role->permissions, true),
+                            'permissions' => is_array($user->role->permissions) ? $user->role->permissions : json_decode($user->role->permissions, true),
                         ] : null,
                         'branch' => $user->branch ? [
                             'id' => $user->branch->id,
@@ -192,7 +192,7 @@ class AuthController extends Controller
                         'role' => $user->role ? [
                             'id' => $user->role->id,
                             'name' => $user->role->name,
-                            'permissions' => json_decode($user->role->permissions, true),
+                            'permissions' => is_array($user->role->permissions) ? $user->role->permissions : json_decode($user->role->permissions, true),
                         ] : null,
                         'branch' => $user->branch ? [
                             'id' => $user->branch->id,
