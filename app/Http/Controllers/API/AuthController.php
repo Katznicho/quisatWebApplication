@@ -12,8 +12,10 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
+use App\Mail\PasswordResetCodeMail;
 
 class AuthController extends Controller
 {
@@ -344,17 +346,23 @@ class AuthController extends Controller
             // Store code in cache for 10 minutes
             cache()->put("password_reset_code_{$user->id}", $code, 600);
             
-            // TODO: Send email with code
-            // $this->sendPasswordResetEmail($user->email, $code);
+            // Send email with code
+            try {
+                Mail::to($user->email)->send(new PasswordResetCodeMail($code, $user->name));
+            } catch (\Exception $e) {
+                Log::error('Failed to send password reset email: ' . $e->getMessage());
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to send reset code. Please try again.'
+                ], 500);
+            }
             
-            // For now, return the code in response (remove in production)
             return response()->json([
                 'success' => true,
                 'message' => 'Password reset code sent to your email',
                 'data' => [
                     'user_id' => $user->id,
                     'email' => $user->email,
-                    'code' => $code, // Remove this in production
                     'expires_in' => 600 // 10 minutes
                 ]
             ], 200);
@@ -594,17 +602,23 @@ class AuthController extends Controller
             // Store code in cache for 10 minutes
             cache()->put("parent_password_reset_code_{$parent->id}", $code, 600);
             
-            // TODO: Send email with code
-            // $this->sendPasswordResetEmail($parent->email, $code);
+            // Send email with code
+            try {
+                Mail::to($parent->email)->send(new PasswordResetCodeMail($code, $parent->full_name));
+            } catch (\Exception $e) {
+                Log::error('Failed to send parent password reset email: ' . $e->getMessage());
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to send reset code. Please try again.'
+                ], 500);
+            }
             
-            // For now, return the code in response (remove in production)
             return response()->json([
                 'success' => true,
                 'message' => 'Password reset code sent to your email',
                 'data' => [
                     'parent_id' => $parent->id,
                     'email' => $parent->email,
-                    'code' => $code, // Remove this in production
                     'expires_in' => 600 // 10 minutes
                 ]
             ], 200);
