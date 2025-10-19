@@ -230,13 +230,13 @@ All authenticated users are automatically associated with their business. The AP
 }
 ```
 
-#### Forgot Password
+#### Forgot Password (SMS Code)
 **POST** `/auth/forgot-password`
 
 **Request Body:**
 ```json
 {
-    "email": "user@example.com"
+    "phone": "+256700000000"
 }
 ```
 
@@ -244,18 +244,69 @@ All authenticated users are automatically associated with their business. The AP
 ```json
 {
     "success": true,
-    "message": "Password reset link sent to your email"
+    "message": "Password reset code sent to your phone",
+    "data": {
+        "user_id": 1,
+        "phone": "+256700000000",
+        "code": "123456",
+        "expires_in": 600
+    }
 }
 ```
 
-#### Reset Password
+#### Reset Password (SMS Code)
 **POST** `/auth/reset-password`
 
 **Request Body:**
 ```json
 {
-    "email": "user@example.com",
-    "token": "reset_token_from_email",
+    "user_id": 1,
+    "code": "123456",
+    "password": "newpassword123",
+    "password_confirmation": "newpassword123"
+}
+```
+
+**Response:**
+```json
+{
+    "success": true,
+    "message": "Password reset successfully"
+}
+```
+
+#### Parent Forgot Password (SMS Code)
+**POST** `/auth/parent-forgot-password`
+
+**Request Body:**
+```json
+{
+    "phone": "+256700000000"
+}
+```
+
+**Response:**
+```json
+{
+    "success": true,
+    "message": "Password reset code sent to your phone",
+    "data": {
+        "parent_id": 1,
+        "phone": "+256700000000",
+        "code": "123456",
+        "expires_in": 600
+    }
+}
+```
+
+#### Parent Reset Password (SMS Code)
+**POST** `/auth/parent-reset-password`
+
+**Request Body:**
+```json
+{
+    "parent_id": 1,
+    "code": "123456",
     "password": "newpassword123",
     "password_confirmation": "newpassword123"
 }

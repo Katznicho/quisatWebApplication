@@ -311,14 +311,14 @@ class AuthController extends Controller
     }
 
     /**
-     * Forgot Password
+     * Forgot Password - Send SMS Code
      * POST /api/v1/auth/forgot-password
      */
     public function forgotPassword(Request $request)
     {
         try {
             $validator = Validator::make($request->all(), [
-                'email' => 'required|email|exists:users,email',
+                'phone' => 'required|string|exists:users,phone',
             ]);
 
             if ($validator->fails()) {
@@ -329,19 +329,35 @@ class AuthController extends Controller
                 ], 422);
             }
 
-            $status = Password::sendResetLink($request->only('email'));
-
-            if ($status === Password::RESET_LINK_SENT) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Password reset link sent to your email'
-                ], 200);
-            } else {
+            $user = User::where('phone', $request->phone)->first();
+            
+            if (!$user) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unable to send password reset link'
-                ], 400);
+                    'message' => 'Phone number not found'
+                ], 404);
             }
+
+            // Generate 6-digit code
+            $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            
+            // Store code in cache for 10 minutes
+            cache()->put("password_reset_code_{$user->id}", $code, 600);
+            
+            // TODO: Send SMS with code
+            // $this->sendSMS($user->phone, "Your password reset code is: {$code}");
+            
+            // For now, return the code in response (remove in production)
+            return response()->json([
+                'success' => true,
+                'message' => 'Password reset code sent to your phone',
+                'data' => [
+                    'user_id' => $user->id,
+                    'phone' => $user->phone,
+                    'code' => $code, // Remove this in production
+                    'expires_in' => 600 // 10 minutes
+                ]
+            ], 200);
 
         } catch (\Exception $e) {
             Log::error('Forgot Password API Error: ' . $e->getMessage());
@@ -353,15 +369,15 @@ class AuthController extends Controller
     }
 
     /**
-     * Reset Password
+     * Reset Password with SMS Code
      * POST /api/v1/auth/reset-password
      */
     public function resetPassword(Request $request)
     {
         try {
             $validator = Validator::make($request->all(), [
-                'email' => 'required|email',
-                'token' => 'required|string',
+                'user_id' => 'required|integer|exists:users,id',
+                'code' => 'required|string|size:6',
                 'password' => 'required|string|min:8|confirmed',
             ]);
 
@@ -373,26 +389,44 @@ class AuthController extends Controller
                 ], 422);
             }
 
-            $status = Password::reset(
-                $request->only('email', 'password', 'password_confirmation', 'token'),
-                function ($user, $password) {
-                    $user->forceFill([
-                        'password' => Hash::make($password)
-                    ])->save();
-                }
-            );
-
-            if ($status === Password::PASSWORD_RESET) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Password reset successfully'
-                ], 200);
-            } else {
+            $user = User::find($request->user_id);
+            
+            if (!$user) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Invalid or expired reset token'
+                    'message' => 'User not found'
+                ], 404);
+            }
+
+            // Verify the code
+            $storedCode = cache()->get("password_reset_code_{$user->id}");
+            
+            if (!$storedCode) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Reset code has expired or is invalid'
                 ], 400);
             }
+
+            if ($storedCode !== $request->code) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid reset code'
+                ], 400);
+            }
+
+            // Update password
+            $user->update([
+                'password' => Hash::make($request->password)
+            ]);
+
+            // Clear the reset code
+            cache()->forget("password_reset_code_{$user->id}");
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Password reset successfully'
+            ], 200);
 
         } catch (\Exception $e) {
             Log::error('Reset Password API Error: ' . $e->getMessage());
@@ -522,6 +556,133 @@ class AuthController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred during parent login'
+            ], 500);
+        }
+    }
+
+    /**
+     * Parent Forgot Password - Send SMS Code
+     * POST /api/v1/auth/parent-forgot-password
+     */
+    public function parentForgotPassword(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'phone' => 'required|string|exists:parent_guardians,phone',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $parent = ParentGuardian::where('phone', $request->phone)->first();
+            
+            if (!$parent) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Phone number not found'
+                ], 404);
+            }
+
+            // Generate 6-digit code
+            $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            
+            // Store code in cache for 10 minutes
+            cache()->put("parent_password_reset_code_{$parent->id}", $code, 600);
+            
+            // TODO: Send SMS with code
+            // $this->sendSMS($parent->phone, "Your password reset code is: {$code}");
+            
+            // For now, return the code in response (remove in production)
+            return response()->json([
+                'success' => true,
+                'message' => 'Password reset code sent to your phone',
+                'data' => [
+                    'parent_id' => $parent->id,
+                    'phone' => $parent->phone,
+                    'code' => $code, // Remove this in production
+                    'expires_in' => 600 // 10 minutes
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Parent Forgot Password API Error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while processing forgot password'
+            ], 500);
+        }
+    }
+
+    /**
+     * Parent Reset Password with SMS Code
+     * POST /api/v1/auth/parent-reset-password
+     */
+    public function parentResetPassword(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'parent_id' => 'required|integer|exists:parent_guardians,id',
+                'code' => 'required|string|size:6',
+                'password' => 'required|string|min:8|confirmed',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $parent = ParentGuardian::find($request->parent_id);
+            
+            if (!$parent) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Parent/Guardian not found'
+                ], 404);
+            }
+
+            // Verify the code
+            $storedCode = cache()->get("parent_password_reset_code_{$parent->id}");
+            
+            if (!$storedCode) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Reset code has expired or is invalid'
+                ], 400);
+            }
+
+            if ($storedCode !== $request->code) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid reset code'
+                ], 400);
+            }
+
+            // Update password
+            $parent->update([
+                'password' => Hash::make($request->password)
+            ]);
+
+            // Clear the reset code
+            cache()->forget("parent_password_reset_code_{$parent->id}");
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Password reset successfully'
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Parent Reset Password API Error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while resetting password'
             ], 500);
         }
     }

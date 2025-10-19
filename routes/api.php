@@ -13,6 +13,8 @@ Route::prefix('v1')->group(function () {
         Route::post('parent-login', [AuthController::class, 'parentLogin']);
         Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
         Route::post('reset-password', [AuthController::class, 'resetPassword']);
+        Route::post('parent-forgot-password', [AuthController::class, 'parentForgotPassword']);
+        Route::post('parent-reset-password', [AuthController::class, 'parentResetPassword']);
     });
 
     // Protected Routes (Require Authentication)
