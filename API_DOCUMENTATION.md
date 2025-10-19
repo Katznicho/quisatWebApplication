@@ -11,6 +11,13 @@ The API uses Laravel Sanctum for authentication. Include the Bearer token in the
 Authorization: Bearer {token}
 ```
 
+## Business Context
+All authenticated users are automatically associated with their business. The API ensures that:
+- Users can only access data within their business scope
+- Business information is included in login responses
+- All API requests are automatically scoped to the user's business
+- Business features and permissions are enforced
+
 ## API Endpoints
 
 ### 1. User Authentication
@@ -39,14 +46,20 @@ Authorization: Bearer {token}
             "email": "user@example.com",
             "phone": "+256700000000",
             "status": "active",
+            "business_id": 1,
             "business": {
                 "id": 1,
+                "uuid": "550e8400-e29b-41d4-a716-446655440000",
                 "name": "Example School",
                 "email": "school@example.com",
                 "phone": "+256700000001",
                 "address": "123 School Street",
                 "city": "Kampala",
-                "country": "Uganda"
+                "country": "Uganda",
+                "logo": "https://example.com/logo.png",
+                "type": "school",
+                "mode": "production",
+                "enabled_features": [1, 2, 3, 4]
             },
             "role": {
                 "id": 1,
@@ -57,7 +70,8 @@ Authorization: Bearer {token}
                 "id": 1,
                 "name": "Main Branch",
                 "code": "MB-1"
-            }
+            },
+            "user_type": "business_admin"
         },
         "token": "1|abcdef123456...",
         "token_type": "Bearer"

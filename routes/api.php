@@ -27,10 +27,13 @@ Route::prefix('v1')->group(function () {
             Route::post('refresh', [AuthController::class, 'refresh']);
         });
 
-        // Add more protected API routes here
-        // Route::apiResource('users', UserController::class);
-        // Route::apiResource('students', StudentController::class);
-        // Route::apiResource('attendance', AttendanceController::class);
+        // Business-scoped Routes (Require Authentication + Business Association)
+        Route::middleware('business.scope')->group(function () {
+            // Add business-scoped API routes here
+            // Route::apiResource('students', StudentController::class);
+            // Route::apiResource('attendance', AttendanceController::class);
+            // Route::apiResource('transactions', TransactionController::class);
+        });
     });
 
     // Payment Routes

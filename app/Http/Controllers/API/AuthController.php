@@ -61,8 +61,17 @@ class AuthController extends Controller
             // Create token
             $token = $user->createToken($request->device_name ?? 'mobile-app')->plainTextToken;
 
-            // Load user relationships
+            // Load user relationships with business context
             $user->load(['business', 'role', 'branch']);
+
+            // Ensure user has a business association
+            if (!$user->business) {
+                Auth::logout();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User is not associated with any business. Please contact support.'
+                ], 403);
+            }
 
             return response()->json([
                 'success' => true,
@@ -74,15 +83,21 @@ class AuthController extends Controller
                         'email' => $user->email,
                         'phone' => $user->phone,
                         'status' => $user->status,
-                        'business' => $user->business ? [
+                        'business_id' => $user->business_id,
+                        'business' => [
                             'id' => $user->business->id,
+                            'uuid' => $user->business->uuid,
                             'name' => $user->business->name,
                             'email' => $user->business->email,
                             'phone' => $user->business->phone,
                             'address' => $user->business->address,
                             'city' => $user->business->city,
                             'country' => $user->business->country,
-                        ] : null,
+                            'logo' => $user->business->logo,
+                            'type' => $user->business->type,
+                            'mode' => $user->business->mode,
+                            'enabled_features' => $user->business->enabled_feature_ids,
+                        ],
                         'role' => $user->role ? [
                             'id' => $user->role->id,
                             'name' => $user->role->name,
@@ -93,6 +108,7 @@ class AuthController extends Controller
                             'name' => $user->branch->name,
                             'code' => $user->branch->code,
                         ] : null,
+                        'user_type' => $this->getUserType($user),
                     ],
                     'token' => $token,
                     'token_type' => 'Bearer'
@@ -141,6 +157,14 @@ class AuthController extends Controller
             $user = $request->user();
             $user->load(['business', 'role', 'branch']);
 
+            // Ensure user has a business association
+            if (!$user->business) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User is not associated with any business. Please contact support.'
+                ], 403);
+            }
+
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -150,15 +174,21 @@ class AuthController extends Controller
                         'email' => $user->email,
                         'phone' => $user->phone,
                         'status' => $user->status,
-                        'business' => $user->business ? [
+                        'business_id' => $user->business_id,
+                        'business' => [
                             'id' => $user->business->id,
+                            'uuid' => $user->business->uuid,
                             'name' => $user->business->name,
                             'email' => $user->business->email,
                             'phone' => $user->business->phone,
                             'address' => $user->business->address,
                             'city' => $user->business->city,
                             'country' => $user->business->country,
-                        ] : null,
+                            'logo' => $user->business->logo,
+                            'type' => $user->business->type,
+                            'mode' => $user->business->mode,
+                            'enabled_features' => $user->business->enabled_feature_ids,
+                        ],
                         'role' => $user->role ? [
                             'id' => $user->role->id,
                             'name' => $user->role->name,
@@ -169,6 +199,7 @@ class AuthController extends Controller
                             'name' => $user->branch->name,
                             'code' => $user->branch->code,
                         ] : null,
+                        'user_type' => $this->getUserType($user),
                     ]
                 ]
             ], 200);
@@ -510,6 +541,22 @@ class AuthController extends Controller
                 'success' => false,
                 'message' => 'An error occurred while refreshing token'
             ], 500);
+        }
+    }
+
+    /**
+     * Get user type based on business and role
+     */
+    private function getUserType($user)
+    {
+        if ($user->isAdmin()) {
+            return 'super_admin';
+        } elseif ($user->isBusinessAdmin()) {
+            return 'business_admin';
+        } elseif ($user->isStaff()) {
+            return 'staff';
+        } else {
+            return 'user';
         }
     }
 }
