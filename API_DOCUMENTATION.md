@@ -106,14 +106,20 @@ All authenticated users are automatically associated with their business. The AP
             "phone": "+256700000000",
             "relationship": "mother",
             "status": "active",
+            "business_id": 1,
             "business": {
                 "id": 1,
+                "uuid": "550e8400-e29b-41d4-a716-446655440000",
                 "name": "Example School",
                 "email": "school@example.com",
                 "phone": "+256700000001",
                 "address": "123 School Street",
                 "city": "Kampala",
-                "country": "Uganda"
+                "country": "Uganda",
+                "logo": "https://example.com/logo.png",
+                "type": "school",
+                "mode": "production",
+                "enabled_features": [1, 2, 3, 4]
             },
             "students": [
                 {
@@ -125,7 +131,8 @@ All authenticated users are automatically associated with their business. The AP
                     "class": "P5",
                     "status": "active"
                 }
-            ]
+            ],
+            "user_type": "parent_guardian"
         },
         "token": "1|abcdef123456...",
         "token_type": "Bearer"

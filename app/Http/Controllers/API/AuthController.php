@@ -460,8 +460,16 @@ class AuthController extends Controller
             // Create token for parent
             $token = $parent->createToken($request->device_name ?? 'mobile-app')->plainTextToken;
 
-            // Load parent relationships
+            // Load parent relationships with business context
             $parent->load(['business', 'students']);
+
+            // Ensure parent has a business association
+            if (!$parent->business) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Parent/Guardian is not associated with any business. Please contact support.'
+                ], 403);
+            }
 
             return response()->json([
                 'success' => true,
@@ -476,15 +484,21 @@ class AuthController extends Controller
                         'phone' => $parent->phone,
                         'relationship' => $parent->relationship,
                         'status' => $parent->status,
-                        'business' => $parent->business ? [
+                        'business_id' => $parent->business_id,
+                        'business' => [
                             'id' => $parent->business->id,
+                            'uuid' => $parent->business->uuid,
                             'name' => $parent->business->name,
                             'email' => $parent->business->email,
                             'phone' => $parent->business->phone,
                             'address' => $parent->business->address,
                             'city' => $parent->business->city,
                             'country' => $parent->business->country,
-                        ] : null,
+                            'logo' => $parent->business->logo,
+                            'type' => $parent->business->type,
+                            'mode' => $parent->business->mode,
+                            'enabled_features' => $parent->business->enabled_feature_ids,
+                        ],
                         'students' => $parent->students->map(function ($student) {
                             return [
                                 'id' => $student->id,
@@ -496,6 +510,7 @@ class AuthController extends Controller
                                 'status' => $student->status,
                             ];
                         }),
+                        'user_type' => 'parent_guardian',
                     ],
                     'token' => $token,
                     'token_type' => 'Bearer'

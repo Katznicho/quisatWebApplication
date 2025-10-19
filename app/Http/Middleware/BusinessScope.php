@@ -26,19 +26,38 @@ class BusinessScope
             ], 401);
         }
 
+        // Handle both User and ParentGuardian models
+        $businessId = null;
+        $business = null;
+        $userType = null;
+
+        if ($user instanceof \App\Models\User) {
+            // Regular user
+            $businessId = $user->business_id;
+            $business = $user->business;
+            $userType = $this->getUserType($user);
+        } elseif ($user instanceof \App\Models\ParentGuardian) {
+            // Parent/Guardian
+            $businessId = $user->business_id;
+            $business = $user->business;
+            $userType = 'parent_guardian';
+        }
+
         // Ensure user has a business association
-        if (!$user->business_id) {
+        if (!$businessId || !$business) {
+            $userTypeName = $user instanceof \App\Models\ParentGuardian ? 'Parent/Guardian' : 'User';
             return response()->json([
                 'success' => false,
-                'message' => 'User is not associated with any business. Please contact support.'
+                'message' => $userTypeName . ' is not associated with any business. Please contact support.'
             ], 403);
         }
 
         // Add business context to the request
         $request->merge([
-            'business_id' => $user->business_id,
-            'business' => $user->business,
-            'user_type' => $this->getUserType($user)
+            'business_id' => $businessId,
+            'business' => $business,
+            'user_type' => $userType,
+            'authenticated_user' => $user
         ]);
 
         return $next($request);
