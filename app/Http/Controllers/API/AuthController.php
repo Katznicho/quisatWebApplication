@@ -311,14 +311,14 @@ class AuthController extends Controller
     }
 
     /**
-     * Forgot Password - Send SMS Code
+     * Forgot Password - Send Email Code
      * POST /api/v1/auth/forgot-password
      */
     public function forgotPassword(Request $request)
     {
         try {
             $validator = Validator::make($request->all(), [
-                'phone' => 'required|string|exists:users,phone',
+                'email' => 'required|email|exists:users,email',
             ]);
 
             if ($validator->fails()) {
@@ -329,12 +329,12 @@ class AuthController extends Controller
                 ], 422);
             }
 
-            $user = User::where('phone', $request->phone)->first();
+            $user = User::where('email', $request->email)->first();
             
             if (!$user) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Phone number not found'
+                    'message' => 'Email address not found'
                 ], 404);
             }
 
@@ -344,16 +344,16 @@ class AuthController extends Controller
             // Store code in cache for 10 minutes
             cache()->put("password_reset_code_{$user->id}", $code, 600);
             
-            // TODO: Send SMS with code
-            // $this->sendSMS($user->phone, "Your password reset code is: {$code}");
+            // TODO: Send email with code
+            // $this->sendPasswordResetEmail($user->email, $code);
             
             // For now, return the code in response (remove in production)
             return response()->json([
                 'success' => true,
-                'message' => 'Password reset code sent to your phone',
+                'message' => 'Password reset code sent to your email',
                 'data' => [
                     'user_id' => $user->id,
-                    'phone' => $user->phone,
+                    'email' => $user->email,
                     'code' => $code, // Remove this in production
                     'expires_in' => 600 // 10 minutes
                 ]
@@ -561,14 +561,14 @@ class AuthController extends Controller
     }
 
     /**
-     * Parent Forgot Password - Send SMS Code
+     * Parent Forgot Password - Send Email Code
      * POST /api/v1/auth/parent-forgot-password
      */
     public function parentForgotPassword(Request $request)
     {
         try {
             $validator = Validator::make($request->all(), [
-                'phone' => 'required|string|exists:parent_guardians,phone',
+                'email' => 'required|email|exists:parent_guardians,email',
             ]);
 
             if ($validator->fails()) {
@@ -579,12 +579,12 @@ class AuthController extends Controller
                 ], 422);
             }
 
-            $parent = ParentGuardian::where('phone', $request->phone)->first();
+            $parent = ParentGuardian::where('email', $request->email)->first();
             
             if (!$parent) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Phone number not found'
+                    'message' => 'Email address not found'
                 ], 404);
             }
 
@@ -594,16 +594,16 @@ class AuthController extends Controller
             // Store code in cache for 10 minutes
             cache()->put("parent_password_reset_code_{$parent->id}", $code, 600);
             
-            // TODO: Send SMS with code
-            // $this->sendSMS($parent->phone, "Your password reset code is: {$code}");
+            // TODO: Send email with code
+            // $this->sendPasswordResetEmail($parent->email, $code);
             
             // For now, return the code in response (remove in production)
             return response()->json([
                 'success' => true,
-                'message' => 'Password reset code sent to your phone',
+                'message' => 'Password reset code sent to your email',
                 'data' => [
                     'parent_id' => $parent->id,
-                    'phone' => $parent->phone,
+                    'email' => $parent->email,
                     'code' => $code, // Remove this in production
                     'expires_in' => 600 // 10 minutes
                 ]
