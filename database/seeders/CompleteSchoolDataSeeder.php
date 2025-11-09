@@ -20,6 +20,9 @@ use App\Models\Role;
 use App\Models\Currency;
 use App\Models\ClassAssignment;
 use App\Models\BroadcastAnnouncement;
+use App\Models\Conversation;
+use App\Models\ConversationParticipant;
+use App\Models\Message;
 use Carbon\Carbon;
 
 class CompleteSchoolDataSeeder extends Seeder
@@ -505,6 +508,65 @@ class CompleteSchoolDataSeeder extends Seeder
                     'sent_at' => Carbon::now()->subDays(rand(0, 5)),
                 ]
             );
+        }
+
+        // Seed sample conversations and messages
+        $teacherUser = User::find($teacherIds[0] ?? null);
+        $adminUser = User::where('business_id', $business->id)
+            ->whereHas('role', fn ($query) => $query->where('name', 'Admin'))
+            ->first();
+
+        if ($teacherUser && $adminUser) {
+            $conversation = Conversation::firstOrCreate(
+                [
+                    'business_id' => $business->id,
+                    'type' => 'direct',
+                    'created_by' => $teacherUser->id,
+                ],
+                [
+                    'title' => null,
+                    'last_message_at' => Carbon::now()->subDay(),
+                ]
+            );
+
+            ConversationParticipant::firstOrCreate(
+                [
+                    'conversation_id' => $conversation->id,
+                    'user_id' => $teacherUser->id,
+                ],
+                [
+                    'joined_at' => Carbon::now()->subDays(2),
+                    'last_read_at' => Carbon::now()->subDay(),
+                    'is_active' => true,
+                ]
+            );
+
+            ConversationParticipant::firstOrCreate(
+                [
+                    'conversation_id' => $conversation->id,
+                    'user_id' => $adminUser->id,
+                ],
+                [
+                    'joined_at' => Carbon::now()->subDays(2),
+                    'last_read_at' => null,
+                    'is_active' => true,
+                ]
+            );
+
+            Message::firstOrCreate(
+                [
+                    'conversation_id' => $conversation->id,
+                    'sender_id' => $teacherUser->id,
+                    'content' => 'Hello! Just a quick update on the class — students are progressing very well!',
+                ],
+                [
+                    'type' => 'text',
+                    'is_read' => false,
+                    'created_at' => Carbon::now()->subHours(5),
+                ]
+            );
+
+            $conversation->update(['last_message_at' => Carbon::now()->subHours(5)]);
         }
 
         // Create fees

@@ -9,6 +9,7 @@ use App\Http\Controllers\API\ParentGuardianController;
 use App\Http\Controllers\API\KidsProgramController;
 use App\Http\Controllers\API\AnnouncementController;
 use App\Http\Controllers\API\ClassAssignmentController;
+use App\Http\Controllers\API\ConversationController;
 
 // API Routes
 Route::prefix('v1')->group(function () {
@@ -67,6 +68,13 @@ Route::prefix('v1')->group(function () {
             Route::prefix('assignments')->group(function () {
                 Route::get('/', [ClassAssignmentController::class, 'index']);
                 Route::get('{assignment}', [ClassAssignmentController::class, 'show']);
+            });
+
+            Route::prefix('conversations')->group(function () {
+                Route::get('/', [ConversationController::class, 'index']);
+                Route::get('{conversation}/messages', [ConversationController::class, 'messages']);
+                Route::post('{conversation}/messages', [ConversationController::class, 'storeMessage']);
+                Route::post('{conversation}/read', [ConversationController::class, 'markAsRead']);
             });
         });
     });

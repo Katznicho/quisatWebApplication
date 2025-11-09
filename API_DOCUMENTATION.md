@@ -645,3 +645,158 @@ per_page=50
   }
 }
 ```
+
+### 10. Conversations & Messaging
+
+#### List Conversations
+**GET** `/conversations`
+
+**Query Parameters (optional):**
+```
+per_page=25
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Conversations fetched successfully.",
+  "data": {
+    "conversations": [
+      {
+        "id": 3,
+        "uuid": "6a9d4c24-40e5-4d2c-9f66-1b0f23be7d0d",
+        "title": "Mrs. Jennifer Wilson",
+        "type": "direct",
+        "last_message": {
+          "id": 42,
+          "content": "Hello! Just a quick update on the class — students are progressing very well!",
+          "type": "text",
+          "is_from_user": false,
+          "is_read": false,
+          "created_at": "2025-11-09T09:15:00Z",
+          "sender": {
+            "id": 6,
+            "name": "Mrs. Jennifer Wilson",
+            "email": "jennifer.wilson@school.com"
+          }
+        },
+        "unread_count": 1,
+        "last_message_at": "2025-11-09T09:15:00Z",
+        "participants": [
+          {
+            "id": 6,
+            "name": "Mrs. Jennifer Wilson",
+            "email": "jennifer.wilson@school.com",
+            "avatar_url": "https://example.com/avatar.jpg",
+            "is_self": false
+          },
+          {
+            "id": 1,
+            "name": "Jane Doe",
+            "email": "admin@example.com",
+            "avatar_url": null,
+            "is_self": true
+          }
+        ]
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "per_page": 25,
+      "total": 1,
+      "last_page": 1,
+      "has_more": false
+    }
+  }
+}
+```
+
+#### Conversation Messages
+**GET** `/conversations/{id}/messages`
+
+**Query Parameters (optional):**
+```
+per_page=50
+page=1
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Messages fetched successfully.",
+  "data": {
+    "messages": [
+      {
+        "id": 42,
+        "content": "Hello! Just a quick update on the class — students are progressing very well!",
+        "type": "text",
+        "is_from_user": false,
+        "is_read": true,
+        "read_at": "2025-11-09T12:00:00Z",
+        "created_at": "2025-11-09T09:15:00Z",
+        "sender": {
+          "id": 6,
+          "name": "Mrs. Jennifer Wilson",
+          "email": "jennifer.wilson@school.com",
+          "avatar_url": "https://example.com/avatar.jpg"
+        }
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "per_page": 50,
+      "total": 3,
+      "last_page": 1,
+      "has_more": false
+    }
+  }
+}
+```
+
+#### Send Message
+**POST** `/conversations/{id}/messages`
+
+**Request Body:**
+```json
+{
+  "content": "Thanks for the update!",
+  "type": "text"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Message sent successfully.",
+  "data": {
+    "message": {
+      "id": 43,
+      "content": "Thanks for the update!",
+      "type": "text",
+      "is_from_user": true,
+      "is_read": true,
+      "created_at": "2025-11-09T12:05:00Z",
+      "sender": {
+        "id": 1,
+        "name": "Jane Doe",
+        "email": "admin@example.com"
+      }
+    },
+    "conversation": { /* same as list payload */ }
+  }
+}
+```
+
+#### Mark Conversation Read
+**POST** `/conversations/{id}/read`
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Conversation marked as read."
+}
+```
