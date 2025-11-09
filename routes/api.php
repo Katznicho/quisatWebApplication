@@ -4,6 +4,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\StudentController;
+use App\Http\Controllers\API\AcademicCalendarController;
+use App\Http\Controllers\API\ParentGuardianController;
+use App\Http\Controllers\API\KidsProgramController;
 
 // API Routes
 Route::prefix('v1')->group(function () {
@@ -37,6 +40,21 @@ Route::prefix('v1')->group(function () {
                 Route::get('classes', [StudentController::class, 'classes']);
                 Route::get('/', [StudentController::class, 'index']);
                 Route::get('{student}', [StudentController::class, 'show']);
+            });
+
+            Route::prefix('calendar')->group(function () {
+                Route::get('events', [AcademicCalendarController::class, 'index']);
+                Route::get('events/{event}', [AcademicCalendarController::class, 'show']);
+            });
+
+            Route::prefix('parents')->group(function () {
+                Route::get('/', [ParentGuardianController::class, 'index']);
+                Route::get('{parent}', [ParentGuardianController::class, 'show']);
+            });
+
+            Route::prefix('programs')->group(function () {
+                Route::get('/', [KidsProgramController::class, 'index']);
+                Route::get('{program}', [KidsProgramController::class, 'show']);
             });
         });
     });
