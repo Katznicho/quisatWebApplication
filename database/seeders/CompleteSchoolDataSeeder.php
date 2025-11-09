@@ -23,6 +23,7 @@ use App\Models\BroadcastAnnouncement;
 use App\Models\Conversation;
 use App\Models\ConversationParticipant;
 use App\Models\Message;
+use App\Models\Term;
 use Carbon\Carbon;
 
 class CompleteSchoolDataSeeder extends Seeder
@@ -413,13 +414,26 @@ class CompleteSchoolDataSeeder extends Seeder
                             'teacher_id' => $teacherIds[array_rand($teacherIds)],
                             'description' => $descriptions[array_rand($descriptions)],
                             'assignment_type' => $type,
-                            'assigned_date' => Carbon::now()->subDays(rand(1, 5)),
+                            'assigned_date' => Carbon::now()->subDays(rand(3, 10)),
                             'due_date' => Carbon::now()->addDays(rand(2, 10)),
                             'due_time' => '17:00',
                             'total_marks' => rand(20, 100),
                             'status' => 'published',
                             'published_at' => Carbon::now()->subDays(rand(1, 3)),
-                            'attachments' => [],
+                            'attachments' => [
+                                [
+                                    'name' => $subject->name . ' ' . ucfirst($type) . ' Brief.pdf',
+                                    'url' => 'https://example-files.online-convert.com/document/pdf/example.pdf',
+                                    'type' => 'pdf',
+                                    'size' => rand(150, 450) . 'KB',
+                                ],
+                                [
+                                    'name' => $subject->name . ' Guidelines.docx',
+                                    'url' => 'https://file-examples.com/storage/feffdf1dfb63144c46cfef1/2017/02/file-sample_100kB.docx',
+                                    'type' => 'docx',
+                                    'size' => rand(80, 200) . 'KB',
+                                ],
+                            ],
                         ]
                     );
                 }
@@ -450,6 +464,63 @@ class CompleteSchoolDataSeeder extends Seeder
                         'status' => 'scheduled',
                     ]
                 );
+            }
+        }
+
+        // Create grades for students across the academic year
+        $englishSubject = Subject::where('business_id', $business->id)->where('name', 'English')->first();
+        $mathSubject = Subject::where('business_id', $business->id)->where('name', 'Mathematics')->first();
+        $term = Term::where('business_id', $business->id)->first();
+
+        if ($englishSubject && $mathSubject) {
+            foreach (Student::where('business_id', $business->id)->get() as $student) {
+                foreach ([$englishSubject, $mathSubject] as $subject) {
+                    for ($i = 0; $i < 6; $i++) {
+                        $monthDate = Carbon::now()->subMonths(5 - $i);
+
+                        $exam = Exam::firstOrCreate(
+                            [
+                                'business_id' => $business->id,
+                                'subject_id' => $subject->id,
+                                'class_room_id' => $student->class_room_id,
+                                'name' => $subject->name . ' Assessment ' . $monthDate->format('M'),
+                            ],
+                            [
+                                'description' => 'Assessment for ' . $subject->name,
+                                'term_id' => $term?->id,
+                                'exam_date' => $monthDate->copy()->day(15),
+                                'start_time' => '09:00',
+                                'end_time' => '10:30',
+                                'total_marks' => 100,
+                                'passing_marks' => 40,
+                                'exam_type' => 'quiz',
+                                'status' => 'published',
+                            ]
+                        );
+
+                        $percentage = rand(70, 98);
+                        $gradeLetter = $percentage >= 90 ? 'A' : ($percentage >= 80 ? 'B' : 'C');
+
+                        Grade::updateOrCreate(
+                            [
+                                'business_id' => $business->id,
+                                'student_id' => $student->id,
+                                'exam_id' => $exam->id,
+                                'subject_id' => $subject->id,
+                                'class_room_id' => $student->class_room_id,
+                            ],
+                            [
+                                'marks_obtained' => $percentage,
+                                'percentage' => $percentage,
+                                'grade_letter' => $gradeLetter,
+                                'remarks' => $percentage >= 90 ? 'Excellent performance' : 'Good progress',
+                                'status' => 'published',
+                                'created_at' => $monthDate,
+                                'updated_at' => $monthDate,
+                            ]
+                        );
+                    }
+                }
             }
         }
 

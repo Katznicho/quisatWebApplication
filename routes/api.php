@@ -10,6 +10,11 @@ use App\Http\Controllers\API\KidsProgramController;
 use App\Http\Controllers\API\AnnouncementController;
 use App\Http\Controllers\API\ClassAssignmentController;
 use App\Http\Controllers\API\ConversationController;
+use App\Http\Controllers\API\StaffDashboardController;
+use App\Http\Controllers\API\ParentDashboardController;
+use App\Http\Controllers\API\AttendanceController;
+use App\Http\Controllers\API\StudentProgressController;
+use App\Http\Controllers\API\DocumentController;
 
 // API Routes
 Route::prefix('v1')->group(function () {
@@ -43,6 +48,7 @@ Route::prefix('v1')->group(function () {
                 Route::get('classes', [StudentController::class, 'classes']);
                 Route::get('/', [StudentController::class, 'index']);
                 Route::get('{student}', [StudentController::class, 'show']);
+                Route::get('{student}/progress', [StudentProgressController::class, 'show']);
             });
 
             Route::prefix('calendar')->group(function () {
@@ -76,6 +82,13 @@ Route::prefix('v1')->group(function () {
                 Route::post('{conversation}/messages', [ConversationController::class, 'storeMessage']);
                 Route::post('{conversation}/read', [ConversationController::class, 'markAsRead']);
             });
+
+            Route::get('staff/dashboard', [StaffDashboardController::class, 'index']);
+            Route::get('parent/dashboard', [ParentDashboardController::class, 'index']);
+            Route::get('attendance/history', [AttendanceController::class, 'studentHistory']);
+            Route::post('attendance/check-in', [AttendanceController::class, 'checkIn']);
+            Route::post('attendance/check-out', [AttendanceController::class, 'checkOut']);
+            Route::get('documents', [DocumentController::class, 'index']);
         });
     });
 

@@ -800,3 +800,252 @@ page=1
   "message": "Conversation marked as read."
 }
 ```
+
+### 11. Staff Dashboard
+
+**GET** `/staff/dashboard`
+
+Returns aggregated insights for the authenticated staff member’s business.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Dashboard data loaded successfully.",
+  "data": {
+    "quick_stats": {
+      "assignments_due": 4,
+      "announcements_new": 2,
+      "students_total": 120,
+      "parents_total": 88
+    },
+    "today_schedule": [
+      {
+        "id": 15,
+        "subject": "Mathematics",
+        "class": "Grade 6B",
+        "room": "Room 202",
+        "start_time": "08:00",
+        "end_time": "09:30",
+        "teacher": "Mr. David Chen"
+      }
+    ],
+    "upcoming_events": [
+      {
+        "id": 4,
+        "title": "Science Fair",
+        "start_date": "2025-11-20T06:00:00Z",
+        "end_date": "2025-11-20T09:00:00Z",
+        "location": "Main Hall",
+        "event_type": "school"
+      }
+    ],
+    "recent_announcements": [
+      {
+        "id": 9,
+        "title": "Staff Meeting",
+        "content": "All teaching staff are invited to…",
+        "type": "staff",
+        "sent_at": "2025-11-08T15:00:00Z"
+      }
+    ],
+    "recent_assignments": [
+      {
+        "id": 21,
+        "title": "Algebra Homework",
+        "assignment_type": "homework",
+        "subject": "Mathematics",
+        "class_room": "Grade 6B",
+        "due_date": "2025-11-11T15:00:00Z",
+        "status": "published"
+      }
+    ]
+  }
+}
+```
+
+### 12. Parent Dashboard
+
+**GET** `/parent/dashboard`
+
+Provides home-screen data for the authenticated parent/guardian.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Parent dashboard data loaded successfully.",
+  "data": {
+    "children": [
+      {
+        "id": 12,
+        "uuid": "e3b8…",
+        "full_name": "Ethan Johnson",
+        "class": "Grade 3A",
+        "class_room_id": 5,
+        "student_id": "STU-00045",
+        "avatar_url": "https://ui-avatars.com/api/…"
+      }
+    ],
+    "announcements": [
+      {
+        "id": 27,
+        "title": "Performance Night",
+        "content": "Join us for the annual performance night…",
+        "type": "community",
+        "sent_at": "2025-11-07T17:30:00Z"
+      }
+    ],
+    "upcoming_events": [
+      {
+        "id": 4,
+        "title": "Science Fair",
+        "description": "Showcase of student projects…",
+        "start_date": "2025-11-20T06:00:00Z",
+        "end_date": "2025-11-20T09:00:00Z",
+        "location": "Main Hall"
+      }
+    ],
+    "upcoming_assignments": [
+      {
+        "id": 21,
+        "title": "Algebra Homework",
+        "description": "Complete exercises 10-18",
+        "due_date": "2025-11-11T15:00:00Z",
+        "class_room": "Grade 6B",
+        "subject": "Mathematics",
+        "assignment_type": "homework"
+      }
+    ]
+  }
+}
+```
+
+### 13. Attendance
+
+#### Student History
+**GET** `/attendance/history?student_id={id}&limit=20`
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Attendance history loaded successfully.",
+  "data": {
+    "student": {
+      "id": 12,
+      "full_name": "Ethan Johnson",
+      "class": "Grade 3A"
+    },
+    "attendance": [
+      {
+        "id": 88,
+        "attendance_date": "2025-11-06",
+        "status": "present",
+        "class_room": "Grade 3A",
+        "marked_by": "Class Teacher"
+      }
+    ]
+  }
+}
+```
+
+#### Check-In
+**POST** `/attendance/check-in`
+
+**Body:**
+```json
+{
+  "student_id": 12,
+  "parent_name": "Jane Doe",
+  "parent_identifier": "ID-9042"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Check-in recorded successfully.",
+  "data": {
+    "attendance": {
+      "id": 92,
+      "attendance_date": "2025-11-09",
+      "status": "present",
+      "marked_by": "Jane Doe",
+      "remarks": "Checked in by Jane Doe (ID-9042)"
+    }
+  }
+}
+```
+
+#### Check-Out
+**POST** `/attendance/check-out`
+
+Body mirrors the check-in payload. Status will be saved as `excused`.
+
+### 14. Student Progress
+
+**GET** `/students/{student}/progress`
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Student progress loaded successfully.",
+  "data": {
+    "student": {
+      "id": 12,
+      "full_name": "Ethan Johnson",
+      "class": "Grade 3A",
+      "avatar_url": "https://ui-avatars.com/api/…"
+    },
+    "overview": {
+      "overall_progress": "On Track",
+      "academic_average": 89.4,
+      "attendance": 96.5
+    },
+    "performance": {
+      "monthly": [
+        { "label": "Jun", "english": 88.5, "math": 92.4 },
+        { "label": "Jul", "english": 90.1, "math": 93.8 }
+      ],
+      "quarterly": [
+        { "label": "Q1", "english": 87.3, "math": 91.6 }
+      ],
+      "annually": [
+        { "label": "2025", "english": 89.4, "math": 92.7 }
+      ]
+    }
+  }
+}
+```
+
+### 15. Documents
+
+**GET** `/documents`
+
+Returns a flattened list of assignment attachments available to the authenticated user.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Documents retrieved successfully.",
+  "data": {
+    "documents": [
+      {
+        "assignment_id": 21,
+        "assignment_title": "Algebra Homework",
+        "class_room": "Grade 6B",
+        "subject": "Mathematics",
+        "due_date": "2025-11-11T15:00:00Z",
+        "name": "Mathematics Homework Brief.pdf",
+        "url": "https://example-files.online-convert.com/document/pdf/example.pdf",
+        "type": "pdf",
+        "size": "256KB"
+      }
+    ]
+  }
+}
+```
