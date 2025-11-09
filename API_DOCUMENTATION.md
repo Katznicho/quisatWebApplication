@@ -466,3 +466,182 @@ curl -X POST https://yourdomain.com/api/v1/auth/login \
 ## Support
 
 For API support, contact: no-reply@quisat.com
+
+### 8. Assignments & Classwork
+
+#### List Assignments
+**GET** `/assignments`
+
+**Query Parameters (optional):**
+```
+type=assignment|classwork|homework|project
+status=draft|published|completed
+class_room_id=1
+subject_id=2
+due_before=2025-11-30
+due_after=2025-11-01
+per_page=50
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Assignments fetched successfully.",
+  "data": {
+    "assignments": [
+      {
+        "id": 12,
+        "uuid": "4f9f8c23-0b1f-4f7f-9f81-1d52b03f0ea9",
+        "title": "Mathematics Homework",
+        "description": "Solve the attached problem set and submit by Friday.",
+        "assignment_type": "homework",
+        "status": "published",
+        "assigned_date": "2025-11-06",
+        "due_date": "2025-11-10",
+        "due_time": "17:00",
+        "total_marks": 50,
+        "attachments": [],
+        "class_room": {
+          "id": 3,
+          "name": "Primary 4",
+          "code": "P4"
+        },
+        "subject": {
+          "id": 2,
+          "name": "Mathematics",
+          "code": "MATH"
+        },
+        "teacher": {
+          "id": 6,
+          "name": "Mrs. Jennifer Wilson",
+          "email": "jennifer.wilson@school.com"
+        }
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "per_page": 25,
+      "total": 6,
+      "last_page": 1,
+      "has_more": false
+    }
+  }
+}
+```
+
+#### Assignment Detail
+**GET** `/assignments/{id|uuid}`
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Assignment retrieved successfully.",
+  "data": {
+    "assignment": {
+      "id": 12,
+      "uuid": "4f9f8c23-0b1f-4f7f-9f81-1d52b03f0ea9",
+      "title": "Mathematics Homework",
+      "description": "Solve the attached problem set and submit by Friday.",
+      "assignment_type": "homework",
+      "status": "published",
+      "assigned_date": "2025-11-06",
+      "due_date": "2025-11-10",
+      "due_time": "17:00",
+      "total_marks": 50,
+      "attachments": [],
+      "published_at": "2025-11-06T09:15:00Z",
+      "is_overdue": false,
+      "class_room": { "id": 3, "name": "Primary 4", "code": "P4" },
+      "subject": { "id": 2, "name": "Mathematics", "code": "MATH" },
+      "branch": { "id": 1, "name": "Main Branch", "code": "MB-1" },
+      "teacher": { "id": 6, "name": "Mrs. Jennifer Wilson", "email": "jennifer.wilson@school.com" }
+    }
+  }
+}
+```
+
+### 9. Broadcast Announcements
+
+#### List Announcements
+**GET** `/announcements`
+
+**Query Parameters (optional):**
+```
+type=general|academic|event|urgent
+status=draft|sent
+search=conference
+per_page=50
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Announcements fetched successfully.",
+  "data": {
+    "announcements": [
+      {
+        "id": 5,
+        "title": "Parent-Teacher Conference",
+        "content": "We will host a parent-teacher conference next week. Please confirm your attendance.",
+        "type": "general",
+        "status": "sent",
+        "channels": ["in_app"],
+        "target_roles": [],
+        "target_users": [],
+        "scheduled_at": null,
+        "sent_at": "2025-11-07T08:00:00Z",
+        "created_at": "2025-11-05T11:24:40Z",
+        "updated_at": "2025-11-05T11:24:40Z",
+        "sender": {
+          "id": 6,
+          "name": "Mrs. Jennifer Wilson",
+          "email": "jennifer.wilson@school.com"
+        }
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "per_page": 25,
+      "total": 3,
+      "last_page": 1,
+      "has_more": false
+    }
+  }
+}
+```
+
+#### Announcement Detail
+**GET** `/announcements/{id}`
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Announcement retrieved successfully.",
+  "data": {
+    "announcement": {
+      "id": 5,
+      "title": "Parent-Teacher Conference",
+      "content": "We will host a parent-teacher conference next week. Please confirm your attendance.",
+      "type": "general",
+      "status": "sent",
+      "channels": ["in_app"],
+      "target_roles": [],
+      "target_users": [],
+      "scheduled_at": null,
+      "sent_at": "2025-11-07T08:00:00Z",
+      "created_at": "2025-11-05T11:24:40Z",
+      "updated_at": "2025-11-05T11:24:40Z",
+      "sender": {
+        "id": 6,
+        "name": "Mrs. Jennifer Wilson",
+        "email": "jennifer.wilson@school.com"
+      },
+      "can_edit": false
+    }
+  }
+}
+```

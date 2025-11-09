@@ -7,6 +7,8 @@ use App\Http\Controllers\API\StudentController;
 use App\Http\Controllers\API\AcademicCalendarController;
 use App\Http\Controllers\API\ParentGuardianController;
 use App\Http\Controllers\API\KidsProgramController;
+use App\Http\Controllers\API\AnnouncementController;
+use App\Http\Controllers\API\ClassAssignmentController;
 
 // API Routes
 Route::prefix('v1')->group(function () {
@@ -55,6 +57,16 @@ Route::prefix('v1')->group(function () {
             Route::prefix('programs')->group(function () {
                 Route::get('/', [KidsProgramController::class, 'index']);
                 Route::get('{program}', [KidsProgramController::class, 'show']);
+            });
+
+            Route::prefix('announcements')->group(function () {
+                Route::get('/', [AnnouncementController::class, 'index']);
+                Route::get('{announcement}', [AnnouncementController::class, 'show']);
+            });
+
+            Route::prefix('assignments')->group(function () {
+                Route::get('/', [ClassAssignmentController::class, 'index']);
+                Route::get('{assignment}', [ClassAssignmentController::class, 'show']);
             });
         });
     });

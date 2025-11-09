@@ -424,6 +424,7 @@ class ChatController extends Controller
             'type' => $request->type ?? 'general',
             'target_roles' => $request->target_roles,
             'target_users' => $request->target_users,
+            'channels' => ['in_app'],
             'status' => 'sent',
             'sent_at' => now()
         ]);

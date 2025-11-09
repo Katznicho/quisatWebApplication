@@ -18,6 +18,8 @@ use App\Models\Business;
 use App\Models\Branch;
 use App\Models\Role;
 use App\Models\Currency;
+use App\Models\ClassAssignment;
+use App\Models\BroadcastAnnouncement;
 use Carbon\Carbon;
 
 class CompleteSchoolDataSeeder extends Seeder
@@ -379,6 +381,48 @@ class CompleteSchoolDataSeeder extends Seeder
             }
         }
 
+        // Create assignments and classwork
+        $classAssignments = [
+            'assignment' => [
+                'Complete the worksheet and prepare for discussion.',
+                'Research topic and submit summary.',
+                'Solve the provided problem set and upload answers.',
+            ],
+            'classwork' => [
+                'Group activity focusing on vocabulary building.',
+                'In-class quiz covering previous lessons.',
+                'Hands-on science lab report draft.',
+            ],
+        ];
+
+        foreach (ClassRoom::where('business_id', $business->id)->get() as $classRoom) {
+            foreach (Subject::take(3)->get() as $subject) {
+                foreach ($classAssignments as $type => $descriptions) {
+                    ClassAssignment::firstOrCreate(
+                        [
+                            'business_id' => $business->id,
+                            'class_room_id' => $classRoom->id,
+                            'subject_id' => $subject->id,
+                            'title' => ucfirst($type) . ' for ' . $subject->name,
+                        ],
+                        [
+                            'branch_id' => $branch->id,
+                            'teacher_id' => $teacherIds[array_rand($teacherIds)],
+                            'description' => $descriptions[array_rand($descriptions)],
+                            'assignment_type' => $type,
+                            'assigned_date' => Carbon::now()->subDays(rand(1, 5)),
+                            'due_date' => Carbon::now()->addDays(rand(2, 10)),
+                            'due_time' => '17:00',
+                            'total_marks' => rand(20, 100),
+                            'status' => 'published',
+                            'published_at' => Carbon::now()->subDays(rand(1, 3)),
+                            'attachments' => [],
+                        ]
+                    );
+                }
+            }
+        }
+
         // Create exams
         $examTypes = ['midterm', 'final', 'quiz'];
         $subjects = Subject::take(3)->get();
@@ -425,6 +469,42 @@ class CompleteSchoolDataSeeder extends Seeder
                     ]
                 );
             }
+        }
+
+        // Seed broadcast announcements
+        $announcementTemplates = [
+            [
+                'title' => 'Parent-Teacher Conference',
+                'content' => 'We will host a parent-teacher conference next week. Please confirm your attendance.',
+                'type' => 'general',
+            ],
+            [
+                'title' => 'Midterm Exam Reminder',
+                'content' => 'Midterm examinations begin on ' . Carbon::now()->addDays(7)->toFormattedDateString() . '. Ensure students are prepared.',
+                'type' => 'academic',
+            ],
+            [
+                'title' => 'Sports Day Announcement',
+                'content' => 'Annual sports day is scheduled for ' . Carbon::now()->addDays(14)->toFormattedDateString() . '. All students must attend in sports attire.',
+                'type' => 'event',
+            ],
+        ];
+
+        foreach ($announcementTemplates as $template) {
+            BroadcastAnnouncement::firstOrCreate(
+                [
+                    'business_id' => $business->id,
+                    'title' => $template['title'],
+                ],
+                [
+                    'sender_id' => $teacherIds[0] ?? $business->users()->first()->id ?? 1,
+                    'content' => $template['content'],
+                    'type' => $template['type'],
+                    'channels' => ['in_app'],
+                    'status' => 'sent',
+                    'sent_at' => Carbon::now()->subDays(rand(0, 5)),
+                ]
+            );
         }
 
         // Create fees
