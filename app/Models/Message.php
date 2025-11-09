@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class Message extends Model
 {
@@ -26,6 +27,15 @@ class Message extends Model
         'is_read' => 'boolean',
         'read_at' => 'datetime',
     ];
+
+    protected static function booted()
+    {
+        static::creating(function (self $message) {
+            if (!$message->uuid) {
+                $message->uuid = (string) Str::uuid();
+            }
+        });
+    }
 
     // Relationships
     public function conversation()
