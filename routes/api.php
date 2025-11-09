@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\AuthController;
+use App\Http\Controllers\API\StudentController;
 
 // API Routes
 Route::prefix('v1')->group(function () {
@@ -15,6 +16,7 @@ Route::prefix('v1')->group(function () {
         Route::post('reset-password', [AuthController::class, 'resetPassword']);
         Route::post('parent-forgot-password', [AuthController::class, 'parentForgotPassword']);
         Route::post('parent-reset-password', [AuthController::class, 'parentResetPassword']);
+        Route::post('check-parent-email', [AuthController::class, 'checkParentEmail']); // Debug endpoint
     });
 
     // Protected Routes (Require Authentication)
@@ -31,10 +33,11 @@ Route::prefix('v1')->group(function () {
 
         // Business-scoped Routes (Require Authentication + Business Association)
         Route::middleware('business.scope')->group(function () {
-            // Add business-scoped API routes here
-            // Route::apiResource('students', StudentController::class);
-            // Route::apiResource('attendance', AttendanceController::class);
-            // Route::apiResource('transactions', TransactionController::class);
+            Route::prefix('students')->group(function () {
+                Route::get('classes', [StudentController::class, 'classes']);
+                Route::get('/', [StudentController::class, 'index']);
+                Route::get('{student}', [StudentController::class, 'show']);
+            });
         });
     });
 
