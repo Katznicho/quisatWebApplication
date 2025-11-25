@@ -313,44 +313,101 @@
                 });
             }
 
-            // Contact click handler
-            const contactItems = document.querySelectorAll('.contact-item');
-            
-            contactItems.forEach(contact => {
-                contact.addEventListener('click', function() {
-                    const contactId = this.dataset.contactId;
-                    const contactName = this.dataset.contactName;
-                    
-                    // Update UI
-                    document.getElementById('chatTitle').textContent = `Chat with ${contactName}`;
-                    document.getElementById('chatSubtitle').textContent = 'Online';
-                    document.getElementById('messageInputContainer').style.display = 'block';
-                    
-                    // Enable buttons
-                    document.getElementById('contactInfoBtn').disabled = false;
-                    document.getElementById('callBtn').disabled = false;
-                    document.getElementById('contactInfoBtn').classList.remove('text-gray-400');
-                    document.getElementById('contactInfoBtn').classList.add('text-blue-600', 'hover:text-blue-700');
-                    document.getElementById('callBtn').classList.remove('text-gray-400');
-                    document.getElementById('callBtn').classList.add('text-blue-600', 'hover:text-blue-700');
-                    
-                    // Remove active class from all contacts
-                    document.querySelectorAll('.contact-item').forEach(c => c.classList.remove('bg-blue-50', 'dark:bg-blue-900'));
-                    // Add active class to selected contact
-                    this.classList.add('bg-blue-50', 'dark:bg-blue-900');
-                    
-                    currentContactId = contactId;
-                    
-                    // Save selected contact to localStorage
-                    localStorage.setItem('lastSelectedContact', JSON.stringify({
-                        id: contactId,
-                        name: contactName
-                    }));
-                    
-                    // Load existing conversation and messages
-                    loadConversation(contactId, contactName);
+            // Contact click handler - using event delegation
+            function handleContactClick(e) {
+                // Find the closest contact-item element
+                const contactItem = e.target.closest('.contact-item');
+                
+                if (!contactItem) {
+                    return;
+                }
+                
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const contactId = contactItem.getAttribute('data-contact-id');
+                const contactName = contactItem.getAttribute('data-contact-name');
+                
+                if (!contactId || !contactName) {
+                    console.error('Contact ID or Name missing', { 
+                        contactId, 
+                        contactName,
+                        dataset: contactItem.dataset,
+                        attributes: {
+                            id: contactItem.getAttribute('data-contact-id'),
+                            name: contactItem.getAttribute('data-contact-name')
+                        }
+                    });
+                    return;
+                }
+                
+                console.log('Contact clicked:', contactName, 'ID:', contactId);
+                
+                // Update UI
+                const chatTitle = document.getElementById('chatTitle');
+                const chatSubtitle = document.getElementById('chatSubtitle');
+                const messageInputContainer = document.getElementById('messageInputContainer');
+                
+                if (chatTitle) {
+                    chatTitle.textContent = `Chat with ${contactName}`;
+                }
+                if (chatSubtitle) {
+                    chatSubtitle.textContent = 'Online';
+                }
+                if (messageInputContainer) {
+                    messageInputContainer.style.display = 'block';
+                }
+                
+                // Enable buttons
+                const contactInfoBtn = document.getElementById('contactInfoBtn');
+                const callBtn = document.getElementById('callBtn');
+                if (contactInfoBtn) {
+                    contactInfoBtn.disabled = false;
+                    contactInfoBtn.classList.remove('text-gray-400');
+                    contactInfoBtn.classList.add('text-blue-600', 'hover:text-blue-700');
+                }
+                if (callBtn) {
+                    callBtn.disabled = false;
+                    callBtn.classList.remove('text-gray-400');
+                    callBtn.classList.add('text-blue-600', 'hover:text-blue-700');
+                }
+                
+                // Remove active class from all contacts
+                document.querySelectorAll('.contact-item').forEach(c => {
+                    c.classList.remove('bg-blue-50', 'dark:bg-blue-900');
                 });
-            });
+                // Add active class to selected contact
+                contactItem.classList.add('bg-blue-50', 'dark:bg-blue-900');
+                
+                currentContactId = contactId;
+                
+                // Save selected contact to localStorage
+                localStorage.setItem('lastSelectedContact', JSON.stringify({
+                    id: contactId,
+                    name: contactName
+                }));
+                
+                // Load existing conversation and messages
+                loadConversation(contactId, contactName);
+            }
+            
+            // Setup contact click handler with retry logic
+            function setupContactClickHandler() {
+                const contactsList = document.getElementById('contactsList');
+                
+                if (!contactsList) {
+                    console.warn('Contacts list container not found, retrying...');
+                    setTimeout(setupContactClickHandler, 100);
+                    return;
+                }
+                
+                // Use event delegation on the contacts list
+                contactsList.addEventListener('click', handleContactClick, true);
+                console.log('Contact click handler attached successfully');
+            }
+            
+            // Setup contact click handler
+            setupContactClickHandler();
         });
 
         // Load conversation and messages
@@ -456,8 +513,9 @@
                     
                     // Render messages
                     let messagesHtml = '';
+                    const currentUserId = {!! json_encode(auth()->id()) !!};
                     messages.forEach(message => {
-                        const isOwnMessage = message.sender_id == {{ auth()->user()->id ?? 'null' }};
+                        const isOwnMessage = message.sender_id == currentUserId;
                         const messageClass = isOwnMessage ? 'justify-end' : 'justify-start';
                         const bubbleClass = isOwnMessage ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100';
                         
@@ -591,61 +649,61 @@
                         currentConversationId = data.conversation.id;
                     }
                 })
-        .catch(error => {
-                message: error.message,
-                stack: error.stack,
-                url: url,
-                requestBody: requestBody
-            });
-            
-            // If it's a 404 error, the conversation doesn't exist or user doesn't have access
-            if (error.message.includes('404')) {
-                // Reset conversation ID and try to create a new conversation
-                currentConversationId = null;
-                
-                // Try to send the message again with a new conversation
-                const newUrl = '/chat/conversations';
-                const newRequestBody = {
-                    participant_ids: [currentContactId],
-                    type: 'direct',
-                    message_content: messageInput.value
-                };
-                
-                
-                fetch(newUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                    },
-                    body: JSON.stringify(newRequestBody)
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                .catch(error => {
+                    console.error('Error sending message:', {
+                        message: error.message,
+                        stack: error.stack,
+                        url: url,
+                        requestBody: requestBody
+                    });
+                    
+                    // If it's a 404 error, the conversation doesn't exist or user doesn't have access
+                    if (error.message.includes('404')) {
+                        // Reset conversation ID and try to create a new conversation
+                        currentConversationId = null;
+                        
+                        // Try to send the message again with a new conversation
+                        const newUrl = '/chat/conversations';
+                        const newRequestBody = {
+                            participant_ids: [currentContactId],
+                            type: 'direct',
+                            message_content: messageInput.value
+                        };
+                        
+                        fetch(newUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                            },
+                            body: JSON.stringify(newRequestBody)
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            // Clear the input
+                            messageInput.value = '';
+                            // Update current conversation ID
+                            if (data.conversation) {
+                                currentConversationId = data.conversation.id;
+                            }
+                            // Reload the conversation to show the new message
+                            if (currentContactId) {
+                                loadConversation(currentContactId, document.getElementById('chatTitle').textContent.replace('Chat with ', ''));
+                            }
+                        })
+                        .catch(retryError => {
+                            alert('Failed to create new conversation: ' + retryError.message);
+                        });
+                    } else {
+                        alert('Failed to send message: ' + error.message);
                     }
-                    return response.json();
                 })
-                .then(data => {
-                    // Clear the input
-                    messageInput.value = '';
-                    // Update current conversation ID
-                    if (data.conversation) {
-                        currentConversationId = data.conversation.id;
-                    }
-                    // Reload the conversation to show the new message
-                    if (currentContactId) {
-                        loadConversation(currentContactId, document.getElementById('chatTitle').textContent.replace('Chat with ', ''));
-                    }
-                })
-                .catch(retryError => {
-                    alert('Failed to create new conversation: ' + retryError.message);
-                });
-            } else {
-                alert('Failed to send message: ' + error.message);
-            }
-        })
                 .finally(() => {
                     // Restore button state
                     sendBtn.innerHTML = originalText;
