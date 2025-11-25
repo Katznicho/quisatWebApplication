@@ -155,6 +155,21 @@ class ListBusiness extends Component implements HasForms, HasTable
                                 return \App\Models\Feature::whereIn('id', $category?->feature_ids ?? [])->pluck('name', 'id');
                             })
                             ->reactive(),
+                        FileUpload::make('logo')
+                            ->label('Business Logo')
+                            ->image()
+                            ->directory('logos')
+                            ->disk('public')
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'])
+                            ->maxSize(2048) // 2MB in KB
+                            ->imageEditor()
+                            ->imageEditorAspectRatios([
+                                null,
+                                '16:9',
+                                '4:3',
+                                '1:1',
+                            ])
+                            ->helperText('Upload a logo for the business (max 2MB)'),
                     ]),
             ])
             ->actions([
@@ -218,6 +233,21 @@ class ListBusiness extends Component implements HasForms, HasTable
                                 return \App\Models\Feature::whereIn('id', $category?->feature_ids ?? [])->pluck('name', 'id');
                             })
                             ->reactive(),
+                        FileUpload::make('logo')
+                            ->label('Business Logo')
+                            ->image()
+                            ->directory('logos')
+                            ->disk('public')
+                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'])
+                            ->maxSize(2048) // 2MB in KB
+                            ->imageEditor()
+                            ->imageEditorAspectRatios([
+                                null,
+                                '16:9',
+                                '4:3',
+                                '1:1',
+                            ])
+                            ->helperText('Upload a logo for the business (max 2MB)'),
                     ])
                     ->visible(fn (Business $record): bool => Auth::user()->business_id === 1 || $record->id === Auth::user()->business_id),
                 Tables\Actions\DeleteAction::make()
