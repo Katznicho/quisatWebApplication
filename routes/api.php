@@ -15,10 +15,92 @@ use App\Http\Controllers\API\ParentDashboardController;
 use App\Http\Controllers\API\AttendanceController;
 use App\Http\Controllers\API\StudentProgressController;
 use App\Http\Controllers\API\DocumentController;
+use App\Http\Controllers\API\PublicKidsEventsController;
+use App\Http\Controllers\API\PublicAdvertisementsController;
+use App\Http\Controllers\API\PublicProgramsController;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+// Simple test route without any prefix
+Route::get('test', function() {
+    return response()->json([
+        'success' => true,
+        'message' => 'Simple test route works! No prefixes.',
+        'timestamp' => now()->toIso8601String(),
+    ]);
+});
 
 // API Routes
-// Note: Public routes are now in routes/public-api.php and registered separately
 Route::prefix('v1')->group(function () {
+    
+    // Public Routes (No Authentication Required)
+    // Exclude Sanctum middleware to allow public access
+    Route::prefix('public')->withoutMiddleware([
+        \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class
+    ])->group(function () {
+        // Test route
+        Route::get('test', function() {
+            return response()->json([
+                'success' => true,
+                'message' => 'Public test route works!',
+                'timestamp' => now()->toIso8601String(),
+            ]);
+        });
+        
+        // Diagnostic route
+        Route::get('diagnostic', function() {
+            try {
+                $checks = [
+                    'php_version' => PHP_VERSION,
+                    'laravel_version' => app()->version(),
+                    'database_connected' => false,
+                    'advertisements_table_exists' => false,
+                    'kids_events_table_exists' => false,
+                    'programs_table_exists' => false,
+                ];
+                
+                try {
+                    DB::connection()->getPdo();
+                    $checks['database_connected'] = true;
+                } catch (\Exception $e) {
+                    $checks['database_error'] = $e->getMessage();
+                }
+                
+                try {
+                    $checks['advertisements_table_exists'] = Schema::hasTable('advertisements');
+                    $checks['kids_events_table_exists'] = Schema::hasTable('kids_events');
+                    $checks['programs_table_exists'] = Schema::hasTable('programs');
+                } catch (\Exception $e) {
+                    $checks['schema_error'] = $e->getMessage();
+                }
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Diagnostic information',
+                    'data' => $checks,
+                ]);
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error running diagnostic',
+                    'error' => $e->getMessage(),
+                ], 500);
+            }
+        });
+        
+        // Kids Events
+        Route::get('kids-events', [PublicKidsEventsController::class, 'index']);
+        Route::get('kids-events/{id}', [PublicKidsEventsController::class, 'show']);
+        
+        // Business Advertisements
+        Route::get('advertisements', [PublicAdvertisementsController::class, 'index']);
+        Route::get('advertisements/{id}', [PublicAdvertisementsController::class, 'show']);
+        
+        // Christian Kids Hub Programs
+        Route::get('programs', [PublicProgramsController::class, 'index']);
+        Route::get('programs/{id}', [PublicProgramsController::class, 'show']);
+    });
+    
     
     // Authentication Routes (Public)
     Route::prefix('auth')->group(function () {
