@@ -57,9 +57,8 @@ class PublicKidsEventsController extends Controller
             });
         }
 
-        // Pagination
-        $perPage = $request->query('per_page', 20);
-        $events = $query->paginate($perPage);
+        // Get all events (no pagination)
+        $events = $query->get();
 
         $transformedEvents = $events->map(function (KidsEvent $event) {
             return $this->transformEvent($event);
@@ -70,12 +69,7 @@ class PublicKidsEventsController extends Controller
             'message' => 'Kids events retrieved successfully.',
             'data' => [
                 'events' => $transformedEvents,
-                'pagination' => [
-                    'current_page' => $events->currentPage(),
-                    'last_page' => $events->lastPage(),
-                    'per_page' => $events->perPage(),
-                    'total' => $events->total(),
-                ],
+                'total' => $transformedEvents->count(),
                 'categories' => KidsEvent::distinct()->pluck('category')->filter()->values(),
             ],
         ]);

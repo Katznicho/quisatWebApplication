@@ -30,9 +30,8 @@ class PublicProgramsController extends Controller
             });
         }
 
-        // Pagination
-        $perPage = $request->query('per_page', 20);
-        $programs = $query->paginate($perPage);
+        // Get all programs (no pagination)
+        $programs = $query->get();
 
         $transformedPrograms = $programs->map(function (Program $program) {
             return $this->transformProgram($program);
@@ -43,12 +42,7 @@ class PublicProgramsController extends Controller
             'message' => 'Programs retrieved successfully.',
             'data' => [
                 'programs' => $transformedPrograms,
-                'pagination' => [
-                    'current_page' => $programs->currentPage(),
-                    'last_page' => $programs->lastPage(),
-                    'per_page' => $programs->perPage(),
-                    'total' => $programs->total(),
-                ],
+                'total' => $transformedPrograms->count(),
             ],
         ]);
     }

@@ -38,9 +38,8 @@ class PublicAdvertisementsController extends Controller
             });
         }
 
-        // Pagination
-        $perPage = $request->query('per_page', 20);
-        $advertisements = $query->paginate($perPage);
+        // Get all advertisements (no pagination)
+        $advertisements = $query->get();
 
         $transformedAds = $advertisements->map(function (Advertisement $ad) {
             return $this->transformAdvertisement($ad);
@@ -51,12 +50,7 @@ class PublicAdvertisementsController extends Controller
             'message' => 'Advertisements retrieved successfully.',
             'data' => [
                 'advertisements' => $transformedAds,
-                'pagination' => [
-                    'current_page' => $advertisements->currentPage(),
-                    'last_page' => $advertisements->lastPage(),
-                    'per_page' => $advertisements->perPage(),
-                    'total' => $advertisements->total(),
-                ],
+                'total' => $transformedAds->count(),
                 'categories' => Advertisement::where('status', 'active')
                     ->distinct()
                     ->pluck('category')
