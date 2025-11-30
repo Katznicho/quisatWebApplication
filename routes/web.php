@@ -145,7 +145,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
 
 
-    Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
+    Route::put('/users/{user}', [UserController::class, 'update']);
     // routes/web.php
     Route::get('/users/{user:uuid}', [UserController::class, 'show']);
 
