@@ -20,6 +20,8 @@ class PublicKidsEventsController extends Controller
             
             $query = KidsEvent::query()
                 ->where('status', '!=', 'cancelled')
+                ->whereNotNull('start_date')
+                ->whereNotNull('end_date')
                 ->orderByDesc('is_featured')
                 ->orderBy('start_date');
 
@@ -68,8 +70,19 @@ class PublicKidsEventsController extends Controller
 
             Log::info('PublicKidsEventsController::index - Transforming events');
             $transformedEvents = $events->map(function (KidsEvent $event) {
-                return $this->transformEvent($event);
-            });
+                try {
+                    return $this->transformEvent($event);
+                } catch (\Exception $e) {
+                    Log::error('PublicKidsEventsController::index - Error transforming event ' . $event->id . ': ' . $e->getMessage());
+                    // Return minimal data instead of failing completely
+                    return [
+                        'id' => $event->id,
+                        'title' => $event->title ?? 'Error loading event',
+                        'description' => 'Error loading details',
+                        'error' => true,
+                    ];
+                }
+            })->filter(); // Remove any null entries
 
             Log::info('PublicKidsEventsController::index - Getting categories');
             $categories = KidsEvent::distinct()->pluck('category')->filter()->values();
@@ -85,9 +98,13 @@ class PublicKidsEventsController extends Controller
                 ],
             ]);
         } catch (\Exception $e) {
-            Log::error('PublicKidsEventsController::index - Error: ' . $e->getMessage(), [
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
+            $errorMessage = $e->getMessage();
+            $errorFile = $e->getFile();
+            $errorLine = $e->getLine();
+            
+            Log::error('PublicKidsEventsController::index - Error: ' . $errorMessage, [
+                'file' => $errorFile,
+                'line' => $errorLine,
                 'trace' => $e->getTraceAsString(),
             ]);
 
@@ -95,9 +112,10 @@ class PublicKidsEventsController extends Controller
                 'success' => false,
                 'message' => 'An error occurred while retrieving kids events.',
                 'error' => [
-                    'message' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
+                    'message' => (string) $errorMessage,
+                    'file' => (string) $errorFile,
+                    'line' => (int) $errorLine,
+                    'type' => get_class($e),
                 ],
             ], 500);
         }
@@ -134,10 +152,14 @@ class PublicKidsEventsController extends Controller
                 ],
             ]);
         } catch (\Exception $e) {
-            Log::error('PublicKidsEventsController::show - Error: ' . $e->getMessage(), [
+            $errorMessage = $e->getMessage();
+            $errorFile = $e->getFile();
+            $errorLine = $e->getLine();
+            
+            Log::error('PublicKidsEventsController::show - Error: ' . $errorMessage, [
                 'id' => $id,
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
+                'file' => $errorFile,
+                'line' => $errorLine,
                 'trace' => $e->getTraceAsString(),
             ]);
 
@@ -145,9 +167,10 @@ class PublicKidsEventsController extends Controller
                 'success' => false,
                 'message' => 'An error occurred while retrieving the event.',
                 'error' => [
-                    'message' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
+                    'message' => (string) $errorMessage,
+                    'file' => (string) $errorFile,
+                    'line' => (int) $errorLine,
+                    'type' => get_class($e),
                 ],
             ], 500);
         }
@@ -159,8 +182,16 @@ class PublicKidsEventsController extends Controller
     protected function transformEvent(KidsEvent $event, bool $includeDetails = false): array
     {
         try {
-            $start = $event->start_date instanceof Carbon ? $event->start_date : Carbon::parse($event->start_date);
-            $end = $event->end_date instanceof Carbon ? $event->end_date : Carbon::parse($event->end_date);
+            $start = null;
+            $end = null;
+            
+            if ($event->start_date) {
+                $start = $event->start_date instanceof Carbon ? $event->start_date : Carbon::parse($event->start_date);
+            }
+            
+            if ($event->end_date) {
+                $end = $event->end_date instanceof Carbon ? $event->end_date : Carbon::parse($event->end_date);
+            }
 
         $data = [
             'id' => $event->id,
@@ -173,10 +204,10 @@ class PublicKidsEventsController extends Controller
             'price' => (float) $event->price,
             'formatted_price' => $event->formatted_price,
             'age_groups' => $event->target_age_groups ?: [],
-            'duration' => $this->formatDuration($start, $end),
-            'schedule' => $this->formatSchedule($start, $end),
-            'start_date' => $start->toIso8601String(),
-            'end_date' => $end->toIso8601String(),
+            'duration' => $start && $end ? $this->formatDuration($start, $end) : 'N/A',
+            'schedule' => $start && $end ? $this->formatSchedule($start, $end) : 'N/A',
+            'start_date' => $start ? $start->toIso8601String() : null,
+            'end_date' => $end ? $end->toIso8601String() : null,
             'status' => $event->status,
             'is_featured' => (bool) $event->is_featured,
             'spots_available' => $event->spots_available,
@@ -212,8 +243,12 @@ class PublicKidsEventsController extends Controller
         }
     }
 
-    protected function formatDuration(Carbon $start, Carbon $end): string
+    protected function formatDuration(?Carbon $start, ?Carbon $end): string
     {
+        if (!$start || !$end) {
+            return 'N/A';
+        }
+        
         $diffMinutes = $start->diffInMinutes($end);
         $hours = intdiv($diffMinutes, 60);
         $minutes = $diffMinutes % 60;
@@ -225,8 +260,12 @@ class PublicKidsEventsController extends Controller
         return "{$minutes} minutes";
     }
 
-    protected function formatSchedule(Carbon $start, Carbon $end): string
+    protected function formatSchedule(?Carbon $start, ?Carbon $end): string
     {
+        if (!$start || !$end) {
+            return 'N/A';
+        }
+        
         $startDay = $start->format('l');
         $startTime = $start->format('g:i A');
         $endTime = $end->format('g:i A');

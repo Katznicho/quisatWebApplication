@@ -54,9 +54,13 @@ class PublicProgramsController extends Controller
                 ],
             ]);
         } catch (\Exception $e) {
-            Log::error('PublicProgramsController::index - Error: ' . $e->getMessage(), [
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
+            $errorMessage = $e->getMessage();
+            $errorFile = $e->getFile();
+            $errorLine = $e->getLine();
+            
+            Log::error('PublicProgramsController::index - Error: ' . $errorMessage, [
+                'file' => $errorFile,
+                'line' => $errorLine,
                 'trace' => $e->getTraceAsString(),
             ]);
 
@@ -64,9 +68,10 @@ class PublicProgramsController extends Controller
                 'success' => false,
                 'message' => 'An error occurred while retrieving programs.',
                 'error' => [
-                    'message' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
+                    'message' => (string) $errorMessage,
+                    'file' => (string) $errorFile,
+                    'line' => (int) $errorLine,
+                    'type' => get_class($e),
                 ],
             ], 500);
         }
@@ -129,10 +134,14 @@ class PublicProgramsController extends Controller
                 ],
             ]);
         } catch (\Exception $e) {
-            Log::error('PublicProgramsController::show - Error: ' . $e->getMessage(), [
+            $errorMessage = $e->getMessage();
+            $errorFile = $e->getFile();
+            $errorLine = $e->getLine();
+            
+            Log::error('PublicProgramsController::show - Error: ' . $errorMessage, [
                 'id' => $id,
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
+                'file' => $errorFile,
+                'line' => $errorLine,
                 'trace' => $e->getTraceAsString(),
             ]);
 
@@ -140,9 +149,10 @@ class PublicProgramsController extends Controller
                 'success' => false,
                 'message' => 'An error occurred while retrieving the program.',
                 'error' => [
-                    'message' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
+                    'message' => (string) $errorMessage,
+                    'file' => (string) $errorFile,
+                    'line' => (int) $errorLine,
+                    'type' => get_class($e),
                 ],
             ], 500);
         }
