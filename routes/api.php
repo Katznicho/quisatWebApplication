@@ -15,9 +15,27 @@ use App\Http\Controllers\API\ParentDashboardController;
 use App\Http\Controllers\API\AttendanceController;
 use App\Http\Controllers\API\StudentProgressController;
 use App\Http\Controllers\API\DocumentController;
+use App\Http\Controllers\API\PublicKidsEventsController;
+use App\Http\Controllers\API\PublicAdvertisementsController;
+use App\Http\Controllers\API\PublicProgramsController;
 
 // API Routes
 Route::prefix('v1')->group(function () {
+    
+    // Public Routes (No Authentication Required)
+    Route::prefix('public')->group(function () {
+        // Kids Events
+        Route::get('kids-events', [PublicKidsEventsController::class, 'index']);
+        Route::get('kids-events/{id}', [PublicKidsEventsController::class, 'show']);
+        
+        // Business Advertisements
+        Route::get('advertisements', [PublicAdvertisementsController::class, 'index']);
+        Route::get('advertisements/{id}', [PublicAdvertisementsController::class, 'show']);
+        
+        // Christian Kids Hub Programs
+        Route::get('programs', [PublicProgramsController::class, 'index']);
+        Route::get('programs/{id}', [PublicProgramsController::class, 'show']);
+    });
     
     // Authentication Routes (Public)
     Route::prefix('auth')->group(function () {

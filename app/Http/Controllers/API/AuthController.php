@@ -452,6 +452,9 @@ class AuthController extends Controller
     public function parentLogin(Request $request)
     {
         try {
+            Log::info('===== PARENT LOGIN START =====');
+            Log::info('Email: ' . $request->email);
+            
             $validator = Validator::make($request->all(), [
                 'email' => 'required|email',
                 'password' => 'required|string',
@@ -466,30 +469,41 @@ class AuthController extends Controller
                 ], 422);
             }
 
-            $parent = ParentGuardian::where('email', $request->email)->first();
+            // Normalize email (trim and lowercase)
+            $email = strtolower(trim($request->email));
+            
+            $parent = ParentGuardian::whereRaw('LOWER(TRIM(email)) = ?', [$email])->first();
 
             if (!$parent) {
+                Log::info('Parent login failed - not found with email: ' . $email);
                 return response()->json([
                     'success' => false,
                     'message' => 'Parent/Guardian not found'
                 ], 404);
             }
 
+            Log::info('Parent found: ID=' . $parent->id . ', Email=' . $parent->email);
+            Log::info('Has password: ' . ($parent->password ? 'YES' : 'NO'));
+
             // Check if parent has a password set
             if (!$parent->password) {
+                Log::warning('Parent has no password set: ' . $parent->email);
                 return response()->json([
                     'success' => false,
-                    'message' => 'No password set. Please contact your school administrator.'
+                    'message' => 'No password set. Please use the forgot password feature to set your password, or contact your school administrator.'
                 ], 400);
             }
 
             // Check password
             if (!Hash::check($request->password, $parent->password)) {
+                Log::warning('Password mismatch for parent: ' . $parent->email);
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid credentials'
                 ], 401);
             }
+            
+            Log::info('Password verified for parent: ' . $parent->email);
 
             // Check if parent is active
             if ($parent->status !== 'active') {
@@ -575,26 +589,41 @@ class AuthController extends Controller
     public function parentForgotPassword(Request $request)
     {
         try {
-            $validator = Validator::make($request->all(), [
-                'email' => 'required|email|exists:parent_guardians,email',
-            ]);
-
-            if ($validator->fails()) {
+            // Log everything
+            Log::info('===== PARENT FORGOT PASSWORD START =====');
+            Log::info('Request all: ', $request->all());
+            Log::info('Request email: ' . $request->input('email', 'NOT SET'));
+            
+            // Simple validation - just check if email exists
+            if (!$request->has('email') || empty($request->email)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'message' => 'Email is required'
                 ], 422);
             }
-
-            $parent = ParentGuardian::where('email', $request->email)->first();
+            
+            // Normalize email (trim and lowercase)
+            $email = strtolower(trim($request->email));
+            
+            Log::info('Normalized email: ' . $email);
+            
+            // Try to find parent with case-insensitive search
+            $parent = ParentGuardian::whereRaw('LOWER(TRIM(email)) = ?', [$email])->first();
+            
+            Log::info('Parent query result: ' . ($parent ? 'FOUND' : 'NOT FOUND'));
             
             if (!$parent) {
+                Log::info('Parent not found with email: ' . $email);
+                // Check if any parent exists
+                $count = ParentGuardian::count();
+                Log::info('Total parents in database: ' . $count);
                 return response()->json([
                     'success' => false,
-                    'message' => 'Email address not found'
+                    'message' => 'Email address not found in parent records'
                 ], 404);
             }
+            
+            Log::info('Parent found: ' . $parent->id . ' - ' . $parent->email);
 
             // Generate 6-digit code
             $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
@@ -602,15 +631,25 @@ class AuthController extends Controller
             // Store code in cache for 10 minutes
             cache()->put("parent_password_reset_code_{$parent->id}", $code, 600);
             
+            Log::info('Code generated and cached for parent: ' . $parent->id . ' - Code: ' . $code);
+            
             // Send email with code
             try {
                 Mail::to($parent->email)->send(new PasswordResetCodeMail($code, $parent->full_name));
+                Log::info('Password reset email sent successfully to: ' . $parent->email);
             } catch (\Exception $e) {
                 Log::error('Failed to send parent password reset email: ' . $e->getMessage());
+                // Still return success with code for testing
                 return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to send reset code. Please try again.'
-                ], 500);
+                    'success' => true,
+                    'message' => 'Code generated but email failed. Code: ' . $code,
+                    'data' => [
+                        'parent_id' => $parent->id,
+                        'email' => $parent->email,
+                        'code' => $code, // For debugging
+                        'expires_in' => 600
+                    ]
+                ], 200);
             }
             
             return response()->json([
@@ -619,6 +658,7 @@ class AuthController extends Controller
                 'data' => [
                     'parent_id' => $parent->id,
                     'email' => $parent->email,
+                    'code' => $code, // For debugging - remove in production
                     'expires_in' => 600 // 10 minutes
                 ]
             ], 200);
@@ -639,6 +679,8 @@ class AuthController extends Controller
     public function parentResetPassword(Request $request)
     {
         try {
+            Log::info('Parent Reset Password Request: ', $request->all());
+            
             $validator = Validator::make($request->all(), [
                 'parent_id' => 'required|integer|exists:parent_guardians,id',
                 'code' => 'required|string|size:6',
@@ -646,6 +688,7 @@ class AuthController extends Controller
             ]);
 
             if ($validator->fails()) {
+                Log::error('Validation failed: ', $validator->errors()->toArray());
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
@@ -656,6 +699,7 @@ class AuthController extends Controller
             $parent = ParentGuardian::find($request->parent_id);
             
             if (!$parent) {
+                Log::error('Parent not found with ID: ' . $request->parent_id);
                 return response()->json([
                     'success' => false,
                     'message' => 'Parent/Guardian not found'
@@ -665,7 +709,10 @@ class AuthController extends Controller
             // Verify the code
             $storedCode = cache()->get("parent_password_reset_code_{$parent->id}");
             
+            Log::info('Stored code: ' . $storedCode . ' | Received code: ' . $request->code);
+            
             if (!$storedCode) {
+                Log::error('No code found in cache for parent: ' . $parent->id);
                 return response()->json([
                     'success' => false,
                     'message' => 'Reset code has expired or is invalid'
@@ -673,6 +720,7 @@ class AuthController extends Controller
             }
 
             if ($storedCode !== $request->code) {
+                Log::error('Code mismatch. Stored: ' . $storedCode . ' | Received: ' . $request->code);
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid reset code'
@@ -683,6 +731,8 @@ class AuthController extends Controller
             $parent->update([
                 'password' => Hash::make($request->password)
             ]);
+            
+            Log::info('Password updated successfully for parent: ' . $parent->id);
 
             // Clear the reset code
             cache()->forget("parent_password_reset_code_{$parent->id}");
@@ -730,6 +780,45 @@ class AuthController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while refreshing token'
+            ], 500);
+        }
+    }
+
+    /**
+     * Check if parent exists (for debugging)
+     * POST /api/v1/auth/check-parent-email
+     */
+    public function checkParentEmail(Request $request)
+    {
+        try {
+            $email = strtolower(trim($request->email));
+            $parent = ParentGuardian::whereRaw('LOWER(email) = ?', [$email])->first();
+            
+            if ($parent) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Parent found',
+                    'data' => [
+                        'parent_id' => $parent->id,
+                        'email' => $parent->email,
+                        'name' => $parent->full_name,
+                        'has_password' => !empty($parent->password)
+                    ]
+                ], 200);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Parent not found with this email',
+                    'data' => [
+                        'searched_email' => $email,
+                        'total_parents' => ParentGuardian::count()
+                    ]
+                ], 404);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
             ], 500);
         }
     }
