@@ -21,28 +21,19 @@ use App\Http\Controllers\API\PublicProgramsController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-// Simple test route without any prefix
-Route::get('test', function() {
-    return response()->json([
-        'success' => true,
-        'message' => 'Simple test route works! No prefixes.',
-        'timestamp' => now()->toIso8601String(),
-    ]);
-});
-
 // API Routes
 Route::prefix('v1')->group(function () {
     
     // Public Routes (No Authentication Required)
     // Exclude Sanctum middleware to allow public access
-    Route::prefix('public')->withoutMiddleware([
+    Route::withoutMiddleware([
         \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class
     ])->group(function () {
         // Test route
         Route::get('test', function() {
             return response()->json([
                 'success' => true,
-                'message' => 'Public test route works!',
+                'message' => 'Test route works!',
                 'timestamp' => now()->toIso8601String(),
             ]);
         });
