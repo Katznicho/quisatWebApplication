@@ -24,7 +24,9 @@
             <!-- Logo and Business Info -->
             <div class="flex flex-col items-center w-full">
                 <!-- Top-level System Name -->
-                <h1 class="text-[#011478] font-extrabold text-xl mb-1">{{ env('APP_NAME') }}</h1>
+                @if(auth()->user()->business_id == 1)
+                    <h1 class="text-[#011478] font-extrabold text-xl mb-1">{{ env('APP_NAME') }}</h1>
+                @endif
 
                 <!-- Business Logo -->
                 @php

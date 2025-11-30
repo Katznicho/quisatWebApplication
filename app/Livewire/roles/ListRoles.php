@@ -284,9 +284,20 @@ class ListRoles extends Component implements HasForms, HasTable
                             unset($data[$key]);
                         }
                         $data['permissions'] = json_encode($selectedPermissions);
+                        
+                        // Ensure business_id is set for regular businesses
+                        if (Auth::user()->business_id !== 1 && !isset($data['business_id'])) {
+                            $data['business_id'] = Auth::user()->business_id;
+                        }
+                        
                         return $data;
                     })
                     ->action(function (array $data) {
+                        // Ensure business_id is set before saving
+                        if (Auth::user()->business_id !== 1 && !isset($data['business_id'])) {
+                            $data['business_id'] = Auth::user()->business_id;
+                        }
+                        
                         $role = new Role();
                         $role->fill($data);
                         $role->save();
