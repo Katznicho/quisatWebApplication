@@ -29,6 +29,14 @@ class RouteServiceProvider extends ServiceProvider
         });
 
         $this->routes(function () {
+            // Public API routes (no Sanctum middleware)
+            Route::middleware('public-api')
+                ->prefix('api/v1/public')
+                ->group(function () {
+                    require base_path('routes/public-api.php');
+                });
+
+            // Regular API routes (with Sanctum middleware)
             Route::middleware('api')
                 ->prefix('api')
                 ->group(base_path('routes/api.php'));
