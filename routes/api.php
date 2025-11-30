@@ -87,9 +87,9 @@ Route::prefix('v1')->group(function () {
         Route::get('advertisements', [PublicAdvertisementsController::class, 'index']);
         Route::get('advertisements/{id}', [PublicAdvertisementsController::class, 'show']);
         
-        // Christian Kids Hub Programs
-        Route::get('programs', [PublicProgramsController::class, 'index']);
-        Route::get('programs/{id}', [PublicProgramsController::class, 'show']);
+        // Christian Kids Hub Programs (public)
+        Route::get('public-programs', [PublicProgramsController::class, 'index']);
+        Route::get('public-programs/{id}', [PublicProgramsController::class, 'show']);
     });
     
     
