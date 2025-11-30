@@ -64,8 +64,8 @@ class PublicKidsEventsController extends Controller
             }
 
             Log::info('PublicKidsEventsController::index - Executing query');
-            // Get all events (no pagination)
-            $events = $query->get();
+            // Get all events (no pagination) - eager load business relationship
+            $events = $query->with('business')->get();
             Log::info('PublicKidsEventsController::index - Found ' . $events->count() . ' events');
 
             Log::info('PublicKidsEventsController::index - Transforming events');

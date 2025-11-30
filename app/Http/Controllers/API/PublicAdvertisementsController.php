@@ -16,6 +16,8 @@ class PublicAdvertisementsController extends Controller
     {
         try {
             Log::info('PublicAdvertisementsController::index - Starting request');
+            Log::info('PublicAdvertisementsController::index - Request URL: ' . $request->fullUrl());
+            Log::info('PublicAdvertisementsController::index - PHP Version: ' . PHP_VERSION);
             
             $query = Advertisement::query()
                 ->where('status', 'active')
@@ -45,8 +47,8 @@ class PublicAdvertisementsController extends Controller
             }
 
             Log::info('PublicAdvertisementsController::index - Executing query');
-            // Get all advertisements (no pagination)
-            $advertisements = $query->get();
+            // Get all advertisements (no pagination) - eager load business relationship
+            $advertisements = $query->with('business')->get();
             Log::info('PublicAdvertisementsController::index - Found ' . $advertisements->count() . ' advertisements');
             
             // Log first advertisement details for debugging
@@ -57,34 +59,36 @@ class PublicAdvertisementsController extends Controller
                     'title' => $firstAd->title,
                     'start_date' => $firstAd->start_date ? $firstAd->start_date->toDateTimeString() : 'NULL',
                     'end_date' => $firstAd->end_date ? $firstAd->end_date->toDateTimeString() : 'NULL',
+                    'has_business' => $firstAd->business ? 'yes' : 'no',
                 ]);
             }
 
             Log::info('PublicAdvertisementsController::index - Transforming advertisements');
-            $transformedAds = $advertisements->map(function (Advertisement $ad) {
+            $transformedAds = collect();
+            
+            foreach ($advertisements as $ad) {
                 try {
-                    return $this->transformAdvertisement($ad);
+                    $transformed = $this->transformAdvertisement($ad);
+                    $transformedAds->push($transformed);
                 } catch (\Exception $e) {
-                    Log::error('PublicAdvertisementsController::index - Error transforming ad ' . $ad->id . ': ' . $e->getMessage());
-                    // Return minimal data instead of failing completely
-                    return [
-                        'id' => $ad->id,
-                        'uuid' => $ad->uuid ?? '',
-                        'title' => $ad->title ?? 'Error loading advertisement',
-                        'description' => 'Error loading details',
-                        'error' => true,
-                    ];
+                    Log::error('PublicAdvertisementsController::index - Error transforming ad ' . $ad->id . ': ' . $e->getMessage(), [
+                        'ad_id' => $ad->id,
+                        'file' => $e->getFile(),
+                        'line' => $e->getLine(),
+                    ]);
+                    // Skip this ad and continue
                 }
-            })->filter(); // Remove any null entries
+            }
 
             Log::info('PublicAdvertisementsController::index - Getting categories');
             $categories = Advertisement::where('status', 'active')
+                ->whereNotNull('category')
                 ->distinct()
                 ->pluck('category')
                 ->filter()
                 ->values();
 
-            Log::info('PublicAdvertisementsController::index - Returning response');
+            Log::info('PublicAdvertisementsController::index - Returning response with ' . $transformedAds->count() . ' ads');
             return response()->json([
                 'success' => true,
                 'message' => 'Advertisements retrieved successfully.',
@@ -100,6 +104,29 @@ class PublicAdvertisementsController extends Controller
             $errorLine = $e->getLine();
             
             Log::error('PublicAdvertisementsController::index - Error: ' . $errorMessage, [
+                'file' => $errorFile,
+                'line' => $errorLine,
+                'trace' => $e->getTraceAsString(),
+                'request_url' => $request->fullUrl(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while retrieving advertisements.',
+                'error' => [
+                    'message' => (string) $errorMessage,
+                    'file' => (string) $errorFile,
+                    'line' => (int) $errorLine,
+                    'type' => get_class($e),
+                ],
+            ], 500);
+        } catch (\Throwable $e) {
+            // Catch any other throwable (PHP 7+)
+            $errorMessage = $e->getMessage();
+            $errorFile = $e->getFile();
+            $errorLine = $e->getLine();
+            
+            Log::error('PublicAdvertisementsController::index - Throwable Error: ' . $errorMessage, [
                 'file' => $errorFile,
                 'line' => $errorLine,
                 'trace' => $e->getTraceAsString(),
@@ -126,8 +153,11 @@ class PublicAdvertisementsController extends Controller
         try {
             Log::info('PublicAdvertisementsController::show - Requesting advertisement ID: ' . $id);
             
-            $advertisement = Advertisement::where('id', $id)
+            $advertisement = Advertisement::with('business')
+                ->where('id', $id)
                 ->where('status', 'active')
+                ->whereNotNull('start_date')
+                ->whereNotNull('end_date')
                 ->where('start_date', '<=', now())
                 ->where('end_date', '>=', now())
                 ->first();
@@ -172,6 +202,27 @@ class PublicAdvertisementsController extends Controller
                     'type' => get_class($e),
                 ],
             ], 500);
+        } catch (\Throwable $e) {
+            $errorMessage = $e->getMessage();
+            $errorFile = $e->getFile();
+            $errorLine = $e->getLine();
+            
+            Log::error('PublicAdvertisementsController::show - Throwable Error: ' . $errorMessage, [
+                'id' => $id,
+                'file' => $errorFile,
+                'line' => $errorLine,
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while retrieving the advertisement.',
+                'error' => [
+                    'message' => (string) $errorMessage,
+                    'file' => (string) $errorFile,
+                    'line' => (int) $errorLine,
+                    'type' => get_class($e),
+                ],
+            ], 500);
         }
     }
 
@@ -183,17 +234,50 @@ class PublicAdvertisementsController extends Controller
         try {
             $data = [
                 'id' => $ad->id,
-                'uuid' => $ad->uuid,
+                'uuid' => $ad->uuid ?? '',
                 'title' => $ad->title ?? '',
                 'description' => $ad->description ?? '',
                 'media_type' => $ad->media_type ?? 'text',
-                'media_url' => $ad->media_path ? (str_starts_with($ad->media_path, 'http') ? $ad->media_path : asset('storage/' . $ad->media_path)) : null,
+                'media_url' => null,
                 'category' => $ad->category ?? null,
-                'start_date' => $ad->start_date ? $ad->start_date->toIso8601String() : null,
-                'end_date' => $ad->end_date ? $ad->end_date->toIso8601String() : null,
+                'start_date' => null,
+                'end_date' => null,
                 'is_recurring' => (bool) ($ad->is_recurring ?? false),
                 'recurrence_pattern' => $ad->recurrence_pattern ?? null,
             ];
+
+            // Handle media URL
+            if ($ad->media_path) {
+                if (str_starts_with($ad->media_path, 'http')) {
+                    $data['media_url'] = $ad->media_path;
+                } else {
+                    try {
+                        $data['media_url'] = asset('storage/' . $ad->media_path);
+                    } catch (\Exception $e) {
+                        Log::warning('PublicAdvertisementsController::transformAdvertisement - Error generating media URL: ' . $e->getMessage());
+                        $data['media_url'] = null;
+                    }
+                }
+            }
+
+            // Handle dates safely
+            if ($ad->start_date) {
+                try {
+                    $data['start_date'] = $ad->start_date->toIso8601String();
+                } catch (\Exception $e) {
+                    Log::warning('PublicAdvertisementsController::transformAdvertisement - Error formatting start_date: ' . $e->getMessage());
+                    $data['start_date'] = $ad->start_date instanceof \DateTime ? $ad->start_date->format('Y-m-d\TH:i:s\Z') : null;
+                }
+            }
+
+            if ($ad->end_date) {
+                try {
+                    $data['end_date'] = $ad->end_date->toIso8601String();
+                } catch (\Exception $e) {
+                    Log::warning('PublicAdvertisementsController::transformAdvertisement - Error formatting end_date: ' . $e->getMessage());
+                    $data['end_date'] = $ad->end_date instanceof \DateTime ? $ad->end_date->format('Y-m-d\TH:i:s\Z') : null;
+                }
+            }
 
             if ($includeDetails) {
                 $data['target_audience'] = $ad->target_audience ?: [];
@@ -205,8 +289,17 @@ class PublicAdvertisementsController extends Controller
                     $data['business'] = $business ? [
                         'id' => $business->id,
                         'name' => $business->name ?? '',
-                        'logo' => $business->logo ? asset('storage/' . $business->logo) : null,
+                        'logo' => null,
                     ] : null;
+                    
+                    // Handle logo URL safely
+                    if ($business && $business->logo) {
+                        try {
+                            $data['business']['logo'] = asset('storage/' . $business->logo);
+                        } catch (\Exception $e) {
+                            Log::warning('PublicAdvertisementsController::transformAdvertisement - Error generating logo URL: ' . $e->getMessage());
+                        }
+                    }
                 } catch (\Exception $e) {
                     Log::warning('PublicAdvertisementsController::transformAdvertisement - Could not load business: ' . $e->getMessage());
                     $data['business'] = null;
@@ -222,7 +315,13 @@ class PublicAdvertisementsController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
             throw $e;
+        } catch (\Throwable $e) {
+            Log::error('PublicAdvertisementsController::transformAdvertisement - Throwable Error: ' . $e->getMessage(), [
+                'ad_id' => $ad->id ?? null,
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            throw $e;
         }
     }
 }
-
