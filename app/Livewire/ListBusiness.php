@@ -95,13 +95,15 @@ class ListBusiness extends Component implements HasForms, HasTable
                     ->sortable()
                     ->default('N/A'),
                 Tables\Columns\TextColumn::make('enabled_feature_ids')
-                    ->label('Enabled Features')
+                    ->label('Features')
                     ->getStateUsing(function ($record) {
                         $state = $record->enabled_feature_ids ?? [];
                         $state = is_array($state) ? $state : json_decode($state, true) ?? [];
-                        return collect($state)->map(fn($id) => $this->features[$id] ?? null)->filter()->toArray();
+                        $count = count(collect($state)->filter());
+                        return $count > 0 ? $count . ' enabled' : 'None';
                     })
-                    ->badge(),
+                    ->badge()
+                    ->color(fn($state) => str_contains($state, 'None') ? 'gray' : 'success'),
             ])
             ->filters([
                 ...(Auth::check() && Auth::user()->business_id === 1 ? [
@@ -294,6 +296,32 @@ class ListBusiness extends Component implements HasForms, HasTable
                     ->icon('heroicon-o-photo')
                     ->color('info')
                     ->visible(fn(Business $record): bool => Auth::user()->business_id === 1),
+
+                Tables\Actions\Action::make('view_features')
+                    ->label('View Features')
+                    ->modalHeading(fn(Business $record) => 'Enabled Features - ' . $record->name)
+                    ->modalWidth('4xl')
+                    ->modalContent(function (Business $record) {
+                        $enabledFeatureIds = $record->enabled_feature_ids ?? [];
+                        $enabledFeatureIds = is_array($enabledFeatureIds) ? $enabledFeatureIds : json_decode($enabledFeatureIds, true) ?? [];
+                        
+                        if (empty($enabledFeatureIds)) {
+                            return view('livewire.businesses.features-empty');
+                        }
+                        
+                        $features = \App\Models\Feature::whereIn('id', $enabledFeatureIds)
+                            ->with('currency')
+                            ->get();
+                        
+                        return view('livewire.businesses.features-detail', [
+                            'features' => $features,
+                            'business' => $record
+                        ]);
+                    })
+                    ->icon('heroicon-o-sparkles')
+                    ->color('success')
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close'),
             ])
             ->bulkActions([
                 // Tables\Actions\BulkActionGroup::make([...])
