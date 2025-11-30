@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\KidsEvent;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class PublicKidsEventsController extends Controller
 {
@@ -14,65 +15,92 @@ class PublicKidsEventsController extends Controller
      */
     public function index(Request $request)
     {
-        $query = KidsEvent::query()
-            ->where('status', '!=', 'cancelled')
-            ->orderByDesc('is_featured')
-            ->orderBy('start_date');
+        try {
+            Log::info('PublicKidsEventsController::index - Starting request');
+            
+            $query = KidsEvent::query()
+                ->where('status', '!=', 'cancelled')
+                ->orderByDesc('is_featured')
+                ->orderBy('start_date');
 
-        // Filter by category
-        if ($category = $request->query('category')) {
-            $query->where('category', $category);
-        }
-
-        // Filter by status
-        if ($status = $request->query('status')) {
-            if ($status === 'upcoming') {
-                $query->where('start_date', '>', now());
-            } elseif ($status === 'ongoing') {
-                $query->where('start_date', '<=', now())
-                      ->where('end_date', '>=', now());
-            } elseif ($status === 'completed') {
-                $query->where('end_date', '<', now());
+            // Filter by category
+            if ($category = $request->query('category')) {
+                $query->where('category', $category);
             }
-        }
 
-        // Show only featured
-        if ($request->boolean('featured_only')) {
-            $query->where('is_featured', true);
-        }
+            // Filter by status
+            if ($status = $request->query('status')) {
+                if ($status === 'upcoming') {
+                    $query->where('start_date', '>', now());
+                } elseif ($status === 'ongoing') {
+                    $query->where('start_date', '<=', now())
+                          ->where('end_date', '>=', now());
+                } elseif ($status === 'completed') {
+                    $query->where('end_date', '<', now());
+                }
+            }
 
-        // Show only upcoming
-        if ($request->boolean('upcoming_only')) {
-            $query->where('end_date', '>=', now());
-        }
+            // Show only featured
+            if ($request->boolean('featured_only')) {
+                $query->where('is_featured', true);
+            }
 
-        // Search
-        if ($search = $request->query('search')) {
-            $search = trim($search);
-            $query->where(function ($q) use ($search) {
-                $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%")
-                  ->orWhere('host_organization', 'like', "%{$search}%")
-                  ->orWhere('location', 'like', "%{$search}%");
+            // Show only upcoming
+            if ($request->boolean('upcoming_only')) {
+                $query->where('end_date', '>=', now());
+            }
+
+            // Search
+            if ($search = $request->query('search')) {
+                $search = trim($search);
+                $query->where(function ($q) use ($search) {
+                    $q->where('title', 'like', "%{$search}%")
+                      ->orWhere('description', 'like', "%{$search}%")
+                      ->orWhere('host_organization', 'like', "%{$search}%")
+                      ->orWhere('location', 'like', "%{$search}%");
+                });
+            }
+
+            Log::info('PublicKidsEventsController::index - Executing query');
+            // Get all events (no pagination)
+            $events = $query->get();
+            Log::info('PublicKidsEventsController::index - Found ' . $events->count() . ' events');
+
+            Log::info('PublicKidsEventsController::index - Transforming events');
+            $transformedEvents = $events->map(function (KidsEvent $event) {
+                return $this->transformEvent($event);
             });
+
+            Log::info('PublicKidsEventsController::index - Getting categories');
+            $categories = KidsEvent::distinct()->pluck('category')->filter()->values();
+
+            Log::info('PublicKidsEventsController::index - Returning response');
+            return response()->json([
+                'success' => true,
+                'message' => 'Kids events retrieved successfully.',
+                'data' => [
+                    'events' => $transformedEvents,
+                    'total' => $transformedEvents->count(),
+                    'categories' => $categories,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('PublicKidsEventsController::index - Error: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while retrieving kids events.',
+                'error' => [
+                    'message' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ],
+            ], 500);
         }
-
-        // Get all events (no pagination)
-        $events = $query->get();
-
-        $transformedEvents = $events->map(function (KidsEvent $event) {
-            return $this->transformEvent($event);
-        });
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Kids events retrieved successfully.',
-            'data' => [
-                'events' => $transformedEvents,
-                'total' => $transformedEvents->count(),
-                'categories' => KidsEvent::distinct()->pluck('category')->filter()->values(),
-            ],
-        ]);
     }
 
     /**
@@ -80,24 +108,49 @@ class PublicKidsEventsController extends Controller
      */
     public function show($id)
     {
-        $event = KidsEvent::where('id', $id)
-            ->where('status', '!=', 'cancelled')
-            ->first();
+        try {
+            Log::info('PublicKidsEventsController::show - Requesting event ID: ' . $id);
+            
+            $event = KidsEvent::where('id', $id)
+                ->where('status', '!=', 'cancelled')
+                ->first();
 
-        if (!$event) {
+            if (!$event) {
+                Log::warning('PublicKidsEventsController::show - Event not found: ' . $id);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Event not found.',
+                ], 404);
+            }
+
+            Log::info('PublicKidsEventsController::show - Transforming event');
+            $transformedEvent = $this->transformEvent($event, true);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Event retrieved successfully.',
+                'data' => [
+                    'event' => $transformedEvent,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('PublicKidsEventsController::show - Error: ' . $e->getMessage(), [
+                'id' => $id,
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Event not found.',
-            ], 404);
+                'message' => 'An error occurred while retrieving the event.',
+                'error' => [
+                    'message' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ],
+            ], 500);
         }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Event retrieved successfully.',
-            'data' => [
-                'event' => $this->transformEvent($event, true),
-            ],
-        ]);
     }
 
     /**
@@ -105,8 +158,9 @@ class PublicKidsEventsController extends Controller
      */
     protected function transformEvent(KidsEvent $event, bool $includeDetails = false): array
     {
-        $start = $event->start_date instanceof Carbon ? $event->start_date : Carbon::parse($event->start_date);
-        $end = $event->end_date instanceof Carbon ? $event->end_date : Carbon::parse($event->end_date);
+        try {
+            $start = $event->start_date instanceof Carbon ? $event->start_date : Carbon::parse($event->start_date);
+            $end = $event->end_date instanceof Carbon ? $event->end_date : Carbon::parse($event->end_date);
 
         $data = [
             'id' => $event->id,
@@ -147,7 +201,15 @@ class PublicKidsEventsController extends Controller
             ] : null;
         }
 
-        return $data;
+            return $data;
+        } catch (\Exception $e) {
+            Log::error('PublicKidsEventsController::transformEvent - Error: ' . $e->getMessage(), [
+                'event_id' => $event->id ?? null,
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            throw $e;
+        }
     }
 
     protected function formatDuration(Carbon $start, Carbon $end): string

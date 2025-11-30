@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\Advertisement;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class PublicAdvertisementsController extends Controller
 {
@@ -13,51 +14,78 @@ class PublicAdvertisementsController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Advertisement::query()
-            ->where('status', 'active')
-            ->where('start_date', '<=', now())
-            ->where('end_date', '>=', now())
-            ->orderByDesc('created_at');
+        try {
+            Log::info('PublicAdvertisementsController::index - Starting request');
+            
+            $query = Advertisement::query()
+                ->where('status', 'active')
+                ->where('start_date', '<=', now())
+                ->where('end_date', '>=', now())
+                ->orderByDesc('created_at');
 
-        // Filter by category
-        if ($category = $request->query('category')) {
-            $query->where('category', $category);
-        }
+            // Filter by category
+            if ($category = $request->query('category')) {
+                $query->where('category', $category);
+            }
 
-        // Filter by media type
-        if ($mediaType = $request->query('media_type')) {
-            $query->where('media_type', $mediaType);
-        }
+            // Filter by media type
+            if ($mediaType = $request->query('media_type')) {
+                $query->where('media_type', $mediaType);
+            }
 
-        // Search
-        if ($search = $request->query('search')) {
-            $search = trim($search);
-            $query->where(function ($q) use ($search) {
-                $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+            // Search
+            if ($search = $request->query('search')) {
+                $search = trim($search);
+                $query->where(function ($q) use ($search) {
+                    $q->where('title', 'like', "%{$search}%")
+                      ->orWhere('description', 'like', "%{$search}%");
+                });
+            }
+
+            Log::info('PublicAdvertisementsController::index - Executing query');
+            // Get all advertisements (no pagination)
+            $advertisements = $query->get();
+            Log::info('PublicAdvertisementsController::index - Found ' . $advertisements->count() . ' advertisements');
+
+            Log::info('PublicAdvertisementsController::index - Transforming advertisements');
+            $transformedAds = $advertisements->map(function (Advertisement $ad) {
+                return $this->transformAdvertisement($ad);
             });
+
+            Log::info('PublicAdvertisementsController::index - Getting categories');
+            $categories = Advertisement::where('status', 'active')
+                ->distinct()
+                ->pluck('category')
+                ->filter()
+                ->values();
+
+            Log::info('PublicAdvertisementsController::index - Returning response');
+            return response()->json([
+                'success' => true,
+                'message' => 'Advertisements retrieved successfully.',
+                'data' => [
+                    'advertisements' => $transformedAds,
+                    'total' => $transformedAds->count(),
+                    'categories' => $categories,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('PublicAdvertisementsController::index - Error: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while retrieving advertisements.',
+                'error' => [
+                    'message' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ],
+            ], 500);
         }
-
-        // Get all advertisements (no pagination)
-        $advertisements = $query->get();
-
-        $transformedAds = $advertisements->map(function (Advertisement $ad) {
-            return $this->transformAdvertisement($ad);
-        });
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Advertisements retrieved successfully.',
-            'data' => [
-                'advertisements' => $transformedAds,
-                'total' => $transformedAds->count(),
-                'categories' => Advertisement::where('status', 'active')
-                    ->distinct()
-                    ->pluck('category')
-                    ->filter()
-                    ->values(),
-            ],
-        ]);
     }
 
     /**
@@ -65,26 +93,51 @@ class PublicAdvertisementsController extends Controller
      */
     public function show($id)
     {
-        $advertisement = Advertisement::where('id', $id)
-            ->where('status', 'active')
-            ->where('start_date', '<=', now())
-            ->where('end_date', '>=', now())
-            ->first();
+        try {
+            Log::info('PublicAdvertisementsController::show - Requesting advertisement ID: ' . $id);
+            
+            $advertisement = Advertisement::where('id', $id)
+                ->where('status', 'active')
+                ->where('start_date', '<=', now())
+                ->where('end_date', '>=', now())
+                ->first();
 
-        if (!$advertisement) {
+            if (!$advertisement) {
+                Log::warning('PublicAdvertisementsController::show - Advertisement not found: ' . $id);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Advertisement not found or not active.',
+                ], 404);
+            }
+
+            Log::info('PublicAdvertisementsController::show - Transforming advertisement');
+            $transformedAd = $this->transformAdvertisement($advertisement, true);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Advertisement retrieved successfully.',
+                'data' => [
+                    'advertisement' => $transformedAd,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('PublicAdvertisementsController::show - Error: ' . $e->getMessage(), [
+                'id' => $id,
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Advertisement not found or not active.',
-            ], 404);
+                'message' => 'An error occurred while retrieving the advertisement.',
+                'error' => [
+                    'message' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ],
+            ], 500);
         }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Advertisement retrieved successfully.',
-            'data' => [
-                'advertisement' => $this->transformAdvertisement($advertisement, true),
-            ],
-        ]);
     }
 
     /**
@@ -92,7 +145,8 @@ class PublicAdvertisementsController extends Controller
      */
     protected function transformAdvertisement(Advertisement $ad, bool $includeDetails = false): array
     {
-        $data = [
+        try {
+            $data = [
             'id' => $ad->id,
             'uuid' => $ad->uuid,
             'title' => $ad->title,
@@ -116,7 +170,15 @@ class PublicAdvertisementsController extends Controller
             ] : null;
         }
 
-        return $data;
+            return $data;
+        } catch (\Exception $e) {
+            Log::error('PublicAdvertisementsController::transformAdvertisement - Error: ' . $e->getMessage(), [
+                'ad_id' => $ad->id ?? null,
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            throw $e;
+        }
     }
 }
 
