@@ -24,6 +24,16 @@ Route::prefix('v1')->group(function () {
     
     // Public Routes (No Authentication Required)
     Route::prefix('public')->group(function () {
+        // Test route to verify Laravel is receiving requests
+        Route::get('test', function() {
+            return response()->json([
+                'success' => true,
+                'message' => 'Test route works! Laravel is receiving API requests.',
+                'timestamp' => now()->toIso8601String(),
+                'server' => $_SERVER['SERVER_NAME'] ?? 'unknown',
+            ]);
+        });
+        
         // Kids Events
         Route::get('kids-events', [PublicKidsEventsController::class, 'index']);
         Route::get('kids-events/{id}', [PublicKidsEventsController::class, 'show']);
