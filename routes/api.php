@@ -2,6 +2,8 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\StudentController;
 use App\Http\Controllers\API\AcademicCalendarController;
@@ -23,7 +25,10 @@ use App\Http\Controllers\API\PublicProgramsController;
 Route::prefix('v1')->group(function () {
     
     // Public Routes (No Authentication Required)
-    Route::prefix('public')->group(function () {
+    // Exclude Sanctum stateful middleware to allow public access
+    Route::prefix('public')->withoutMiddleware([
+        \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class
+    ])->group(function () {
         // Test route to verify Laravel is receiving requests
         Route::get('test', function() {
             return response()->json([
@@ -50,7 +55,7 @@ Route::prefix('v1')->group(function () {
                 
                 // Check database connection
                 try {
-                    \DB::connection()->getPdo();
+                    DB::connection()->getPdo();
                     $checks['database_connected'] = true;
                 } catch (\Exception $e) {
                     $checks['database_error'] = $e->getMessage();
@@ -58,9 +63,9 @@ Route::prefix('v1')->group(function () {
                 
                 // Check if tables exist
                 try {
-                    $checks['advertisements_table_exists'] = \Schema::hasTable('advertisements');
-                    $checks['kids_events_table_exists'] = \Schema::hasTable('kids_events');
-                    $checks['programs_table_exists'] = \Schema::hasTable('programs');
+                    $checks['advertisements_table_exists'] = Schema::hasTable('advertisements');
+                    $checks['kids_events_table_exists'] = Schema::hasTable('kids_events');
+                    $checks['programs_table_exists'] = Schema::hasTable('programs');
                 } catch (\Exception $e) {
                     $checks['schema_error'] = $e->getMessage();
                 }
