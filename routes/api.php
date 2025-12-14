@@ -9,6 +9,7 @@ use App\Http\Controllers\API\ParentGuardianController;
 use App\Http\Controllers\API\KidsProgramController;
 use App\Http\Controllers\API\AnnouncementController;
 use App\Http\Controllers\API\ClassAssignmentController;
+use App\Http\Controllers\API\AssignmentSubmissionController;
 use App\Http\Controllers\API\ConversationController;
 use App\Http\Controllers\API\StaffDashboardController;
 use App\Http\Controllers\API\ParentDashboardController;
@@ -125,6 +126,22 @@ Route::prefix('v1')->group(function () {
                 Route::get('{student}/progress', [StudentProgressController::class, 'show']);
             });
 
+            Route::get('subjects', function (Request $request) {
+                $businessId = $request->get('business_id');
+                $subjects = \App\Models\Subject::where('business_id', $businessId)
+                    ->where(function ($q) {
+                        $q->whereNull('status')->orWhere('status', 'active');
+                    })
+                    ->orderBy('name')
+                    ->get(['id', 'name', 'code']);
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Subjects retrieved successfully.',
+                    'data' => ['subjects' => $subjects],
+                ]);
+            });
+
             Route::prefix('calendar')->group(function () {
                 Route::get('events', [AcademicCalendarController::class, 'index']);
                 Route::get('events/{event}', [AcademicCalendarController::class, 'show']);
@@ -148,7 +165,11 @@ Route::prefix('v1')->group(function () {
 
             Route::prefix('assignments')->group(function () {
                 Route::get('/', [ClassAssignmentController::class, 'index']);
+                Route::post('/', [ClassAssignmentController::class, 'store']);
                 Route::get('{assignment}', [ClassAssignmentController::class, 'show']);
+                Route::get('{assignment}/submissions', [AssignmentSubmissionController::class, 'show']);
+                Route::post('{assignment}/submissions', [AssignmentSubmissionController::class, 'store']);
+                Route::get('{assignment}/submissions/{submission}', [AssignmentSubmissionController::class, 'show']);
             });
 
             Route::prefix('conversations')->group(function () {
