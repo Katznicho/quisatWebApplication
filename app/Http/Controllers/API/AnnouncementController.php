@@ -67,21 +67,34 @@ class AnnouncementController extends Controller
         $businessId = $request->get('business_id');
         $user = $request->get('authenticated_user');
 
-        $validated = $request->validate([
+        // Handle both JSON and FormData requests
+        $rules = [
             'title' => 'required|string|max:255',
             'content' => 'required|string',
             'type' => 'nullable|string|in:general,urgent,event,reminder',
-            'channels' => 'nullable|array',
-            'channels.*' => 'string|in:email,sms,push,in_app',
-            'target_roles' => 'nullable|array',
-            'target_roles.*' => 'string|in:all_users,staff,students,parents',
-            'target_users' => 'nullable|array',
-            'target_users.*' => 'integer|exists:users,id',
             'status' => 'nullable|string|in:draft,scheduled,published',
             'scheduled_at' => 'nullable|date',
-            'attachments' => 'nullable|array',
-            'attachments.*' => 'file|mimes:jpeg,png,jpg,gif,svg,pdf,doc,docx,txt,mp4,avi,mov|max:10240', // 10MB max
-        ]);
+        ];
+
+        // If request has files, it's FormData - validate files
+        if ($request->hasFile('attachments')) {
+            $rules['channels'] = 'nullable|array';
+            $rules['channels.*'] = 'string|in:email,sms,push,in_app';
+            $rules['target_roles'] = 'nullable|array';
+            $rules['target_roles.*'] = 'string|in:all_users,staff,students,parents';
+            $rules['attachments'] = 'nullable|array';
+            $rules['attachments.*'] = 'file|mimes:jpeg,png,jpg,gif,svg,pdf,doc,docx,txt,mp4,avi,mov|max:10240';
+        } else {
+            // JSON request
+            $rules['channels'] = 'nullable|array';
+            $rules['channels.*'] = 'string|in:email,sms,push,in_app';
+            $rules['target_roles'] = 'nullable|array';
+            $rules['target_roles.*'] = 'string|in:all_users,staff,students,parents';
+            $rules['target_users'] = 'nullable|array';
+            $rules['target_users.*'] = 'integer|exists:users,id';
+        }
+
+        $validated = $request->validate($rules);
 
         $attachments = [];
         
