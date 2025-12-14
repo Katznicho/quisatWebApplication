@@ -62,6 +62,50 @@ class AnnouncementController extends Controller
         ]);
     }
 
+    public function store(Request $request)
+    {
+        $businessId = $request->get('business_id');
+        $user = $request->get('authenticated_user');
+
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'content' => 'required|string',
+            'type' => 'nullable|string|in:general,urgent,event,reminder',
+            'channels' => 'nullable|array',
+            'channels.*' => 'string|in:email,sms,push,in_app',
+            'target_roles' => 'nullable|array',
+            'target_roles.*' => 'string|in:all_users,staff,students,parents',
+            'target_users' => 'nullable|array',
+            'target_users.*' => 'integer|exists:users,id',
+            'status' => 'nullable|string|in:draft,scheduled,published',
+            'scheduled_at' => 'nullable|date',
+        ]);
+
+        $announcement = BroadcastAnnouncement::create([
+            'business_id' => $businessId,
+            'sender_id' => $user->id,
+            'title' => $validated['title'],
+            'content' => $validated['content'],
+            'type' => $validated['type'] ?? 'general',
+            'channels' => $validated['channels'] ?? ['in_app'],
+            'target_roles' => $validated['target_roles'] ?? ['all_users'],
+            'target_users' => $validated['target_users'] ?? null,
+            'status' => $validated['status'] ?? 'published',
+            'scheduled_at' => isset($validated['scheduled_at']) ? $validated['scheduled_at'] : null,
+            'sent_at' => ($validated['status'] ?? 'published') === 'published' ? now() : null,
+        ]);
+
+        $announcement->load('sender:id,name,email');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Announcement created successfully.',
+            'data' => [
+                'announcement' => $this->transformAnnouncement($announcement, true),
+            ],
+        ], 201);
+    }
+
     public function show(Request $request, $announcement)
     {
         $businessId = $request->get('business_id');

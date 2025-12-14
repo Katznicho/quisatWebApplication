@@ -142,6 +142,7 @@ Route::prefix('v1')->group(function () {
 
             Route::prefix('announcements')->group(function () {
                 Route::get('/', [AnnouncementController::class, 'index']);
+                Route::post('/', [AnnouncementController::class, 'store']);
                 Route::get('{announcement}', [AnnouncementController::class, 'show']);
             });
 
