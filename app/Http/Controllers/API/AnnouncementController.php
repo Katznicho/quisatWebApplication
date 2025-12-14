@@ -136,30 +136,47 @@ class AnnouncementController extends Controller
             }
         }
 
-        $announcement = BroadcastAnnouncement::create([
-            'business_id' => $businessId,
-            'sender_id' => $user->id,
-            'title' => $validated['title'],
-            'content' => $validated['content'],
-            'type' => $validated['type'] ?? 'general',
-            'channels' => $validated['channels'] ?? ['in_app'],
-            'target_roles' => $validated['target_roles'] ?? ['all_users'],
-            'target_users' => $validated['target_users'] ?? null,
-            'status' => $validated['status'] ?? 'published',
-            'scheduled_at' => isset($validated['scheduled_at']) ? $validated['scheduled_at'] : null,
-            'sent_at' => ($validated['status'] ?? 'published') === 'published' ? now() : null,
-            'attachments' => !empty($attachments) ? $attachments : null,
-        ]);
+            $announcement = BroadcastAnnouncement::create([
+                'business_id' => $businessId,
+                'sender_id' => $user->id,
+                'title' => $validated['title'],
+                'content' => $validated['content'],
+                'type' => $validated['type'] ?? 'general',
+                'channels' => $validated['channels'] ?? ['in_app'],
+                'target_roles' => $validated['target_roles'] ?? ['all_users'],
+                'target_users' => $validated['target_users'] ?? null,
+                'status' => $validated['status'] ?? 'published',
+                'scheduled_at' => isset($validated['scheduled_at']) ? $validated['scheduled_at'] : null,
+                'sent_at' => ($validated['status'] ?? 'published') === 'published' ? now() : null,
+                'attachments' => !empty($attachments) ? $attachments : null,
+            ]);
 
-        $announcement->load('sender:id,name,email');
+            $announcement->load('sender:id,name,email');
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Announcement created successfully.',
-            'data' => [
-                'announcement' => $this->transformAnnouncement($announcement, true),
-            ],
-        ], 201);
+            return response()->json([
+                'success' => true,
+                'message' => 'Announcement created successfully.',
+                'data' => [
+                    'announcement' => $this->transformAnnouncement($announcement, true),
+                ],
+            ], 201);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            \Log::error('Error creating announcement: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while creating the announcement.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     public function show(Request $request, $announcement)
