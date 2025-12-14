@@ -67,57 +67,71 @@ class AnnouncementController extends Controller
         $businessId = $request->get('business_id');
         $user = $request->get('authenticated_user');
 
-        // Handle both JSON and FormData requests
-        $rules = [
+        $validated = $request->validate([
             'title' => 'required|string|max:255',
             'content' => 'required|string',
             'type' => 'nullable|string|in:general,urgent,event,reminder',
+            'channels' => 'nullable|array',
+            'channels.*' => 'string|in:email,sms,push,in_app',
+            'target_roles' => 'nullable|array',
+            'target_roles.*' => 'string|in:all_users,staff,students,parents',
+            'target_users' => 'nullable|array',
+            'target_users.*' => 'integer|exists:users,id',
             'status' => 'nullable|string|in:draft,scheduled,published',
             'scheduled_at' => 'nullable|date',
-        ];
-
-        // If request has files, it's FormData - validate files
-        if ($request->hasFile('attachments')) {
-            $rules['channels'] = 'nullable|array';
-            $rules['channels.*'] = 'string|in:email,sms,push,in_app';
-            $rules['target_roles'] = 'nullable|array';
-            $rules['target_roles.*'] = 'string|in:all_users,staff,students,parents';
-            $rules['attachments'] = 'nullable|array';
-            $rules['attachments.*'] = 'file|mimes:jpeg,png,jpg,gif,svg,pdf,doc,docx,txt,mp4,avi,mov|max:10240';
-        } else {
-            // JSON request
-            $rules['channels'] = 'nullable|array';
-            $rules['channels.*'] = 'string|in:email,sms,push,in_app';
-            $rules['target_roles'] = 'nullable|array';
-            $rules['target_roles.*'] = 'string|in:all_users,staff,students,parents';
-            $rules['target_users'] = 'nullable|array';
-            $rules['target_users.*'] = 'integer|exists:users,id';
-        }
-
-        $validated = $request->validate($rules);
+            'attachments' => 'nullable|array',
+            'attachments.*.type' => 'required|string',
+            'attachments.*.name' => 'required|string',
+            'attachments.*.base64' => 'nullable|string',
+            'attachments.*.mime_type' => 'nullable|string',
+            'attachments.*.size' => 'nullable|integer',
+            'attachments.*.url' => 'nullable|string',
+        ]);
 
         $attachments = [];
         
-        // Handle file uploads
-        if ($request->hasFile('attachments')) {
-            foreach ($request->file('attachments') as $file) {
-                $mimeType = $file->getMimeType();
-                $fileType = str_starts_with($mimeType, 'image/') ? 'image' : 
-                           (str_starts_with($mimeType, 'video/') ? 'video' : 'file');
-                
-                $directory = $fileType === 'image' ? 'announcements/images' : 
-                            ($fileType === 'video' ? 'announcements/videos' : 'announcements/files');
-                
-                $path = $file->store($directory, 'public');
-                
-                $attachments[] = [
-                    'path' => $path,
-                    'url' => asset('storage/' . $path),
-                    'name' => $file->getClientOriginalName(),
-                    'size' => $file->getSize(),
-                    'type' => $fileType,
-                    'mime_type' => $mimeType,
-                ];
+        // Handle base64 attachments
+        if ($request->has('attachments') && is_array($request->input('attachments'))) {
+            foreach ($request->input('attachments') as $attachmentData) {
+                if (isset($attachmentData['type']) && $attachmentData['type'] === 'youtube') {
+                    // YouTube link
+                    $attachments[] = [
+                        'type' => 'youtube',
+                        'url' => $attachmentData['url'] ?? '',
+                        'name' => $attachmentData['name'] ?? 'YouTube Video',
+                    ];
+                } elseif (isset($attachmentData['base64']) && isset($attachmentData['mime_type'])) {
+                    // Base64 file
+                    $base64 = $attachmentData['base64'];
+                    $mimeType = $attachmentData['mime_type'];
+                    $fileName = $attachmentData['name'] ?? 'file';
+                    
+                    // Determine file type and directory
+                    $fileType = str_starts_with($mimeType, 'image/') ? 'image' : 
+                               (str_starts_with($mimeType, 'video/') ? 'video' : 'file');
+                    
+                    $directory = $fileType === 'image' ? 'announcements/images' : 
+                                ($fileType === 'video' ? 'announcements/videos' : 'announcements/files');
+                    
+                    // Decode base64 and store file
+                    $fileContent = base64_decode($base64);
+                    $extension = pathinfo($fileName, PATHINFO_EXTENSION) ?: 
+                                ($fileType === 'image' ? 'jpg' : ($fileType === 'video' ? 'mp4' : 'bin'));
+                    $storedFileName = uniqid() . '_' . time() . '.' . $extension;
+                    $path = $directory . '/' . $storedFileName;
+                    
+                    // Store file
+                    \Illuminate\Support\Facades\Storage::disk('public')->put($path, $fileContent);
+                    
+                    $attachments[] = [
+                        'path' => $path,
+                        'url' => asset('storage/' . $path),
+                        'name' => $fileName,
+                        'size' => $attachmentData['size'] ?? strlen($fileContent),
+                        'type' => $fileType,
+                        'mime_type' => $mimeType,
+                    ];
+                }
             }
         }
 
