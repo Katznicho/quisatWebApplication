@@ -22,12 +22,14 @@ class BroadcastAnnouncement extends Model
         'status',
         'scheduled_at',
         'sent_at',
+        'attachments',
     ];
 
     protected $casts = [
         'channels' => 'array',
         'target_roles' => 'array',
         'target_users' => 'array',
+        'attachments' => 'array',
         'scheduled_at' => 'datetime',
         'sent_at' => 'datetime',
     ];

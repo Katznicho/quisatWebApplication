@@ -79,7 +79,34 @@ class AnnouncementController extends Controller
             'target_users.*' => 'integer|exists:users,id',
             'status' => 'nullable|string|in:draft,scheduled,published',
             'scheduled_at' => 'nullable|date',
+            'attachments' => 'nullable|array',
+            'attachments.*' => 'file|mimes:jpeg,png,jpg,gif,svg,pdf,doc,docx,txt,mp4,avi,mov|max:10240', // 10MB max
         ]);
+
+        $attachments = [];
+        
+        // Handle file uploads
+        if ($request->hasFile('attachments')) {
+            foreach ($request->file('attachments') as $file) {
+                $mimeType = $file->getMimeType();
+                $fileType = str_starts_with($mimeType, 'image/') ? 'image' : 
+                           (str_starts_with($mimeType, 'video/') ? 'video' : 'file');
+                
+                $directory = $fileType === 'image' ? 'announcements/images' : 
+                            ($fileType === 'video' ? 'announcements/videos' : 'announcements/files');
+                
+                $path = $file->store($directory, 'public');
+                
+                $attachments[] = [
+                    'path' => $path,
+                    'url' => asset('storage/' . $path),
+                    'name' => $file->getClientOriginalName(),
+                    'size' => $file->getSize(),
+                    'type' => $fileType,
+                    'mime_type' => $mimeType,
+                ];
+            }
+        }
 
         $announcement = BroadcastAnnouncement::create([
             'business_id' => $businessId,
@@ -93,6 +120,7 @@ class AnnouncementController extends Controller
             'status' => $validated['status'] ?? 'published',
             'scheduled_at' => isset($validated['scheduled_at']) ? $validated['scheduled_at'] : null,
             'sent_at' => ($validated['status'] ?? 'published') === 'published' ? now() : null,
+            'attachments' => !empty($attachments) ? $attachments : null,
         ]);
 
         $announcement->load('sender:id,name,email');
@@ -145,6 +173,7 @@ class AnnouncementController extends Controller
             'channels' => $announcement->channels ?? [],
             'target_roles' => $announcement->target_roles ?? [],
             'target_users' => $announcement->target_users ?? [],
+            'attachments' => $announcement->attachments ?? [],
             'scheduled_at' => optional($announcement->scheduled_at)->toIso8601String(),
             'sent_at' => optional($announcement->sent_at)->toIso8601String(),
             'created_at' => optional($announcement->created_at)->toIso8601String(),
