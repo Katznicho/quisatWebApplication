@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
+use App\Models\ParentGuardian;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -135,6 +136,13 @@ class ConversationController extends Controller
             }
         });
 
+        if (!$message) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create message.',
+            ], 500);
+        }
+
         $message->load('sender:id,name,email,profile_photo_path');
 
         return response()->json([
@@ -145,6 +153,182 @@ class ConversationController extends Controller
                 'conversation' => $this->transformConversation($conversation->fresh(['latestMessage.sender', 'users']), $user),
             ],
         ], 201);
+    }
+
+    public function store(Request $request)
+    {
+        $businessId = $request->get('business_id');
+        $user = $request->get('authenticated_user');
+
+        $validated = $request->validate([
+            'participant_ids' => 'nullable|array|min:1',
+            'participant_ids.*' => 'required|integer|exists:users,id',
+            'parent_email' => 'nullable|email|exists:parent_guardians,email',
+            'type' => 'nullable|string|in:direct,group',
+            'title' => 'nullable|string|max:255',
+            'message_content' => 'nullable|string|max:2000',
+        ]);
+
+        $participantIds = $validated['participant_ids'] ?? [];
+
+        // If parent_email is provided, find or create user for that parent
+        if (!empty($validated['parent_email'])) {
+            $parent = ParentGuardian::where('email', $validated['parent_email'])
+                ->where('business_id', $businessId)
+                ->first();
+
+            if (!$parent) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Parent not found.',
+                ], 404);
+            }
+
+            // Find user with same email, or create one
+            $parentUser = User::where('email', $parent->email)
+                ->where('business_id', $businessId)
+                ->first();
+
+            if (!$parentUser) {
+                // Create a user account for the parent
+                $parentUser = User::create([
+                    'name' => $parent->full_name,
+                    'email' => $parent->email,
+                    'business_id' => $businessId,
+                    'status' => 'active',
+                    'branch_id' => null, // Parents don't belong to a branch
+                    'password' => '', // Empty password - parent uses ParentGuardian login
+                ]);
+            }
+
+            $participantIds[] = $parentUser->id;
+        }
+
+        if (empty($participantIds)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'At least one participant is required.',
+            ], 422);
+        }
+        $conversationType = $validated['type'] ?? 'direct';
+
+        // Add current user to participants if not already included
+        if (!in_array($user->id, $participantIds)) {
+            $participantIds[] = $user->id;
+        }
+        $participantIds = array_unique($participantIds);
+
+        // For direct conversations, check if one already exists
+        if ($conversationType === 'direct' && count($participantIds) === 2) {
+            $existingConversation = Conversation::where('type', 'direct')
+                ->where('business_id', $businessId)
+                ->whereHas('users', function ($query) use ($participantIds) {
+                    $query->whereIn('users.id', $participantIds);
+                })
+                ->withCount(['users' => function ($query) use ($participantIds) {
+                    $query->whereIn('users.id', $participantIds);
+                }])
+                ->having('users_count', count($participantIds))
+                ->first();
+
+            if ($existingConversation) {
+                // If there's a message to send, send it to the existing conversation
+                if (!empty($validated['message_content'])) {
+                    $message = $existingConversation->messages()->create([
+                        'sender_id' => $user->id,
+                        'content' => $validated['message_content'],
+                        'type' => 'text',
+                        'is_read' => false,
+                    ]);
+
+                    $existingConversation->update(['last_message_at' => now()]);
+
+                    $existingConversation->load(['users:id,name,email,profile_photo_path', 'latestMessage.sender:id,name,email,profile_photo_path']);
+
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Message sent to existing conversation.',
+                        'data' => [
+                            'conversation' => $this->transformConversation($existingConversation, $user),
+                            'message' => $this->transformMessage($message, $user),
+                        ],
+                    ]);
+                }
+
+                $existingConversation->load(['users:id,name,email,profile_photo_path', 'latestMessage.sender:id,name,email,profile_photo_path']);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Conversation already exists.',
+                    'data' => [
+                        'conversation' => $this->transformConversation($existingConversation, $user),
+                    ],
+                ]);
+            }
+        }
+
+        // Create new conversation
+        DB::beginTransaction();
+        try {
+            $conversation = Conversation::create([
+                'type' => $conversationType,
+                'title' => $validated['title'] ?? null,
+                'business_id' => $businessId,
+                'created_by' => $user->id,
+                'last_message_at' => !empty($validated['message_content']) ? now() : null,
+            ]);
+
+            // Add participants
+            foreach ($participantIds as $participantId) {
+                $conversation->users()->attach($participantId, [
+                    'joined_at' => now(),
+                    'is_active' => true,
+                    'last_read_at' => $participantId === $user->id ? now() : null,
+                ]);
+            }
+
+            // Send initial message if provided
+            $message = null;
+            if (!empty($validated['message_content'])) {
+                $message = $conversation->messages()->create([
+                    'sender_id' => $user->id,
+                    'content' => $validated['message_content'],
+                    'type' => 'text',
+                    'is_read' => false,
+                ]);
+            }
+
+            DB::commit();
+
+            $conversation->load(['users:id,name,email,profile_photo_path', 'latestMessage.sender:id,name,email,profile_photo_path']);
+
+            $responseData = [
+                'success' => true,
+                'message' => $message ? 'Conversation created and message sent.' : 'Conversation created successfully.',
+                'data' => [
+                    'conversation' => $this->transformConversation($conversation, $user),
+                ],
+            ];
+
+            if ($message) {
+                $responseData['data']['message'] = $this->transformMessage($message, $user);
+            }
+
+            return response()->json($responseData, 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Failed to create conversation: ' . $e->getMessage(), [
+                'user_id' => $user->id,
+                'business_id' => $businessId,
+                'participant_ids' => $participantIds,
+                'error' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create conversation. Please try again.',
+            ], 500);
+        }
     }
 
     public function markAsRead(Request $request, Conversation $conversation)

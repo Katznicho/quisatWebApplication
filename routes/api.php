@@ -152,6 +152,7 @@ Route::prefix('v1')->group(function () {
 
             Route::prefix('conversations')->group(function () {
                 Route::get('/', [ConversationController::class, 'index']);
+                Route::post('/', [ConversationController::class, 'store']);
                 Route::get('{conversation}/messages', [ConversationController::class, 'messages']);
                 Route::post('{conversation}/messages', [ConversationController::class, 'storeMessage']);
                 Route::post('{conversation}/read', [ConversationController::class, 'markAsRead']);
