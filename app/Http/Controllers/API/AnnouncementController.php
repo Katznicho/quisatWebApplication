@@ -64,10 +64,11 @@ class AnnouncementController extends Controller
 
     public function store(Request $request)
     {
-        $businessId = $request->get('business_id');
-        $user = $request->get('authenticated_user');
+        try {
+            $businessId = $request->get('business_id');
+            $user = $request->get('authenticated_user');
 
-        $validated = $request->validate([
+            $validated = $request->validate([
             'title' => 'required|string|max:255',
             'content' => 'required|string',
             'type' => 'nullable|string|in:general,urgent,event,reminder',
