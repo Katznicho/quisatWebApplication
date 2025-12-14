@@ -189,17 +189,34 @@ class ConversationController extends Controller
 
     public function store(Request $request)
     {
-        $businessId = $request->get('business_id');
-        $user = $request->get('authenticated_user');
+        try {
+            $businessId = $request->get('business_id');
+            $user = $request->get('authenticated_user');
 
-        $validated = $request->validate([
-            'participant_ids' => 'nullable|array|min:1',
-            'participant_ids.*' => 'required|integer|exists:users,id',
-            'parent_email' => 'nullable|email|exists:parent_guardians,email',
-            'type' => 'nullable|string|in:direct,group',
-            'title' => 'nullable|string|max:255',
-            'message_content' => 'nullable|string|max:2000',
-        ]);
+            $validated = $request->validate([
+                'participant_ids' => 'nullable|array|min:1',
+                'participant_ids.*' => 'required|integer|exists:users,id',
+                'parent_email' => 'nullable|email',
+                'type' => 'nullable|string|in:direct,group',
+                'title' => 'nullable|string|max:255',
+                'message_content' => 'nullable|string|max:2000',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error in ConversationController@store: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while creating the conversation.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
 
         $participantIds = $validated['participant_ids'] ?? [];
 
@@ -210,30 +227,39 @@ class ConversationController extends Controller
                 ->first();
 
             if (!$parent) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Parent not found.',
-                ], 404);
+                // If parent not found, try to find a user with that email (could be staff)
+                $parentUser = User::where('email', $validated['parent_email'])
+                    ->where('business_id', $businessId)
+                    ->first();
+
+                if ($parentUser) {
+                    $participantIds[] = $parentUser->id;
+                } else {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'User not found with the provided email.',
+                    ], 404);
+                }
+            } else {
+                // Find user with same email, or create one
+                $parentUser = User::where('email', $parent->email)
+                    ->where('business_id', $businessId)
+                    ->first();
+
+                if (!$parentUser) {
+                    // Create a user account for the parent
+                    $parentUser = User::create([
+                        'name' => $parent->full_name,
+                        'email' => $parent->email,
+                        'business_id' => $businessId,
+                        'status' => 'active',
+                        'branch_id' => null, // Parents don't belong to a branch
+                        'password' => '', // Empty password - parent uses ParentGuardian login
+                    ]);
+                }
+
+                $participantIds[] = $parentUser->id;
             }
-
-            // Find user with same email, or create one
-            $parentUser = User::where('email', $parent->email)
-                ->where('business_id', $businessId)
-                ->first();
-
-            if (!$parentUser) {
-                // Create a user account for the parent
-                $parentUser = User::create([
-                    'name' => $parent->full_name,
-                    'email' => $parent->email,
-                    'business_id' => $businessId,
-                    'status' => 'active',
-                    'branch_id' => null, // Parents don't belong to a branch
-                    'password' => '', // Empty password - parent uses ParentGuardian login
-                ]);
-            }
-
-            $participantIds[] = $parentUser->id;
         }
 
         if (empty($participantIds)) {

@@ -16,6 +16,7 @@ use App\Http\Controllers\API\ParentDashboardController;
 use App\Http\Controllers\API\AttendanceController;
 use App\Http\Controllers\API\StudentProgressController;
 use App\Http\Controllers\API\DocumentController;
+use App\Http\Controllers\API\TimetableController;
 use App\Http\Controllers\API\PublicKidsEventsController;
 use App\Http\Controllers\API\PublicAdvertisementsController;
 use App\Http\Controllers\API\PublicProgramsController;
@@ -145,6 +146,11 @@ Route::prefix('v1')->group(function () {
             Route::prefix('calendar')->group(function () {
                 Route::get('events', [AcademicCalendarController::class, 'index']);
                 Route::get('events/{event}', [AcademicCalendarController::class, 'show']);
+            });
+
+            Route::prefix('timetable')->group(function () {
+                Route::get('/', [TimetableController::class, 'index']);
+                Route::get('/today', [TimetableController::class, 'today']);
             });
 
             Route::prefix('parents')->group(function () {

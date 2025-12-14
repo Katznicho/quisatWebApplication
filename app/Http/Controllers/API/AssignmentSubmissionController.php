@@ -202,11 +202,40 @@ class AssignmentSubmissionController extends Controller
             ->get()
             ->map(fn ($sub) => $this->transformSubmission($sub));
 
+        // If staff, also get all students in the class with their submission status
+        $allStudentsWithStatus = [];
+        if ($user instanceof User && ($user->isStaff() || $user->isBusinessAdmin())) {
+            $classRoomId = $assignmentRecord->class_room_id;
+            if ($classRoomId) {
+                $allStudents = Student::where('class_room_id', $classRoomId)
+                    ->where('business_id', $businessId)
+                    ->whereNull('deleted_at')
+                    ->orderBy('first_name')
+                    ->orderBy('last_name')
+                    ->get(['id', 'first_name', 'last_name', 'student_id']);
+
+                $submissionMap = $submissions->keyBy('student_id');
+
+                $allStudentsWithStatus = $allStudents->map(function ($student) use ($submissionMap) {
+                    $submission = $submissionMap->get($student->id);
+                    return [
+                        'id' => $student->id,
+                        'name' => $student->first_name . ' ' . $student->last_name,
+                        'student_id' => $student->student_id,
+                        'has_submitted' => $submission !== null,
+                        'submission' => $submission,
+                        'status' => $submission ? $submission['status'] : 'not_submitted',
+                    ];
+                })->values();
+            }
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Submissions retrieved successfully.',
             'data' => [
                 'submissions' => $submissions,
+                'students_with_status' => $allStudentsWithStatus,
             ],
         ]);
     }
