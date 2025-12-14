@@ -113,17 +113,49 @@ class ConversationController extends Controller
         }
 
         $validated = $request->validate([
-            'content' => 'required|string|max:2000',
+            'content' => 'nullable|string|max:2000',
             'type' => 'nullable|string|in:text,image,file',
+            'attachment' => 'nullable|file|mimes:jpeg,png,jpg,gif,svg,pdf,doc,docx,txt|max:10240', // 10MB max
         ]);
 
-        $message = null;
+        // Ensure either content or attachment is provided
+        if (empty($validated['content']) && !$request->hasFile('attachment')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Either message content or attachment is required.',
+            ], 422);
+        }
 
-        DB::transaction(function () use ($conversation, $user, &$message, $validated) {
+        $message = null;
+        $attachmentPath = null;
+        $attachmentName = null;
+        $attachmentSize = null;
+
+        // Handle file upload
+        if ($request->hasFile('attachment')) {
+            $file = $request->file('attachment');
+            $attachmentName = $file->getClientOriginalName();
+            $attachmentSize = $file->getSize();
+            
+            // Determine file type
+            $mimeType = $file->getMimeType();
+            if (str_starts_with($mimeType, 'image/')) {
+                $validated['type'] = 'image';
+                $attachmentPath = $file->store('messages/images', 'public');
+            } else {
+                $validated['type'] = 'file';
+                $attachmentPath = $file->store('messages/files', 'public');
+            }
+        }
+
+        DB::transaction(function () use ($conversation, $user, &$message, $validated, $attachmentPath, $attachmentName, $attachmentSize) {
             $message = $conversation->messages()->create([
                 'sender_id' => $user->id,
-                'content' => $validated['content'],
+                'content' => $validated['content'] ?? ($attachmentName ? "Sent {$attachmentName}" : ''),
                 'type' => $validated['type'] ?? 'text',
+                'attachment_path' => $attachmentPath,
+                'attachment_name' => $attachmentName,
+                'attachment_size' => $attachmentSize,
                 'is_read' => false,
             ]);
 
@@ -384,7 +416,7 @@ class ConversationController extends Controller
 
     protected function transformMessage(Message $message, User $user): array
     {
-        return [
+        $data = [
             'id' => $message->id,
             'content' => $message->content,
             'type' => $message->type,
@@ -399,6 +431,18 @@ class ConversationController extends Controller
                 'avatar_url' => $message->sender->profile_photo_url,
             ] : null,
         ];
+
+        // Add attachment info if present
+        if ($message->attachment_path) {
+            $data['attachment'] = [
+                'path' => $message->attachment_path,
+                'url' => asset('storage/' . $message->attachment_path),
+                'name' => $message->attachment_name,
+                'size' => $message->attachment_size,
+            ];
+        }
+
+        return $data;
     }
 
     protected function userInConversation(Conversation $conversation, User $user): bool
