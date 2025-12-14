@@ -141,8 +141,8 @@ class AttendanceController extends Controller
                 [
                     'status' => 'present',
                     'marked_by' => $markedByUserId,
-                    'remarks' => (!empty($validated['parent_identifier'])) 
-                        ? 'Checked in by ' . ($validated['parent_name'] ?? 'Parent/Guardian') . ' (' . $validated['parent_identifier'] . ')'
+                    'remarks' => (!empty($validated['parent_identifier'] ?? null)) 
+                        ? 'Checked in by ' . ($validated['parent_name'] ?? 'Parent/Guardian') . ' (' . ($validated['parent_identifier'] ?? '') . ')'
                         : ('Checked in by ' . ($validated['parent_name'] ?? 'Parent/Guardian')),
                 ]
             );
@@ -244,8 +244,8 @@ class AttendanceController extends Controller
                 [
                     'status' => 'excused',
                     'marked_by' => $markedByUserId,
-                    'remarks' => (!empty($validated['parent_identifier'])) 
-                        ? 'Checked out by ' . ($validated['parent_name'] ?? 'Parent/Guardian') . ' (' . $validated['parent_identifier'] . ')'
+                    'remarks' => (!empty($validated['parent_identifier'] ?? null)) 
+                        ? 'Checked out by ' . ($validated['parent_name'] ?? 'Parent/Guardian') . ' (' . ($validated['parent_identifier'] ?? '') . ')'
                         : ('Checked out by ' . ($validated['parent_name'] ?? 'Parent/Guardian')),
                 ]
             );
