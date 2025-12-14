@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\BroadcastAnnouncement;
 use App\Models\ClassAssignment;
 use App\Models\CalendarEvent;
+use App\Models\Conversation;
+use App\Models\Message;
 use App\Models\ParentGuardian;
 use App\Models\Student;
 use App\Models\Timetable;
@@ -36,16 +38,34 @@ class StaffDashboardController extends Controller
             ->whereDate('due_date', '>=', $today->toDateString())
             ->count();
 
+        // Count announcements - include both 'published' and 'sent' status
         $announcementsNew = BroadcastAnnouncement::where('business_id', $business->id)
-            ->where('status', 'sent')
+            ->whereIn('status', ['published', 'sent'])
             ->where(function ($query) use ($today) {
                 $query->whereNull('sent_at')
-                    ->orWhere('sent_at', '>=', $today->copy()->subDays(7));
+                    ->orWhere('sent_at', '>=', $today->copy()->subDays(7))
+                    ->orWhere('created_at', '>=', $today->copy()->subDays(7));
             })
             ->count();
 
         $studentsTotal = Student::where('business_id', $business->id)->count();
         $parentsTotal = ParentGuardian::where('business_id', $business->id)->count();
+
+        // Count unread messages for the user
+        $unreadMessagesCount = 0;
+        $userConversations = Conversation::where('business_id', $business->id)
+            ->whereHas('participants', function ($query) use ($user) {
+                $query->where('user_id', $user->id);
+            })
+            ->get();
+
+        foreach ($userConversations as $conversation) {
+            $unreadCount = Message::where('conversation_id', $conversation->id)
+                ->where('sender_id', '!=', $user->id)
+                ->where('is_read', false)
+                ->count();
+            $unreadMessagesCount += $unreadCount;
+        }
 
         $schedule = Timetable::query()
             ->with(['subject:id,name', 'classRoom:id,name,code', 'teacher:id,name'])
@@ -133,6 +153,7 @@ class StaffDashboardController extends Controller
                     'announcements_new' => $announcementsNew,
                     'students_total' => $studentsTotal,
                     'parents_total' => $parentsTotal,
+                    'unread_messages' => $unreadMessagesCount,
                 ],
                 'today_schedule' => $schedule,
                 'upcoming_events' => $upcomingEvents,
