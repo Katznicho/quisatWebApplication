@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BroadcastAnnouncement;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class AnnouncementController extends Controller
 {
@@ -167,7 +168,7 @@ class AnnouncementController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            \Log::error('Error creating announcement: ' . $e->getMessage(), [
+            Log::error('Error creating announcement: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
             ]);
             
