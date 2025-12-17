@@ -16,7 +16,16 @@ class ConversationController extends Controller
     public function index(Request $request)
     {
         $businessId = $request->get('business_id');
-        $user = $request->get('authenticated_user');
+        $authenticatedUser = $request->get('authenticated_user');
+        
+        // Get the User record - if authenticated user is ParentGuardian, find/create corresponding User
+        $user = $this->getUserForConversation($authenticatedUser, $businessId);
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to find user account for conversations.',
+            ], 404);
+        }
 
         $perPage = (int) $request->query('per_page', 25);
         $perPage = $perPage > 0 ? min($perPage, 100) : 25;
@@ -59,7 +68,16 @@ class ConversationController extends Controller
     public function messages(Request $request, Conversation $conversation)
     {
         $businessId = $request->get('business_id');
-        $user = $request->get('authenticated_user');
+        $authenticatedUser = $request->get('authenticated_user');
+        
+        // Get the User record - if authenticated user is ParentGuardian, find/create corresponding User
+        $user = $this->getUserForConversation($authenticatedUser, $businessId);
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to find user account for conversations.',
+            ], 404);
+        }
 
         if ($conversation->business_id !== $businessId || !$this->userInConversation($conversation, $user)) {
             return response()->json([
@@ -103,7 +121,16 @@ class ConversationController extends Controller
     public function storeMessage(Request $request, Conversation $conversation)
     {
         $businessId = $request->get('business_id');
-        $user = $request->get('authenticated_user');
+        $authenticatedUser = $request->get('authenticated_user');
+        
+        // Get the User record - if authenticated user is ParentGuardian, find/create corresponding User
+        $user = $this->getUserForConversation($authenticatedUser, $businessId);
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to find user account for conversations.',
+            ], 404);
+        }
 
         if ($conversation->business_id !== $businessId || !$this->userInConversation($conversation, $user)) {
             return response()->json([
@@ -191,7 +218,16 @@ class ConversationController extends Controller
     {
         try {
             $businessId = $request->get('business_id');
-            $user = $request->get('authenticated_user');
+            $authenticatedUser = $request->get('authenticated_user');
+            
+            // Get the User record - if authenticated user is ParentGuardian, find/create corresponding User
+            $user = $this->getUserForConversation($authenticatedUser, $businessId);
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unable to find user account for conversations.',
+                ], 404);
+            }
 
             $validated = $request->validate([
                 'participant_ids' => 'nullable|array|min:1',
@@ -392,7 +428,16 @@ class ConversationController extends Controller
     public function markAsRead(Request $request, Conversation $conversation)
     {
         $businessId = $request->get('business_id');
-        $user = $request->get('authenticated_user');
+        $authenticatedUser = $request->get('authenticated_user');
+        
+        // Get the User record - if authenticated user is ParentGuardian, find/create corresponding User
+        $user = $this->getUserForConversation($authenticatedUser, $businessId);
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to find user account for conversations.',
+            ], 404);
+        }
 
         if ($conversation->business_id !== $businessId || !$this->userInConversation($conversation, $user)) {
             return response()->json([
@@ -491,5 +536,40 @@ class ConversationController extends Controller
                 ->where('user_id', $user->id)
                 ->update(['last_read_at' => now()]);
         });
+    }
+
+    /**
+     * Get User record for conversation operations.
+     * If authenticated user is ParentGuardian, find or create corresponding User record.
+     */
+    protected function getUserForConversation($authenticatedUser, int $businessId): ?User
+    {
+        // If already a User, return it
+        if ($authenticatedUser instanceof User) {
+            return $authenticatedUser;
+        }
+
+        // If ParentGuardian, find or create corresponding User
+        if ($authenticatedUser instanceof ParentGuardian) {
+            $user = User::where('email', $authenticatedUser->email)
+                ->where('business_id', $businessId)
+                ->first();
+
+            if (!$user) {
+                // Create a user account for the parent
+                $user = User::create([
+                    'name' => $authenticatedUser->full_name,
+                    'email' => $authenticatedUser->email,
+                    'business_id' => $businessId,
+                    'status' => 'active',
+                    'branch_id' => null, // Parents don't belong to a branch
+                    'password' => '', // Empty password - parent uses ParentGuardian login
+                ]);
+            }
+
+            return $user;
+        }
+
+        return null;
     }
 }
