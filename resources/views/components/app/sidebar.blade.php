@@ -121,6 +121,50 @@
                     </li>
                     @endif
 
+                    <!-- KidsMart Products -->
+                    @if (auth()->user()->business_id != 1)
+                    <li>
+                        <button @click="openGroup === 'kidsmart' ? openGroup = '' : openGroup = 'kidsmart'"
+                            :class="openGroup === 'kidsmart' ? 'border border-blue-500 text-blue-700 bg-blue-50' :
+                                'text-gray-700 hover:text-blue-700'"
+                            class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
+                            <div class="flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                    stroke-width="1.5" stroke="currentColor" class="w-5 h-5 shrink-0">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                                </svg>
+                                <span class="ml-3">KidsMart</span>
+                            </div>
+                            <svg class="w-4 h-4 transform transition-transform duration-200"
+                                :class="{ 'rotate-180': openGroup === 'kidsmart' }" fill="none"
+                                stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <ul x-show="openGroup === 'kidsmart'" x-collapse class="mt-1 space-y-1 pl-10">
+                            <li>
+                                <a href="/products"
+                                    class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">
+                                    My Products
+                                </a>
+                            </li>
+                            <li>
+                                <a href="/orders"
+                                    class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">
+                                    Orders
+                                </a>
+                            </li>
+                            <li>
+                                <a href="/products/create"
+                                    class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">
+                                    Add Product
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    @endif
+
                     <!-- Staff -->
                     @if (auth()->user()->business_id == 1 || $business->hasFeatureByName('Staff Management'))
                     <li>

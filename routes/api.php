@@ -20,6 +20,8 @@ use App\Http\Controllers\API\TimetableController;
 use App\Http\Controllers\API\PublicKidsEventsController;
 use App\Http\Controllers\API\PublicAdvertisementsController;
 use App\Http\Controllers\API\PublicProgramsController;
+use App\Http\Controllers\API\ProductController;
+use App\Http\Controllers\API\OrderController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -92,6 +94,10 @@ Route::prefix('v1')->group(function () {
         // Christian Kids Hub Programs (public)
         Route::get('programmes', [PublicProgramsController::class, 'index']);
         Route::get('programmes/{id}', [PublicProgramsController::class, 'show']);
+        
+        // KidsMart Products (public)
+        Route::get('products', [ProductController::class, 'index']);
+        Route::get('products/{id}', [ProductController::class, 'show']);
     });
     
     
@@ -192,6 +198,14 @@ Route::prefix('v1')->group(function () {
             Route::post('attendance/check-in', [AttendanceController::class, 'checkIn']);
             Route::post('attendance/check-out', [AttendanceController::class, 'checkOut']);
             Route::get('documents', [DocumentController::class, 'index']);
+            
+            // KidsMart Orders
+            Route::prefix('orders')->group(function () {
+                Route::post('/', [OrderController::class, 'store']);
+                Route::get('/', [OrderController::class, 'index']);
+                Route::get('{order}', [OrderController::class, 'show']);
+                Route::patch('{order}/status', [OrderController::class, 'updateStatus']);
+            });
         });
     });
 
