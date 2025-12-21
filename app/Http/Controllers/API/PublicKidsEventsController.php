@@ -12,18 +12,28 @@ class PublicKidsEventsController extends Controller
 {
     /**
      * List all kids events (public, no authentication required)
+     * Shows only EXTERNAL events (events NOT from the user's business)
      */
     public function index(Request $request)
     {
         try {
             Log::info('PublicKidsEventsController::index - Starting request');
             
+            // Get business_id from request if available (for authenticated users)
+            $userBusinessId = $request->get('business_id');
+            
             $query = KidsEvent::query()
                 ->where('status', '!=', 'cancelled')
                 ->whereNotNull('start_date')
                 ->whereNotNull('end_date')
+                ->where('is_external', true) // Only show external events
                 ->orderByDesc('is_featured')
                 ->orderBy('start_date');
+            
+            // Exclude events from the user's business if they're authenticated
+            if ($userBusinessId) {
+                $query->where('business_id', '!=', $userBusinessId);
+            }
 
             // Filter by category
             if ($category = $request->query('category')) {
