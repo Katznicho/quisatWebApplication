@@ -22,6 +22,7 @@ use Filament\Tables\Filters\TrashedFilter;
 use Livewire\Component;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 
 class TermManagement extends Component implements HasForms, HasTable
 {
@@ -31,7 +32,7 @@ class TermManagement extends Component implements HasForms, HasTable
     public function table(Table $table): Table
     {
         return $table
-            ->query(Term::query())
+            ->query(Term::query()->where('business_id', Auth::user()->business_id))
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->searchable()
@@ -58,7 +59,8 @@ class TermManagement extends Component implements HasForms, HasTable
                         'warning' => 'upcoming',
                         'info' => 'completed',
                     ]),
-                Tables\Columns\IconColumn::make('is_current')
+                Tables\Columns\IconColumn::make('is_current_term')
+                    ->label('Current Term')
                     ->boolean(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
@@ -84,27 +86,62 @@ class TermManagement extends Component implements HasForms, HasTable
                             ->placeholder('Enter term code'),
                         TextInput::make('academic_year')
                             ->required()
-                            ->placeholder('Enter academic year'),
+                            ->placeholder('Enter academic year (e.g., 2023)'),
+                        TextInput::make('academic_year_start')
+                            ->label('Academic Year Start')
+                            ->numeric()
+                            ->required()
+                            ->placeholder('e.g., 2023'),
+                        TextInput::make('academic_year_end')
+                            ->label('Academic Year End')
+                            ->numeric()
+                            ->required()
+                            ->placeholder('e.g., 2024'),
+                        Select::make('term_type')
+                            ->label('Term Type')
+                            ->options([
+                                'first' => 'First Term',
+                                'second' => 'Second Term',
+                                'third' => 'Third Term',
+                                'summer' => 'Summer Term',
+                                'holiday' => 'Holiday',
+                                'other' => 'Other',
+                            ])
+                            ->required(),
                         DatePicker::make('start_date')
                             ->required(),
                         DatePicker::make('end_date')
                             ->required(),
                         TextInput::make('duration_weeks')
                             ->numeric()
+                            ->required()
                             ->placeholder('Enter duration in weeks'),
+                        TextInput::make('total_instructional_days')
+                            ->label('Total Instructional Days')
+                            ->numeric()
+                            ->required()
+                            ->placeholder('Enter total instructional days'),
+                        TextInput::make('total_instructional_hours')
+                            ->label('Total Instructional Hours')
+                            ->numeric()
+                            ->required()
+                            ->placeholder('Enter total instructional hours'),
                         Select::make('status')
                             ->options([
+                                'draft' => 'Draft',
                                 'active' => 'Active',
-                                'inactive' => 'Inactive',
-                                'upcoming' => 'Upcoming',
                                 'completed' => 'Completed',
+                                'cancelled' => 'Cancelled',
                             ])
                             ->required(),
                         Textarea::make('description')
                             ->placeholder('Enter description')
                             ->rows(3),
-                        Toggle::make('is_current')
-                            ->label('Current Term')
+                        Toggle::make('is_current_term')
+                            ->label('Set as Current Term')
+                            ->default(false),
+                        Toggle::make('is_next_term')
+                            ->label('Set as Next Term')
                             ->default(false),
                     ])
                     ->successNotificationTitle('Term updated successfully.'),
@@ -132,29 +169,76 @@ class TermManagement extends Component implements HasForms, HasTable
                             ->placeholder('Enter term code'),
                         TextInput::make('academic_year')
                             ->required()
-                            ->placeholder('Enter academic year'),
+                            ->placeholder('Enter academic year (e.g., 2023)'),
+                        TextInput::make('academic_year_start')
+                            ->label('Academic Year Start')
+                            ->numeric()
+                            ->required()
+                            ->default(2023)
+                            ->placeholder('e.g., 2023'),
+                        TextInput::make('academic_year_end')
+                            ->label('Academic Year End')
+                            ->numeric()
+                            ->required()
+                            ->default(2024)
+                            ->placeholder('e.g., 2024'),
+                        Select::make('term_type')
+                            ->label('Term Type')
+                            ->options([
+                                'first' => 'First Term',
+                                'second' => 'Second Term',
+                                'third' => 'Third Term',
+                                'summer' => 'Summer Term',
+                                'holiday' => 'Holiday',
+                                'other' => 'Other',
+                            ])
+                            ->required()
+                            ->default('first'),
                         DatePicker::make('start_date')
                             ->required(),
                         DatePicker::make('end_date')
                             ->required(),
                         TextInput::make('duration_weeks')
                             ->numeric()
+                            ->required()
+                            ->default(12)
                             ->placeholder('Enter duration in weeks'),
+                        TextInput::make('total_instructional_days')
+                            ->label('Total Instructional Days')
+                            ->numeric()
+                            ->required()
+                            ->default(90)
+                            ->placeholder('Enter total instructional days'),
+                        TextInput::make('total_instructional_hours')
+                            ->label('Total Instructional Hours')
+                            ->numeric()
+                            ->required()
+                            ->default(180)
+                            ->placeholder('Enter total instructional hours'),
                         Select::make('status')
                             ->options([
+                                'draft' => 'Draft',
                                 'active' => 'Active',
-                                'inactive' => 'Inactive',
-                                'upcoming' => 'Upcoming',
                                 'completed' => 'Completed',
+                                'cancelled' => 'Cancelled',
                             ])
-                            ->required(),
+                            ->required()
+                            ->default('draft'),
                         Textarea::make('description')
                             ->placeholder('Enter description')
                             ->rows(3),
-                        Toggle::make('is_current')
-                            ->label('Current Term')
+                        Toggle::make('is_current_term')
+                            ->label('Set as Current Term')
+                            ->default(false),
+                        Toggle::make('is_next_term')
+                            ->label('Set as Next Term')
                             ->default(false),
                     ])
+                    ->mutateFormDataUsing(function (array $data): array {
+                        $data['business_id'] = Auth::user()->business_id;
+                        $data['created_by'] = Auth::id();
+                        return $data;
+                    })
                     ->createAnother(false)
                     ->after(function (Term $record) {
                         Notification::make()

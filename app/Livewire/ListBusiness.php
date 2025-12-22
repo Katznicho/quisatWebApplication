@@ -95,15 +95,13 @@ class ListBusiness extends Component implements HasForms, HasTable
                     ->sortable()
                     ->default('N/A'),
                 Tables\Columns\TextColumn::make('enabled_feature_ids')
-                    ->label('Features')
+                    ->label('Enabled Features')
                     ->getStateUsing(function ($record) {
                         $state = $record->enabled_feature_ids ?? [];
                         $state = is_array($state) ? $state : json_decode($state, true) ?? [];
-                        $count = count(collect($state)->filter());
-                        return $count > 0 ? $count . ' enabled' : 'None';
+                        return collect($state)->map(fn($id) => $this->features[$id] ?? null)->filter()->toArray();
                     })
-                    ->badge()
-                    ->color(fn($state) => str_contains($state, 'None') ? 'gray' : 'success'),
+                    ->badge(),
             ])
             ->filters([
                 ...(Auth::check() && Auth::user()->business_id === 1 ? [
@@ -157,21 +155,6 @@ class ListBusiness extends Component implements HasForms, HasTable
                                 return \App\Models\Feature::whereIn('id', $category?->feature_ids ?? [])->pluck('name', 'id');
                             })
                             ->reactive(),
-                        FileUpload::make('logo')
-                            ->label('Business Logo')
-                            ->image()
-                            ->directory('logos')
-                            ->disk('public')
-                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'])
-                            ->maxSize(2048) // 2MB in KB
-                            ->imageEditor()
-                            ->imageEditorAspectRatios([
-                                null,
-                                '16:9',
-                                '4:3',
-                                '1:1',
-                            ])
-                            ->helperText('Upload a logo for the business (max 2MB)'),
                     ]),
             ])
             ->actions([
@@ -235,21 +218,6 @@ class ListBusiness extends Component implements HasForms, HasTable
                                 return \App\Models\Feature::whereIn('id', $category?->feature_ids ?? [])->pluck('name', 'id');
                             })
                             ->reactive(),
-                        FileUpload::make('logo')
-                            ->label('Business Logo')
-                            ->image()
-                            ->directory('logos')
-                            ->disk('public')
-                            ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'])
-                            ->maxSize(2048) // 2MB in KB
-                            ->imageEditor()
-                            ->imageEditorAspectRatios([
-                                null,
-                                '16:9',
-                                '4:3',
-                                '1:1',
-                            ])
-                            ->helperText('Upload a logo for the business (max 2MB)'),
                     ])
                     ->visible(fn (Business $record): bool => Auth::user()->business_id === 1 || $record->id === Auth::user()->business_id),
                 Tables\Actions\DeleteAction::make()
@@ -296,32 +264,6 @@ class ListBusiness extends Component implements HasForms, HasTable
                     ->icon('heroicon-o-photo')
                     ->color('info')
                     ->visible(fn(Business $record): bool => Auth::user()->business_id === 1),
-
-                Tables\Actions\Action::make('view_features')
-                    ->label('View Features')
-                    ->modalHeading(fn(Business $record) => 'Enabled Features - ' . $record->name)
-                    ->modalWidth('4xl')
-                    ->modalContent(function (Business $record) {
-                        $enabledFeatureIds = $record->enabled_feature_ids ?? [];
-                        $enabledFeatureIds = is_array($enabledFeatureIds) ? $enabledFeatureIds : json_decode($enabledFeatureIds, true) ?? [];
-                        
-                        if (empty($enabledFeatureIds)) {
-                            return view('livewire.businesses.features-empty');
-                        }
-                        
-                        $features = \App\Models\Feature::whereIn('id', $enabledFeatureIds)
-                            ->with('currency')
-                            ->get();
-                        
-                        return view('livewire.businesses.features-detail', [
-                            'features' => $features,
-                            'business' => $record
-                        ]);
-                    })
-                    ->icon('heroicon-o-sparkles')
-                    ->color('success')
-                    ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('Close'),
             ])
             ->bulkActions([
                 // Tables\Actions\BulkActionGroup::make([...])

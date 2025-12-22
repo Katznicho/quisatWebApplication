@@ -98,6 +98,9 @@ Route::prefix('v1')->group(function () {
         // KidsMart Products (public)
         Route::get('products', [ProductController::class, 'index']);
         Route::get('products/{id}', [ProductController::class, 'show']);
+        
+        // KidsMart Orders - Allow guest ordering (public)
+        Route::post('orders', [OrderController::class, 'store']);
     });
     
     
@@ -199,9 +202,8 @@ Route::prefix('v1')->group(function () {
             Route::post('attendance/check-out', [AttendanceController::class, 'checkOut']);
             Route::get('documents', [DocumentController::class, 'index']);
             
-            // KidsMart Orders
+            // KidsMart Orders (for authenticated users - viewing their orders)
             Route::prefix('orders')->group(function () {
-                Route::post('/', [OrderController::class, 'store']);
                 Route::get('/', [OrderController::class, 'index']);
                 Route::get('{order}', [OrderController::class, 'show']);
                 Route::patch('{order}/status', [OrderController::class, 'updateStatus']);

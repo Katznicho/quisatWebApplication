@@ -25,9 +25,9 @@ Authorization: Bearer {token}
 **Response:**
 ```json
 {
-  "success": true,
+    "success": true,
   "message": "Products retrieved successfully.",
-  "data": {
+    "data": {
     "products": [
       {
         "id": 1,
@@ -47,9 +47,9 @@ Authorization: Bearer {token}
         ],
         "stock_quantity": 25,
         "is_available": true,
-        "status": "active",
+            "status": "active",
         "sku": "PROD-ABC123",
-        "business": {
+            "business": {
           "id": 16,
           "name": "Plumblt",
           "email": "info@plumblt.com",
@@ -59,7 +59,7 @@ Authorization: Bearer {token}
     ],
     "total": 5,
     "categories": ["Toys", "Books", "Art Supplies"]
-  }
+    }
 }
 ```
 
@@ -69,11 +69,11 @@ Authorization: Bearer {token}
 **Response:**
 ```json
 {
-  "success": true,
+    "success": true,
   "message": "Product retrieved successfully.",
-  "data": {
+    "data": {
     "product": {
-      "id": 1,
+            "id": 1,
       "uuid": "aca50b23-42e6-42b5-a8d6-b9db40a3e716",
       "name": "Educational Building Blocks Set",
       "description": "...",
@@ -83,13 +83,13 @@ Authorization: Bearer {token}
       "images": [...],
       "stock_quantity": 25,
       "is_available": true,
-      "status": "active",
+            "status": "active",
       "sku": "PROD-ABC123",
       "business": {...},
       "created_at": "2025-12-21T10:00:00Z",
       "updated_at": "2025-12-21T10:00:00Z"
+        }
     }
-  }
 }
 ```
 
@@ -129,7 +129,7 @@ Authorization: Bearer {token}
 **Response:**
 ```json
 {
-  "success": true,
+    "success": true,
   "message": "Order placed successfully. The seller will contact you soon.",
   "data": {
     "order": {
@@ -201,7 +201,7 @@ Authorization: Bearer {token}
   "message": "Order retrieved successfully.",
   "data": {
     "order": {
-      "id": 1,
+            "id": 1,
       "uuid": "order-uuid",
       "order_number": "ORD-ABC123XYZ",
       "status": "pending",
