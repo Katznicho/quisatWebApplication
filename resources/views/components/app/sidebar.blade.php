@@ -122,7 +122,7 @@
                     @endif
 
                     <!-- KidsMart Products -->
-                    @if (auth()->user()->business_id != 1)
+                    @if (auth()->user()->business_id != 1 && $business->hasFeatureByName('KidsMart'))
                     <li>
                         <button @click="openGroup === 'kidsmart' ? openGroup = '' : openGroup = 'kidsmart'"
                             :class="openGroup === 'kidsmart' ? 'border border-blue-500 text-blue-700 bg-blue-50' :

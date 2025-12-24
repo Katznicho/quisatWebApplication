@@ -111,22 +111,34 @@
                             
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Host Organization</label>
-                                <select name="category" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white">
-                                    <option value="all">Select partner...</option>
-                                    <option value="Educational" {{ request('category') === 'Educational' ? 'selected' : '' }}>Educational</option>
-                                    <option value="Sports" {{ request('category') === 'Sports' ? 'selected' : '' }}>Sports</option>
-                                    <option value="Arts" {{ request('category') === 'Arts' ? 'selected' : '' }}>Arts</option>
-                                    <option value="Science" {{ request('category') === 'Science' ? 'selected' : '' }}>Science</option>
-                                </select>
+                                <input type="text" name="host_organization" value="{{ request('host_organization') }}" 
+                                       placeholder="Tech Kids Academy, Green Valley Parks, etc."
+                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white">
                             </div>
                             
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Event Category</label>
-                                <select name="status" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white">
+                                <select name="category" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white">
                                     <option value="all">All Categories</option>
+                                    <option value="Educational" {{ request('category') === 'Educational' ? 'selected' : '' }}>Educational</option>
+                                    <option value="Sports" {{ request('category') === 'Sports' ? 'selected' : '' }}>Sports</option>
+                                    <option value="Arts" {{ request('category') === 'Arts' ? 'selected' : '' }}>Arts</option>
+                                    <option value="Science" {{ request('category') === 'Science' ? 'selected' : '' }}>Science</option>
+                                    <option value="Adventure" {{ request('category') === 'Adventure' ? 'selected' : '' }}>Adventure</option>
+                                    <option value="Technology" {{ request('category') === 'Technology' ? 'selected' : '' }}>Technology</option>
+                                    <option value="Music" {{ request('category') === 'Music' ? 'selected' : '' }}>Music</option>
+                                    <option value="Dance" {{ request('category') === 'Dance' ? 'selected' : '' }}>Dance</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Event Status</label>
+                                <select name="status" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white">
+                                    <option value="all">All Statuses</option>
                                     <option value="upcoming" {{ request('status') === 'upcoming' ? 'selected' : '' }}>Upcoming</option>
                                     <option value="ongoing" {{ request('status') === 'ongoing' ? 'selected' : '' }}>Ongoing</option>
                                     <option value="completed" {{ request('status') === 'completed' ? 'selected' : '' }}>Completed</option>
+                                    <option value="cancelled" {{ request('status') === 'cancelled' ? 'selected' : '' }}>Cancelled</option>
                                 </select>
                             </div>
                             

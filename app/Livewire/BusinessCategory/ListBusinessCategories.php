@@ -47,11 +47,72 @@ class ListBusinessCategories extends Component implements HasForms, HasTable
                     ->searchable(),
                 Tables\Columns\TextColumn::make('feature_ids')
                     ->label('Features')
-                    ->getStateUsing(function ($record) {
-                        $state = $record->feature_ids ?? [];
-                        return collect($state)->map(fn($id) => $this->features[$id] ?? null)->filter()->toArray();
+                    ->html()
+                    ->formatStateUsing(function ($state, $record) {
+                        // Get the raw feature_ids from the record
+                        $featureIds = $record->feature_ids ?? [];
+                        
+                        // Ensure we always have an array
+                        if (is_string($featureIds)) {
+                            $featureIds = json_decode($featureIds, true) ?? [];
+                        }
+                        if (!is_array($featureIds)) {
+                            $featureIds = [];
+                        }
+                        
+                        // Convert feature IDs to feature names
+                        $featureNames = collect($featureIds)
+                            ->map(fn($id) => $this->features[$id] ?? null)
+                            ->filter()
+                            ->values()
+                            ->toArray();
+                        
+                        if (empty($featureNames)) {
+                            return '<span class="text-gray-400 text-sm italic">No features</span>';
+                        }
+                        
+                        $totalFeatures = count($featureNames);
+                        $maxVisible = 4;
+                        $visibleFeatures = array_slice($featureNames, 0, $maxVisible);
+                        $remaining = $totalFeatures - $maxVisible;
+                        
+                        $badges = collect($visibleFeatures)->map(function ($feature) {
+                            return '<span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">' . e($feature) . '</span>';
+                        })->join('');
+                        
+                        if ($remaining > 0) {
+                            $allFeatures = implode(', ', array_map('e', $featureNames));
+                            $badges .= '<span 
+                                class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200 cursor-help" 
+                                title="' . e($allFeatures) . '"
+                                data-tooltip="' . e($allFeatures) . '"
+                            >+' . $remaining . ' more</span>';
+                        }
+                        
+                        return '<div class="flex flex-wrap gap-1 items-center" style="max-width: 400px;">' . $badges . '</div>';
                     })
-                    ->badge(),
+                    ->description(function ($record) {
+                        $featureIds = $record->feature_ids ?? [];
+                        
+                        // Ensure we always have an array
+                        if (is_string($featureIds)) {
+                            $featureIds = json_decode($featureIds, true) ?? [];
+                        }
+                        if (!is_array($featureIds)) {
+                            $featureIds = [];
+                        }
+                        
+                        $featureNames = collect($featureIds)
+                            ->map(fn($id) => $this->features[$id] ?? null)
+                            ->filter()
+                            ->toArray();
+                        
+                        $count = count($featureNames);
+                        return $count > 0 ? $count . ' feature' . ($count !== 1 ? 's' : '') : null;
+                    })
+                    ->wrap()
+                    ->searchable(false)
+                    ->sortable(false),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

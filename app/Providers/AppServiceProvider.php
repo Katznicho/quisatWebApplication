@@ -31,7 +31,14 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         View::composer('*', function ($view) {
-            $view->with('business', Auth::check() ? Auth::user()->business : null);
+            if (Auth::check()) {
+                // Refresh the business relationship to ensure we have the latest data
+                $user = Auth::user();
+                $user->load(['business.businessCategory']);
+                $view->with('business', $user->business);
+            } else {
+                $view->with('business', null);
+            }
         });
 
          // Register observers

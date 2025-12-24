@@ -27,11 +27,15 @@ class KidsEventController extends Controller
             $query->where('category', $request->category);
         }
 
-        // Search
+        // Filter by host organization
+        if ($request->has('host_organization') && $request->host_organization) {
+            $query->where('host_organization', 'like', '%' . $request->host_organization . '%');
+        }
+
+        // Search (title and description only, host_organization has its own filter)
         if ($request->has('search') && $request->search) {
             $query->where(function($q) use ($request) {
                 $q->where('title', 'like', '%' . $request->search . '%')
-                  ->orWhere('host_organization', 'like', '%' . $request->search . '%')
                   ->orWhere('description', 'like', '%' . $request->search . '%');
             });
         }

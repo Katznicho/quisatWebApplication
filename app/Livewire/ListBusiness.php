@@ -96,12 +96,72 @@ class ListBusiness extends Component implements HasForms, HasTable
                     ->default('N/A'),
                 Tables\Columns\TextColumn::make('enabled_feature_ids')
                     ->label('Enabled Features')
-                    ->getStateUsing(function ($record) {
-                        $state = $record->enabled_feature_ids ?? [];
-                        $state = is_array($state) ? $state : json_decode($state, true) ?? [];
-                        return collect($state)->map(fn($id) => $this->features[$id] ?? null)->filter()->toArray();
+                    ->html()
+                    ->formatStateUsing(function ($state, $record) {
+                        // Get the raw enabled_feature_ids from the record
+                        $featureIds = $record->enabled_feature_ids ?? [];
+                        
+                        // Ensure we always have an array
+                        if (is_string($featureIds)) {
+                            $featureIds = json_decode($featureIds, true) ?? [];
+                        }
+                        if (!is_array($featureIds)) {
+                            $featureIds = [];
+                        }
+                        
+                        // Convert feature IDs to feature names
+                        $featureNames = collect($featureIds)
+                            ->map(fn($id) => $this->features[$id] ?? null)
+                            ->filter()
+                            ->values()
+                            ->toArray();
+                        
+                        if (empty($featureNames)) {
+                            return '<span class="text-gray-400 text-sm italic">No features enabled</span>';
+                        }
+                        
+                        $totalFeatures = count($featureNames);
+                        $maxVisible = 4;
+                        $visibleFeatures = array_slice($featureNames, 0, $maxVisible);
+                        $remaining = $totalFeatures - $maxVisible;
+                        
+                        $badges = collect($visibleFeatures)->map(function ($feature) {
+                            return '<span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-green-100 text-green-800 border border-green-200">' . e($feature) . '</span>';
+                        })->join('');
+                        
+                        if ($remaining > 0) {
+                            $allFeatures = implode(', ', array_map('e', $featureNames));
+                            $badges .= '<span 
+                                class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200 cursor-help" 
+                                title="' . e($allFeatures) . '"
+                                data-tooltip="' . e($allFeatures) . '"
+                            >+' . $remaining . ' more</span>';
+                        }
+                        
+                        return '<div class="flex flex-wrap gap-1 items-center" style="max-width: 400px;">' . $badges . '</div>';
                     })
-                    ->badge(),
+                    ->description(function ($record) {
+                        $featureIds = $record->enabled_feature_ids ?? [];
+                        
+                        // Ensure we always have an array
+                        if (is_string($featureIds)) {
+                            $featureIds = json_decode($featureIds, true) ?? [];
+                        }
+                        if (!is_array($featureIds)) {
+                            $featureIds = [];
+                        }
+                        
+                        $featureNames = collect($featureIds)
+                            ->map(fn($id) => $this->features[$id] ?? null)
+                            ->filter()
+                            ->toArray();
+                        
+                        $count = count($featureNames);
+                        return $count > 0 ? $count . ' enabled' : null;
+                    })
+                    ->wrap()
+                    ->searchable(false)
+                    ->sortable(false),
             ])
             ->filters([
                 ...(Auth::check() && Auth::user()->business_id === 1 ? [
