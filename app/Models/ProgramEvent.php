@@ -27,6 +27,14 @@ class ProgramEvent extends Model
         'user_id',
         'image',
         'video',
+        'registration_method',
+        'registration_link',
+        'registration_list',
+        'social_media_handles',
+        'organizer_name',
+        'organizer_email',
+        'organizer_phone',
+        'organizer_address',
     ];
 
     protected $casts = [
@@ -34,6 +42,8 @@ class ProgramEvent extends Model
         'start_date' => 'date',
         'end_date' => 'date',
         'price' => 'decimal:2',
+        'registration_list' => 'array',
+        'social_media_handles' => 'array',
     ];
 
     // An event belongs to many programs

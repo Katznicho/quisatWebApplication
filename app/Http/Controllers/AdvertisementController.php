@@ -92,6 +92,23 @@ class AdvertisementController extends Controller
 
             Log::info('Creating advertisement record...');
             
+            // Convert dates to Carbon instances for proper comparison
+            $startDate = \Carbon\Carbon::parse($validated['start_date']);
+            $endDate = \Carbon\Carbon::parse($validated['end_date']);
+            $now = now();
+            
+            // Determine status based on dates
+            // If start_date is in the future, it's scheduled
+            // If start_date is today or in the past and end_date is in the future, it's active
+            $status = 'draft';
+            if ($startDate->isFuture()) {
+                $status = 'scheduled';
+            } elseif ($startDate->lte($now) && $endDate->gte($now)) {
+                $status = 'active';
+            } elseif ($endDate->isPast()) {
+                $status = 'expired';
+            }
+            
             $advertisementData = [
                 'business_id' => $business->id,
                 'title' => $validated['title'],
@@ -106,7 +123,7 @@ class AdvertisementController extends Controller
                 'budget' => $validated['budget'],
                 'category' => $validated['category'],
                 'created_by' => $user->id,
-                'status' => $validated['start_date'] > now() ? 'scheduled' : 'active'
+                'status' => $status
             ];
             
             Log::info('Advertisement data to create: ' . json_encode($advertisementData));

@@ -7,30 +7,51 @@ use App\Models\KidsEvent;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class PublicKidsEventsController extends Controller
 {
     /**
      * List all kids events (public, no authentication required)
-     * Shows only EXTERNAL events (events NOT from the user's business)
+     * Shows ALL EXTERNAL events from all businesses
+     * When authenticated, excludes events from the user's own business
+     * This ensures parents see external events created by other businesses/schools
      */
     public function index(Request $request)
     {
         try {
             Log::info('PublicKidsEventsController::index - Starting request');
             
-            // Get business_id from request if available (for authenticated users)
-            $userBusinessId = $request->get('business_id');
+            // Try to get business_id from authenticated user (if token provided)
+            $userBusinessId = null;
+            $user = Auth::guard('sanctum')->user();
             
+            if ($user) {
+                // User is authenticated via Sanctum token
+                if ($user instanceof \App\Models\User) {
+                    $userBusinessId = $user->business_id;
+                } elseif ($user instanceof \App\Models\ParentGuardian) {
+                    $userBusinessId = $user->business_id;
+                }
+            }
+            
+            // Fallback to request parameter if not from auth
+            if (!$userBusinessId) {
+                $userBusinessId = $request->get('business_id');
+            }
+            
+            // Query for ALL external events (is_external = true)
+            // External events are events created by businesses to be visible to all users
             $query = KidsEvent::query()
                 ->where('status', '!=', 'cancelled')
                 ->whereNotNull('start_date')
                 ->whereNotNull('end_date')
-                ->where('is_external', true) // Only show external events
+                ->where('is_external', true) // Include ALL external events from all businesses
                 ->orderByDesc('is_featured')
                 ->orderBy('start_date');
             
-            // Exclude events from the user's business if they're authenticated
+            // Exclude events from the user's own business (so parents don't see their school's events here)
+            // This ensures parents only see events from OTHER businesses/schools
             if ($userBusinessId) {
                 $query->where('business_id', '!=', $userBusinessId);
             }
@@ -133,14 +154,17 @@ class PublicKidsEventsController extends Controller
 
     /**
      * Show a single kids event (public)
+     * Shows external events - allows viewing any external event by ID
      */
     public function show($id)
     {
         try {
             Log::info('PublicKidsEventsController::show - Requesting event ID: ' . $id);
             
+            // Get the event - must be external and not cancelled
             $event = KidsEvent::where('id', $id)
                 ->where('status', '!=', 'cancelled')
+                ->where('is_external', true) // Ensure it's an external event
                 ->first();
 
             if (!$event) {
@@ -236,9 +260,24 @@ class PublicKidsEventsController extends Controller
             ];
             $data['max_participants'] = $event->max_participants;
             $data['current_participants'] = $event->current_participants;
+            $data['registration_method'] = $event->registration_method;
+            $data['registration_link'] = $event->registration_link;
+            $data['registration_list'] = $event->registration_list ?: [];
+            $data['social_media_handles'] = $event->social_media_handles ?: [];
+            $data['organizer'] = [
+                'name' => $event->organizer_name,
+                'email' => $event->organizer_email,
+                'phone' => $event->organizer_phone,
+                'address' => $event->organizer_address,
+            ];
             $data['business'] = $event->business ? [
                 'id' => $event->business->id,
                 'name' => $event->business->name,
+                'email' => $event->business->email,
+                'phone' => $event->business->phone,
+                'address' => $event->business->address,
+                'shop_number' => $event->business->shop_number,
+                'social_media_handles' => $event->business->social_media_handles ?: [],
             ] : null;
         }
 

@@ -25,6 +25,13 @@ class ParentDashboardController extends Controller
             ], 403);
         }
 
+        if (!$business) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Business not found. Please contact support.',
+            ], 403);
+        }
+
         $timezone = config('app.timezone', 'Africa/Nairobi');
         $today = Carbon::now($timezone);
         $children = $user->students()->with(['classRoom:id,name,code'])->get();

@@ -20,6 +20,7 @@ use App\Http\Controllers\API\TimetableController;
 use App\Http\Controllers\API\PublicKidsEventsController;
 use App\Http\Controllers\API\PublicAdvertisementsController;
 use App\Http\Controllers\API\PublicProgramsController;
+use App\Http\Controllers\API\ProgramRegistrationController;
 use App\Http\Controllers\API\ProductController;
 use App\Http\Controllers\API\OrderController;
 use Illuminate\Support\Facades\DB;
@@ -94,6 +95,12 @@ Route::prefix('v1')->group(function () {
         // Christian Kids Hub Programs (public)
         Route::get('programmes', [PublicProgramsController::class, 'index']);
         Route::get('programmes/{id}', [PublicProgramsController::class, 'show']);
+        
+        // Program Event Registration (requires auth)
+        Route::middleware('auth:sanctum')->group(function () {
+            Route::post('programmes/events/{eventId}/register', [ProgramRegistrationController::class, 'store']);
+            Route::get('programmes/events/{eventId}/registrations', [ProgramRegistrationController::class, 'index']);
+        });
         
         // KidsMart Products (public)
         Route::get('products', [ProductController::class, 'index']);

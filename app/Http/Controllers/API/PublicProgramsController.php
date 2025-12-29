@@ -12,12 +12,14 @@ class PublicProgramsController extends Controller
 {
     /**
      * List all programs (public, no authentication required)
+     * Returns Programs with their event counts for Christian Kids Hub
      */
     public function index(Request $request)
     {
         try {
             Log::info('PublicProgramsController::index - Starting request');
             
+            // Query Programs
             $query = Program::query()
                 ->where(function($q) {
                     $q->where('status', 'active')
@@ -35,7 +37,7 @@ class PublicProgramsController extends Controller
             }
 
             Log::info('PublicProgramsController::index - Executing query');
-            // Get all programs (no pagination)
+            // Get all programs
             $programs = $query->get();
             Log::info('PublicProgramsController::index - Found ' . $programs->count() . ' programs');
 
@@ -104,25 +106,21 @@ class PublicProgramsController extends Controller
             }
 
             Log::info('PublicProgramsController::show - Getting program events');
-            // Get events for this program
+            // Get events for this program (events that have this program in their program_ids)
             $events = ProgramEvent::whereJsonContains('program_ids', $program->id)
+                ->where(function($q) {
+                    $q->where('status', 'active')
+                      ->orWhere('status', 'published')
+                      ->orWhereNull('status');
+                })
                 ->orderBy('start_date')
+                ->with(['business', 'user'])
                 ->get();
 
             Log::info('PublicProgramsController::show - Transforming program and events');
             $transformedProgram = $this->transformProgram($program, true);
-            $transformedEvents = $events->map(function ($event) {
-                return [
-                    'id' => $event->id,
-                    'uuid' => $event->uuid,
-                    'name' => $event->name,
-                    'description' => $event->description,
-                    'start_date' => $event->start_date ? $event->start_date->toIso8601String() : null,
-                    'end_date' => $event->end_date ? $event->end_date->toIso8601String() : null,
-                    'location' => $event->location,
-                    'price' => (float) $event->price,
-                    'status' => $event->status,
-                ];
+            $transformedEvents = $events->map(function (ProgramEvent $event) {
+                return $this->transformProgramEvent($event, true);
             });
 
             return response()->json([
@@ -164,20 +162,74 @@ class PublicProgramsController extends Controller
     protected function transformProgram(Program $program, bool $includeDetails = false): array
     {
         try {
-            $data = [
-            'id' => $program->id,
-            'uuid' => $program->uuid,
-            'name' => $program->name,
-            'description' => $program->description,
-            'age_group' => $program->{'age-group'},
-            'status' => $program->status,
-            'total_events' => $program->total_events,
-        ];
+            // Get events for this program
+            $events = ProgramEvent::whereJsonContains('program_ids', $program->id)
+                ->where(function($q) {
+                    $q->where('status', 'active')
+                      ->orWhere('status', 'published')
+                      ->orWhereNull('status');
+                })
+                ->count();
 
-        if ($includeDetails) {
-            $data['created_at'] = $program->created_at->toIso8601String();
-            $data['updated_at'] = $program->updated_at->toIso8601String();
-        }
+            // Get the first event's image if available
+            $firstEvent = ProgramEvent::whereJsonContains('program_ids', $program->id)
+                ->where(function($q) {
+                    $q->where('status', 'active')
+                      ->orWhere('status', 'published')
+                      ->orWhereNull('status');
+                })
+                ->whereNotNull('image')
+                ->first();
+
+            $imageUrl = $firstEvent && $firstEvent->image 
+                ? (str_starts_with($firstEvent->image, 'http') ? $firstEvent->image : asset('storage/' . $firstEvent->image))
+                : null;
+
+            $data = [
+                'id' => $program->id,
+                'uuid' => $program->uuid,
+                'title' => $program->name,
+                'description' => $program->description,
+                'image_url' => $imageUrl,
+                'category' => $program->name, // Use program name as category
+                'is_featured' => false,
+                'age_groups' => [$program->{'age-group'} ?? 'All Ages'],
+                'duration' => 'Ongoing',
+                'schedule' => 'See events',
+                'status' => $program->status ?? 'active',
+                'spots_available' => 999,
+                'is_full' => false,
+                'formatted_price' => 'See events',
+                'price' => 0,
+                'total_events' => $events,
+            ];
+
+            if ($includeDetails) {
+                $data['created_at'] = $program->created_at->toIso8601String();
+                $data['updated_at'] = $program->updated_at->toIso8601String();
+                
+                // Get business details from the first event
+                $firstEventWithBusiness = ProgramEvent::whereJsonContains('program_ids', $program->id)
+                    ->where(function($q) {
+                        $q->where('status', 'active')
+                          ->orWhere('status', 'published')
+                          ->orWhereNull('status');
+                    })
+                    ->with('business')
+                    ->first();
+                
+                if ($firstEventWithBusiness && $firstEventWithBusiness->business) {
+                    $data['business'] = [
+                        'id' => $firstEventWithBusiness->business->id,
+                        'name' => $firstEventWithBusiness->business->name,
+                        'email' => $firstEventWithBusiness->business->email,
+                        'phone' => $firstEventWithBusiness->business->phone,
+                        'address' => $firstEventWithBusiness->business->address,
+                        'shop_number' => $firstEventWithBusiness->business->shop_number,
+                        'social_media_handles' => $firstEventWithBusiness->business->social_media_handles ?: [],
+                    ];
+                }
+            }
 
             return $data;
         } catch (\Exception $e) {
@@ -188,6 +240,132 @@ class PublicProgramsController extends Controller
             ]);
             throw $e;
         }
+    }
+
+    /**
+     * Transform program event for API response
+     */
+    protected function transformProgramEvent(ProgramEvent $event, bool $includeDetails = false): array
+    {
+        try {
+            // Load programs from program_ids JSON array
+            $programIds = $event->program_ids ?? [];
+            $programs = [];
+            if (!empty($programIds) && is_array($programIds)) {
+                $programs = Program::whereIn('id', $programIds)->get(['id', 'name']);
+            }
+            $programName = $programs->first()?->name ?? 'Program';
+            $category = $programs->first()?->name ?? 'General';
+
+            // Format price
+            $price = (float) $event->price;
+            $formattedPrice = $price > 0 ? 'UGX ' . number_format($price, 2) : 'Free';
+
+            // Calculate spots (if needed - you may want to add max_participants to program_events)
+            $spotsAvailable = 999; // Default unlimited
+            $isFull = false;
+
+            $data = [
+                'id' => $event->id,
+                'uuid' => $event->uuid,
+                'title' => $event->name,
+                'description' => $event->description,
+                'image_url' => $event->image ? (str_starts_with($event->image, 'http') ? $event->image : asset('storage/' . $event->image)) : null,
+                'video_url' => $event->video ? (str_starts_with($event->video, 'http') ? $event->video : asset('storage/' . $event->video)) : null,
+                'category' => $category,
+                'is_featured' => false, // You may want to add this field
+                'age_groups' => [], // You may want to add this field
+                'duration' => $event->start_date && $event->end_date ? $this->formatDuration($event->start_date, $event->end_date) : 'N/A',
+                'schedule' => $event->start_date && $event->end_date ? $this->formatSchedule($event->start_date, $event->end_date) : 'N/A',
+                'status' => $event->status,
+                'spots_available' => $spotsAvailable,
+                'is_full' => $isFull,
+                'formatted_price' => $formattedPrice,
+                'price' => $price,
+                'location' => $event->location,
+                'start_date' => $event->start_date ? $event->start_date->toIso8601String() : null,
+                'end_date' => $event->end_date ? $event->end_date->toIso8601String() : null,
+            ];
+
+            if ($includeDetails) {
+                $data['registration_method'] = $event->registration_method;
+                $data['registration_link'] = $event->registration_link;
+                $data['registration_list'] = $event->registration_list ?: [];
+                $data['social_media_handles'] = $event->social_media_handles ?: [];
+                $data['organizer'] = [
+                    'name' => $event->organizer_name,
+                    'email' => $event->organizer_email,
+                    'phone' => $event->organizer_phone,
+                    'address' => $event->organizer_address,
+                ];
+                $data['business'] = $event->business ? [
+                    'id' => $event->business->id,
+                    'name' => $event->business->name,
+                    'email' => $event->business->email,
+                    'phone' => $event->business->phone,
+                    'address' => $event->business->address,
+                    'shop_number' => $event->business->shop_number,
+                    'social_media_handles' => $event->business->social_media_handles ?: [],
+                ] : null;
+                $data['creator'] = $event->user ? [
+                    'id' => $event->user->id,
+                    'name' => $event->user->name,
+                    'email' => $event->user->email,
+                ] : null;
+            }
+
+            return $data;
+        } catch (\Exception $e) {
+            Log::error('PublicProgramsController::transformProgramEvent - Error: ' . $e->getMessage(), [
+                'event_id' => $event->id ?? null,
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            throw $e;
+        }
+    }
+
+    protected function formatDuration($start, $end): string
+    {
+        if (!$start || !$end) {
+            return 'N/A';
+        }
+        
+        $startDate = $start instanceof \Carbon\Carbon ? $start : \Carbon\Carbon::parse($start);
+        $endDate = $end instanceof \Carbon\Carbon ? $end : \Carbon\Carbon::parse($end);
+        
+        $diffDays = $startDate->diffInDays($endDate);
+        if ($diffDays > 0) {
+            return $diffDays . ' day' . ($diffDays > 1 ? 's' : '');
+        }
+        
+        $diffHours = $startDate->diffInHours($endDate);
+        if ($diffHours > 0) {
+            return $diffHours . ' hour' . ($diffHours > 1 ? 's' : '');
+        }
+        
+        return $startDate->diffInMinutes($endDate) . ' minutes';
+    }
+
+    protected function formatSchedule($start, $end): string
+    {
+        if (!$start || !$end) {
+            return 'N/A';
+        }
+        
+        $startDate = $start instanceof \Carbon\Carbon ? $start : \Carbon\Carbon::parse($start);
+        $endDate = $end instanceof \Carbon\Carbon ? $end : \Carbon\Carbon::parse($end);
+        
+        $startDay = $startDate->format('l');
+        $startTime = $startDate->format('g:i A');
+        $endTime = $endDate->format('g:i A');
+
+        if ($startDate->isSameDay($endDate)) {
+            return "{$startDay} {$startTime} - {$endTime}";
+        }
+
+        $endDay = $endDate->format('l');
+        return "{$startDay} {$startTime} - {$endDay} {$endTime}";
     }
 }
 

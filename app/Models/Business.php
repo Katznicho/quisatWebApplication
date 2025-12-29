@@ -29,12 +29,15 @@ class Business extends Model
         'country',
         'city',
         'business_category_id',
-        'enabled_feature_ids'
+        'enabled_feature_ids',
+        'shop_number',
+        'social_media_handles',
     ];
 
     //cast
     protected $casts = [
         'enabled_feature_ids' => 'array',
+        'social_media_handles' => 'array',
     ];
 
     /**

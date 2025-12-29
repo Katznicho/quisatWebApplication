@@ -181,7 +181,7 @@ class AcademicCalendarController extends Controller
             'end_time' => $event->is_all_day ? null : $end->format('H:i'),
             'is_all_day' => (bool) $event->is_all_day,
             'event_type' => $event->event_type,
-            'priority' => $event->priority,
+            'priority' => $event->priority ?? 'medium',
             'color' => $event->color,
             'location' => $event->location,
             'status' => $event->status,

@@ -35,6 +35,14 @@ class KidsEvent extends Model
         'is_external',
         'business_id',
         'created_by',
+        'registration_method',
+        'registration_link',
+        'registration_list',
+        'social_media_handles',
+        'organizer_name',
+        'organizer_email',
+        'organizer_phone',
+        'organizer_address',
     ];
 
     protected $casts = [
@@ -47,6 +55,8 @@ class KidsEvent extends Model
         'requires_parent_permission' => 'boolean',
         'is_featured' => 'boolean',
         'is_external' => 'boolean',
+        'registration_list' => 'array',
+        'social_media_handles' => 'array',
     ];
 
     // Relationships

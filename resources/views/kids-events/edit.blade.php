@@ -63,18 +63,12 @@
                                 
                                 <div>
                                     <label for="category" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Category *</label>
-                                    <select id="category" name="category" 
-                                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white @error('category') border-red-500 @enderror" required>
-                                        <option value="">Select Category</option>
-                                        <option value="Educational" {{ old('category', $kidsEvent->category) === 'Educational' ? 'selected' : '' }}>Educational</option>
-                                        <option value="Sports" {{ old('category', $kidsEvent->category) === 'Sports' ? 'selected' : '' }}>Sports</option>
-                                        <option value="Arts" {{ old('category', $kidsEvent->category) === 'Arts' ? 'selected' : '' }}>Arts</option>
-                                        <option value="Science" {{ old('category', $kidsEvent->category) === 'Science' ? 'selected' : '' }}>Science</option>
-                                        <option value="Adventure" {{ old('category', $kidsEvent->category) === 'Adventure' ? 'selected' : '' }}>Adventure</option>
-                                        <option value="Technology" {{ old('category', $kidsEvent->category) === 'Technology' ? 'selected' : '' }}>Technology</option>
-                                        <option value="Music" {{ old('category', $kidsEvent->category) === 'Music' ? 'selected' : '' }}>Music</option>
-                                        <option value="Dance" {{ old('category', $kidsEvent->category) === 'Dance' ? 'selected' : '' }}>Dance</option>
-                                    </select>
+                                    <input type="text" id="category" name="category" 
+                                           value="{{ old('category', $kidsEvent->category) }}"
+                                           placeholder="e.g., Educational, Sports, Arts, Science, etc."
+                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white @error('category') border-red-500 @enderror" 
+                                           required>
+                                    <p class="text-xs text-gray-500 mt-1">Enter any category name (e.g., Educational, Sports, Arts, Science, Adventure, Technology, Music, Dance, etc.)</p>
                                     @error('category')
                                         <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
                                     @enderror
