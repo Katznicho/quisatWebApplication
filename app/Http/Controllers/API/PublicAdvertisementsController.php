@@ -20,7 +20,7 @@ class PublicAdvertisementsController extends Controller
             Log::info('PublicAdvertisementsController::index - PHP Version: ' . PHP_VERSION);
             
             $query = Advertisement::query()
-                ->where('status', 'active')
+                ->where('status', 'published')
                 ->whereNotNull('start_date')
                 ->whereNotNull('end_date')
                 ->where('start_date', '<=', now())
@@ -81,7 +81,7 @@ class PublicAdvertisementsController extends Controller
             }
 
             Log::info('PublicAdvertisementsController::index - Getting categories');
-            $categories = Advertisement::where('status', 'active')
+            $categories = Advertisement::where('status', 'published')
                 ->whereNotNull('category')
                 ->distinct()
                 ->pluck('category')
@@ -155,7 +155,7 @@ class PublicAdvertisementsController extends Controller
             
             $advertisement = Advertisement::with('business')
                 ->where('id', $id)
-                ->where('status', 'active')
+                ->where('status', 'published')
                 ->whereNotNull('start_date')
                 ->whereNotNull('end_date')
                 ->where('start_date', '<=', now())
@@ -289,7 +289,11 @@ class PublicAdvertisementsController extends Controller
                     $data['business'] = $business ? [
                         'id' => $business->id,
                         'name' => $business->name ?? '',
+                        'email' => $business->email ?? null,
+                        'phone' => $business->phone ?? null,
                         'logo' => null,
+                        'social_media_handles' => $business->social_media_handles ?: [],
+                        'website_link' => $business->website_link ?? null,
                     ] : null;
                     
                     // Handle logo URL safely

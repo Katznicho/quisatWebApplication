@@ -198,6 +198,28 @@
                     </div>
                 </div>
 
+                <!-- Status -->
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">Status</h2>
+                    
+                    <div>
+                        <label for="status" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Status *
+                        </label>
+                        <select id="status" name="status" required
+                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                            <option value="draft" {{ old('status', 'draft') === 'draft' ? 'selected' : '' }}>Draft</option>
+                            <option value="published" {{ old('status') === 'published' ? 'selected' : '' }}>Published</option>
+                        </select>
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                            Draft: Advertisement will not be visible to users. Published: Advertisement will be visible to users.
+                        </p>
+                        @error('status')
+                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
+
                 <!-- Actions -->
                 <div class="flex justify-end space-x-4">
                     <a href="{{ route('advertisements.index') }}" 

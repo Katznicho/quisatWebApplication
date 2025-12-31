@@ -18,6 +18,7 @@ use App\Http\Controllers\API\StudentProgressController;
 use App\Http\Controllers\API\DocumentController;
 use App\Http\Controllers\API\TimetableController;
 use App\Http\Controllers\API\PublicKidsEventsController;
+use App\Http\Controllers\API\PublicKidsFunVenuesController;
 use App\Http\Controllers\API\PublicAdvertisementsController;
 use App\Http\Controllers\API\PublicProgramsController;
 use App\Http\Controllers\API\ProgramRegistrationController;
@@ -87,6 +88,10 @@ Route::prefix('v1')->group(function () {
         // Kids Events
         Route::get('kids-events', [PublicKidsEventsController::class, 'index']);
         Route::get('kids-events/{id}', [PublicKidsEventsController::class, 'show']);
+        
+        // Kids Fun Venues
+        Route::get('kids-fun-venues', [PublicKidsFunVenuesController::class, 'index']);
+        Route::get('kids-fun-venues/{id}', [PublicKidsFunVenuesController::class, 'show']);
         
         // Business Advertisements
         Route::get('advertisements', [PublicAdvertisementsController::class, 'index']);

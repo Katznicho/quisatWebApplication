@@ -217,6 +217,83 @@
                     </div>
                 </div>
 
+                <!-- Social Media & Website Section -->
+                <div class="bg-white shadow-xl rounded-2xl p-8 border border-gray-100">
+                    <div class="flex items-center mb-6">
+                        <div class="flex-shrink-0">
+                            <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="ml-4">
+                            <h3 class="text-xl font-semibold text-gray-900">Social Media & Website</h3>
+                            <p class="text-sm text-gray-500">Connect your business online presence (Optional)</p>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="md:col-span-2">
+                            <label for="website_link" class="block text-sm font-semibold text-gray-700 mb-2">
+                                Website URL <span class="text-gray-400">(Optional)</span>
+                            </label>
+                            <input id="website_link" name="website_link" type="url" 
+                                placeholder="https://www.yourbusiness.com"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                                value="{{ old('website_link') }}">
+                            @error('website_link')
+                                <p class="mt-2 text-sm text-red-600 flex items-center">
+                                    <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    {{ $message }}
+                                </p>
+                            @enderror
+                        </div>
+
+                        <div>
+                            <label for="social_facebook" class="block text-sm font-semibold text-gray-700 mb-2">
+                                Facebook URL <span class="text-gray-400">(Optional)</span>
+                            </label>
+                            <input id="social_facebook" name="social_facebook" type="url" 
+                                placeholder="https://facebook.com/yourbusiness"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                                value="{{ old('social_facebook') }}">
+                        </div>
+
+                        <div>
+                            <label for="social_instagram" class="block text-sm font-semibold text-gray-700 mb-2">
+                                Instagram URL <span class="text-gray-400">(Optional)</span>
+                            </label>
+                            <input id="social_instagram" name="social_instagram" type="url" 
+                                placeholder="https://instagram.com/yourbusiness"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                                value="{{ old('social_instagram') }}">
+                        </div>
+
+                        <div>
+                            <label for="social_twitter" class="block text-sm font-semibold text-gray-700 mb-2">
+                                Twitter/X URL <span class="text-gray-400">(Optional)</span>
+                            </label>
+                            <input id="social_twitter" name="social_twitter" type="url" 
+                                placeholder="https://twitter.com/yourbusiness"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                                value="{{ old('social_twitter') }}">
+                        </div>
+
+                        <div>
+                            <label for="social_whatsapp" class="block text-sm font-semibold text-gray-700 mb-2">
+                                WhatsApp Number/URL <span class="text-gray-400">(Optional)</span>
+                            </label>
+                            <input id="social_whatsapp" name="social_whatsapp" type="text" 
+                                placeholder="+1234567890 or https://wa.me/1234567890"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
+                                value="{{ old('social_whatsapp') }}">
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Admin User Information Section -->
                 <div class="bg-white shadow-xl rounded-2xl p-8 border border-gray-100">
                     <div class="flex items-center mb-6">

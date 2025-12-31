@@ -42,8 +42,9 @@ class PublicKidsEventsController extends Controller
             
             // Query for ALL external events (is_external = true)
             // External events are events created by businesses to be visible to all users
+            // Only show published events
             $query = KidsEvent::query()
-                ->where('status', '!=', 'cancelled')
+                ->where('status', 'published')
                 ->whereNotNull('start_date')
                 ->whereNotNull('end_date')
                 ->where('is_external', true) // Include ALL external events from all businesses
@@ -161,9 +162,9 @@ class PublicKidsEventsController extends Controller
         try {
             Log::info('PublicKidsEventsController::show - Requesting event ID: ' . $id);
             
-            // Get the event - must be external and not cancelled
+            // Get the event - must be external and published
             $event = KidsEvent::where('id', $id)
-                ->where('status', '!=', 'cancelled')
+                ->where('status', 'published')
                 ->where('is_external', true) // Ensure it's an external event
                 ->first();
 
@@ -278,6 +279,7 @@ class PublicKidsEventsController extends Controller
                 'address' => $event->business->address,
                 'shop_number' => $event->business->shop_number,
                 'social_media_handles' => $event->business->social_media_handles ?: [],
+                'website_link' => $event->business->website_link,
             ] : null;
         }
 

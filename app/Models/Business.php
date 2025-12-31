@@ -32,6 +32,7 @@ class Business extends Model
         'enabled_feature_ids',
         'shop_number',
         'social_media_handles',
+        'website_link',
     ];
 
     //cast

@@ -9,6 +9,7 @@ use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class ProgramController extends Controller
 {
@@ -26,7 +27,7 @@ class ProgramController extends Controller
      */
     public function create()
     {
-        //
+        return view('programs.create');
     }
 
     /**
@@ -34,7 +35,37 @@ class ProgramController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'age-group' => 'nullable|string|max:255',
+            'status' => 'required|in:active,inactive',
+            'media_type' => 'nullable|in:image,video',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            'video' => 'nullable|file|mimes:mp4,mov,avi,quicktime|max:10240',
+        ]);
+
+        // Handle media upload based on media_type
+        $mediaType = $request->input('media_type');
+        
+        if ($mediaType === 'image' && $request->hasFile('image')) {
+            $validated['image'] = $request->file('image')->store('programs', 'public');
+            $validated['video'] = null; // Clear video if image is uploaded
+        } elseif ($mediaType === 'video' && $request->hasFile('video')) {
+            $validated['video'] = $request->file('video')->store('programs', 'public');
+            $validated['image'] = null; // Clear image if video is uploaded
+        } else {
+            // If no media type selected or no file uploaded, don't set media fields
+            unset($validated['image'], $validated['video']);
+        }
+
+        // Remove media_type from validated data as it's not a database field
+        unset($validated['media_type']);
+
+        Program::create($validated);
+
+        return redirect()->route('programs.index')
+            ->with('success', 'Program created successfully!');
     }
 
     /**
@@ -52,7 +83,7 @@ class ProgramController extends Controller
      */
     public function edit(Program $program)
     {
-        //
+        return view('programs.edit', compact('program'));
     }
 
     /**
@@ -60,7 +91,63 @@ class ProgramController extends Controller
      */
     public function update(Request $request, Program $program)
     {
-        //
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'age-group' => 'nullable|string|max:255',
+            'status' => 'required|in:active,inactive',
+            'media_type' => 'nullable|in:image,video,remove',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            'video' => 'nullable|file|mimes:mp4,mov,avi,quicktime|max:10240',
+        ]);
+
+        $mediaType = $request->input('media_type');
+
+        // Handle media updates
+        if ($mediaType === 'remove') {
+            // Delete existing media files
+            if ($program->image) {
+                Storage::disk('public')->delete($program->image);
+            }
+            if ($program->video) {
+                Storage::disk('public')->delete($program->video);
+            }
+            $validated['image'] = null;
+            $validated['video'] = null;
+        } elseif ($mediaType === 'image' && $request->hasFile('image')) {
+            // Delete old image if exists
+            if ($program->image) {
+                Storage::disk('public')->delete($program->image);
+            }
+            // Delete old video if exists
+            if ($program->video) {
+                Storage::disk('public')->delete($program->video);
+            }
+            $validated['image'] = $request->file('image')->store('programs', 'public');
+            $validated['video'] = null;
+        } elseif ($mediaType === 'video' && $request->hasFile('video')) {
+            // Delete old video if exists
+            if ($program->video) {
+                Storage::disk('public')->delete($program->video);
+            }
+            // Delete old image if exists
+            if ($program->image) {
+                Storage::disk('public')->delete($program->image);
+            }
+            $validated['video'] = $request->file('video')->store('programs', 'public');
+            $validated['image'] = null;
+        } else {
+            // Keep existing media if no new media is uploaded
+            unset($validated['image'], $validated['video']);
+        }
+
+        // Remove media_type from validated data
+        unset($validated['media_type']);
+
+        $program->update($validated);
+
+        return redirect()->route('programs.index')
+            ->with('success', 'Program updated successfully!');
     }
 
     /**
@@ -81,9 +168,11 @@ class ProgramController extends Controller
             'price' => 'required|numeric|min:0',
             'location' => 'required|string|max:255',
             'currency_id' => 'required|exists:currencies,id',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'video' => 'nullable|mimes:mp4,mov,avi|max:10240',
         ]);
 
-        $event = ProgramEvent::create([
+        $eventData = [
             'program_ids' => [$program->id],
             'name' => $request->name,
             'description' => $request->description,
@@ -95,7 +184,19 @@ class ProgramController extends Controller
             'currency_id' => $request->currency_id,
             'business_id' => Auth::user()->business_id,
             'user_id' => Auth::id(),
-        ]);
+        ];
+
+        // Handle image upload
+        if ($request->hasFile('image')) {
+            $eventData['image'] = $request->file('image')->store('program-events', 'public');
+        }
+
+        // Handle video upload
+        if ($request->hasFile('video')) {
+            $eventData['video'] = $request->file('video')->store('program-events', 'public');
+        }
+
+        $event = ProgramEvent::create($eventData);
 
         return redirect()->back()->with('success', 'Event created successfully!');
     }

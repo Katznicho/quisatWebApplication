@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "12db5a84-f3fa-4140-b38a-cd45e1148d2b"
+      }
+    },
+    "android": {
+      "package": "com.quisat.app"
+    }
+  }
+}

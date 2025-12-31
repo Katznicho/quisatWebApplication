@@ -15,7 +15,7 @@ class ProductController extends Controller
     {
         try {
             $query = Product::query()
-                ->with(['business:id,name,email,phone,address,shop_number,social_media_handles', 'images'])
+                ->with(['business:id,name,email,phone,address,shop_number,social_media_handles,website_link', 'images'])
                 ->where('status', 'active')
                 ->where('is_available', true)
                 ->orderBy('created_at', 'desc');
@@ -80,7 +80,7 @@ class ProductController extends Controller
     public function show($id)
     {
         try {
-            $product = Product::with(['business:id,name,email,phone,address,shop_number,social_media_handles', 'images'])
+            $product = Product::with(['business:id,name,email,phone,address,shop_number,social_media_handles,website_link', 'images'])
                 ->where('status', 'active')
                 ->where(function ($q) use ($id) {
                     $q->where('uuid', $id);
@@ -166,6 +166,7 @@ class ProductController extends Controller
                 'location' => $product->business->address, // Alias for address
                 'shop_number' => $product->business->shop_number,
                 'social_media_handles' => $product->business->social_media_handles ?? [],
+                'website_link' => $product->business->website_link,
             ] : null,
         ];
 

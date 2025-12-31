@@ -18,6 +18,8 @@ class Program extends Model
         'description',
         'age-group',
         'status',
+        'image',
+        'video',
     ];
 
     protected $casts = [

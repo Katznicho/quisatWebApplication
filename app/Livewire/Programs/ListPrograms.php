@@ -5,6 +5,7 @@ namespace App\Livewire\Programs;
 use App\Models\Program;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
+use Filament\Forms\Components\FileUpload;
 use Filament\Tables;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
@@ -24,6 +25,33 @@ class ListPrograms extends Component implements HasForms, HasTable
             ->query(Program::query())
             ->recordUrl(fn (Program $record): string => route('programs.show', $record))
             ->columns([
+                Tables\Columns\ImageColumn::make('image')
+                    ->label('Media')
+                    ->disk('public')
+                    ->height(50)
+                    ->width(50)
+                    ->defaultImageUrl(null),
+                Tables\Columns\TextColumn::make('media_type')
+                    ->label('Type')
+                    ->badge()
+                    ->getStateUsing(function ($record) {
+                        if ($record->image) {
+                            return 'Image';
+                        } elseif ($record->video) {
+                            return 'Video';
+                        }
+                        return '—';
+                    })
+                    ->color(fn (string $state): string => match ($state) {
+                        'Image' => 'success',
+                        'Video' => 'info',
+                        default => 'gray',
+                    })
+                    ->icon(fn (string $state): string => match ($state) {
+                        'Image' => 'heroicon-o-photo',
+                        'Video' => 'heroicon-o-video-camera',
+                        default => '',
+                    }),
                 Tables\Columns\TextColumn::make('name')
                     ->searchable()
                     ->sortable()
@@ -67,20 +95,12 @@ class ListPrograms extends Component implements HasForms, HasTable
                     ->color('info')
                     ->url(fn (Program $record): string => route('programs.show', $record))
                     ->openUrlInNewTab(false),
-                Tables\Actions\EditAction::make()
-                    ->form([
-                        \Filament\Forms\Components\TextInput::make('name')
-                            ->required()
-                            ->placeholder('Enter program name'),
-                        \Filament\Forms\Components\Textarea::make('description')
-                            ->placeholder('Enter description'),
-                        \Filament\Forms\Components\TextInput::make('age-group')
-                            ->placeholder('Enter age group'),
-                        \Filament\Forms\Components\Select::make('status')
-                            ->options(['active' => 'Active', 'inactive' => 'Inactive'])
-                            ->required()
-                            ->default('active'),
-                    ]),
+                Tables\Actions\Action::make('edit')
+                    ->label('Edit')
+                    ->icon('heroicon-o-pencil')
+                    ->color('warning')
+                    ->url(fn (Program $record): string => route('programs.edit', $record))
+                    ->openUrlInNewTab(false),
                 Tables\Actions\DeleteAction::make(),
                 Tables\Actions\RestoreAction::make(),
                 Tables\Actions\ForceDeleteAction::make(),
@@ -93,20 +113,12 @@ class ListPrograms extends Component implements HasForms, HasTable
                 ]),
             ])
             ->headerActions([
-                Tables\Actions\CreateAction::make()
-                    ->form([
-                        \Filament\Forms\Components\TextInput::make('name')
-                            ->required()
-                            ->placeholder('Enter program name'),
-                        \Filament\Forms\Components\Textarea::make('description')
-                            ->placeholder('Enter description'),
-                        \Filament\Forms\Components\TextInput::make('age-group')
-                            ->placeholder('Enter age group'),
-                        \Filament\Forms\Components\Select::make('status')
-                            ->options(['active' => 'Active', 'inactive' => 'Inactive'])
-                            ->required()
-                            ->default('active'),
-                    ]),
+                Tables\Actions\Action::make('create')
+                    ->label('Create Program')
+                    ->icon('heroicon-o-plus')
+                    ->color('success')
+                    ->url(route('programs.create'))
+                    ->openUrlInNewTab(false),
             ]);
     }
 

@@ -217,7 +217,7 @@
 
         <!-- Add Event Modal -->
         <div x-show="showEventModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
                 <div class="mt-3">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-medium text-gray-900">Add Event</h3>
@@ -228,7 +228,7 @@
                         </button>
                     </div>
                     
-                    <form action="{{ route('programs.events.store', $program) }}" method="POST">
+                    <form action="{{ route('programs.events.store', $program) }}" method="POST" enctype="multipart/form-data">
                         @csrf
                         <div class="space-y-4">
                             <div>
@@ -271,6 +271,26 @@
                                         @endforeach
                                     </select>
                                 </div>
+                            </div>
+                            
+                            <!-- Image Upload -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Event Image</label>
+                                <input type="file" name="image" accept="image/*" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                                <p class="mt-1 text-xs text-gray-500">JPG, PNG, GIF - Max 2MB</p>
+                                @error('image')
+                                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                @enderror
+                            </div>
+                            
+                            <!-- Video Upload -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Event Video</label>
+                                <input type="file" name="video" accept="video/*" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                                <p class="mt-1 text-xs text-gray-500">MP4, MOV, AVI - Max 10MB</p>
+                                @error('video')
+                                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                @enderror
                             </div>
                         </div>
                         

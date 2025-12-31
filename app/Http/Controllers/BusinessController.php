@@ -149,4 +149,51 @@ class BusinessController extends Controller
             return redirect()->back()->with('error', 'An error occurred while updating the logo. Please try again.');
         }
     }
+
+    /**
+     * Update business social media and website information.
+     */
+    public function updateSocialMedia(Request $request, Business $business)
+    {
+        // Check if user can update this business
+        if (Auth::user()->business_id != 1 && Auth::user()->business_id != $business->id) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $validated = $request->validate([
+            'website_link' => 'nullable|url|max:255',
+            'social_facebook' => 'nullable|url|max:255',
+            'social_instagram' => 'nullable|url|max:255',
+            'social_twitter' => 'nullable|url|max:255',
+            'social_whatsapp' => 'nullable|string|max:255',
+        ]);
+
+        try {
+            // Prepare social media handles
+            $socialMediaHandles = [];
+            if (!empty($validated['social_facebook'])) {
+                $socialMediaHandles['facebook'] = $validated['social_facebook'];
+            }
+            if (!empty($validated['social_instagram'])) {
+                $socialMediaHandles['instagram'] = $validated['social_instagram'];
+            }
+            if (!empty($validated['social_twitter'])) {
+                $socialMediaHandles['twitter'] = $validated['social_twitter'];
+            }
+            if (!empty($validated['social_whatsapp'])) {
+                $socialMediaHandles['whatsapp'] = $validated['social_whatsapp'];
+            }
+
+            // Update business
+            $business->update([
+                'website_link' => $validated['website_link'] ?? null,
+                'social_media_handles' => !empty($socialMediaHandles) ? $socialMediaHandles : null,
+            ]);
+
+            return redirect()->back()->with('success', 'Social media and website information updated successfully!');
+        } catch (\Exception $e) {
+            Log::error('Error updating business social media: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'An error occurred while updating the information. Please try again.');
+        }
+    }
 }

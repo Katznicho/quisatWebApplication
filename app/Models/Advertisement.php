@@ -86,11 +86,8 @@ class Advertisement extends Model
     public function getStatusBadgeColor()
     {
         return match($this->status) {
-            'active' => 'green',
-            'scheduled' => 'orange', 
-            'expired' => 'gray',
             'draft' => 'blue',
-            'paused' => 'yellow',
+            'published' => 'green',
             default => 'gray'
         };
     }

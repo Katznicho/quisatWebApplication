@@ -92,10 +92,8 @@ class KidsEvent extends Model
     public function getStatusBadgeColorAttribute(): string
     {
         return match($this->status) {
-            'upcoming' => 'bg-blue-100 text-blue-800',
-            'ongoing' => 'bg-green-100 text-green-800',
-            'completed' => 'bg-gray-100 text-gray-800',
-            'cancelled' => 'bg-red-100 text-red-800',
+            'draft' => 'bg-gray-100 text-gray-800',
+            'published' => 'bg-green-100 text-green-800',
             default => 'bg-gray-100 text-gray-800',
         };
     }

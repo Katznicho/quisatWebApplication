@@ -236,19 +236,9 @@
                                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Quick Actions</h2>
                                 
                                 <div class="space-y-3">
-                                    <a href="{{ route('advertisements.edit', $advertisement) }}" 
-                                       class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-center block">
-                                        Edit Advertisement
-                                    </a>
-                                    
                                     <button onclick="duplicateAdvertisement({{ $advertisement->id }})" 
                                             class="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">
                                         Duplicate
-                                    </button>
-                                    
-                                    <button onclick="toggleStatus({{ $advertisement->id }})" 
-                                            class="w-full {{ $advertisement->status === 'active' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700' }} text-white px-4 py-2 rounded-lg">
-                                        {{ $advertisement->status === 'active' ? 'Pause' : 'Activate' }}
                                     </button>
                                 </div>
                             </div>
@@ -265,13 +255,6 @@
             if (confirm('Are you sure you want to duplicate this advertisement?')) {
                 // Implementation for duplicating advertisement
                 alert('Duplicate functionality will be implemented');
-            }
-        }
-
-        function toggleStatus(id) {
-            if (confirm('Are you sure you want to change the status of this advertisement?')) {
-                // Implementation for toggling status
-                alert('Status toggle functionality will be implemented');
             }
         }
     </script>

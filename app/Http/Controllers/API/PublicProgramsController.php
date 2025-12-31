@@ -171,19 +171,35 @@ class PublicProgramsController extends Controller
                 })
                 ->count();
 
-            // Get the first event's image if available
-            $firstEvent = ProgramEvent::whereJsonContains('program_ids', $program->id)
-                ->where(function($q) {
-                    $q->where('status', 'active')
-                      ->orWhere('status', 'published')
-                      ->orWhereNull('status');
-                })
-                ->whereNotNull('image')
-                ->first();
+            // Get program's own image/video if available, otherwise fall back to first event's image
+            $imageUrl = null;
+            $videoUrl = null;
+            
+            if ($program->image) {
+                $imageUrl = str_starts_with($program->image, 'http') 
+                    ? $program->image 
+                    : asset('storage/' . $program->image);
+            } elseif ($program->video) {
+                $videoUrl = str_starts_with($program->video, 'http') 
+                    ? $program->video 
+                    : asset('storage/' . $program->video);
+            } else {
+                // Fall back to first event's image if program has no media
+                $firstEvent = ProgramEvent::whereJsonContains('program_ids', $program->id)
+                    ->where(function($q) {
+                        $q->where('status', 'active')
+                          ->orWhere('status', 'published')
+                          ->orWhereNull('status');
+                    })
+                    ->whereNotNull('image')
+                    ->first();
 
-            $imageUrl = $firstEvent && $firstEvent->image 
-                ? (str_starts_with($firstEvent->image, 'http') ? $firstEvent->image : asset('storage/' . $firstEvent->image))
-                : null;
+                if ($firstEvent && $firstEvent->image) {
+                    $imageUrl = str_starts_with($firstEvent->image, 'http') 
+                        ? $firstEvent->image 
+                        : asset('storage/' . $firstEvent->image);
+                }
+            }
 
             $data = [
                 'id' => $program->id,
@@ -191,6 +207,7 @@ class PublicProgramsController extends Controller
                 'title' => $program->name,
                 'description' => $program->description,
                 'image_url' => $imageUrl,
+                'video_url' => $videoUrl,
                 'category' => $program->name, // Use program name as category
                 'is_featured' => false,
                 'age_groups' => [$program->{'age-group'} ?? 'All Ages'],
@@ -306,6 +323,7 @@ class PublicProgramsController extends Controller
                     'address' => $event->business->address,
                     'shop_number' => $event->business->shop_number,
                     'social_media_handles' => $event->business->social_media_handles ?: [],
+                    'website_link' => $event->business->website_link,
                 ] : null;
                 $data['creator'] = $event->user ? [
                     'id' => $event->user->id,

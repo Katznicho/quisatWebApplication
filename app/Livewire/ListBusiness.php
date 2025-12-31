@@ -201,6 +201,27 @@ class ListBusiness extends Component implements HasForms, HasTable
                         \Filament\Forms\Components\TextInput::make('city')
                             ->required()
                             ->placeholder('Enter city/district/state'),
+                        \Filament\Forms\Components\TextInput::make('shop_number')
+                            ->placeholder('Enter shop number (optional)'),
+                        \Filament\Forms\Components\TextInput::make('website_link')
+                            ->label('Website URL')
+                            ->url()
+                            ->placeholder('https://www.example.com'),
+                        \Filament\Forms\Components\TextInput::make('social_facebook')
+                            ->label('Facebook URL')
+                            ->url()
+                            ->placeholder('https://facebook.com/yourbusiness'),
+                        \Filament\Forms\Components\TextInput::make('social_instagram')
+                            ->label('Instagram URL')
+                            ->url()
+                            ->placeholder('https://instagram.com/yourbusiness'),
+                        \Filament\Forms\Components\TextInput::make('social_twitter')
+                            ->label('Twitter/X URL')
+                            ->url()
+                            ->placeholder('https://twitter.com/yourbusiness'),
+                        \Filament\Forms\Components\TextInput::make('social_whatsapp')
+                            ->label('WhatsApp')
+                            ->placeholder('+1234567890 or URL'),
                         \Filament\Forms\Components\Select::make('business_category_id')
                             ->relationship('businessCategory', 'name')
                             ->reactive()
@@ -215,7 +236,29 @@ class ListBusiness extends Component implements HasForms, HasTable
                                 return \App\Models\Feature::whereIn('id', $category?->feature_ids ?? [])->pluck('name', 'id');
                             })
                             ->reactive(),
-                    ]),
+                    ])
+                    ->mutateFormDataUsing(function (array $data): array {
+                        // Convert individual social media fields to JSON
+                        $socialMediaHandles = [];
+                        if (!empty($data['social_facebook'])) {
+                            $socialMediaHandles['facebook'] = $data['social_facebook'];
+                        }
+                        if (!empty($data['social_instagram'])) {
+                            $socialMediaHandles['instagram'] = $data['social_instagram'];
+                        }
+                        if (!empty($data['social_twitter'])) {
+                            $socialMediaHandles['twitter'] = $data['social_twitter'];
+                        }
+                        if (!empty($data['social_whatsapp'])) {
+                            $socialMediaHandles['whatsapp'] = $data['social_whatsapp'];
+                        }
+                        $data['social_media_handles'] = !empty($socialMediaHandles) ? $socialMediaHandles : null;
+                        
+                        // Remove individual social media fields
+                        unset($data['social_facebook'], $data['social_instagram'], $data['social_twitter'], $data['social_whatsapp']);
+                        
+                        return $data;
+                    }),
             ])
             ->actions([
                 Tables\Actions\ViewAction::make()
@@ -244,6 +287,15 @@ class ListBusiness extends Component implements HasForms, HasTable
                             ->disabled(),
                     ]),
                 Tables\Actions\EditAction::make()
+                    ->mutateFormDataBeforeFill(function (array $data, Business $record): array {
+                        // Extract social media handles from JSON and populate individual fields
+                        $socialHandles = $record->social_media_handles ?? [];
+                        $data['social_facebook'] = $socialHandles['facebook'] ?? null;
+                        $data['social_instagram'] = $socialHandles['instagram'] ?? null;
+                        $data['social_twitter'] = $socialHandles['twitter'] ?? null;
+                        $data['social_whatsapp'] = $socialHandles['whatsapp'] ?? null;
+                        return $data;
+                    })
                     ->form([
                         \Filament\Forms\Components\TextInput::make('name')
                             ->required()
@@ -264,6 +316,27 @@ class ListBusiness extends Component implements HasForms, HasTable
                         \Filament\Forms\Components\TextInput::make('city')
                             ->required()
                             ->placeholder('Enter city/district/state'),
+                        \Filament\Forms\Components\TextInput::make('shop_number')
+                            ->placeholder('Enter shop number (optional)'),
+                        \Filament\Forms\Components\TextInput::make('website_link')
+                            ->label('Website URL')
+                            ->url()
+                            ->placeholder('https://www.example.com'),
+                        \Filament\Forms\Components\TextInput::make('social_facebook')
+                            ->label('Facebook URL')
+                            ->url()
+                            ->placeholder('https://facebook.com/yourbusiness'),
+                        \Filament\Forms\Components\TextInput::make('social_instagram')
+                            ->label('Instagram URL')
+                            ->url()
+                            ->placeholder('https://instagram.com/yourbusiness'),
+                        \Filament\Forms\Components\TextInput::make('social_twitter')
+                            ->label('Twitter/X URL')
+                            ->url()
+                            ->placeholder('https://twitter.com/yourbusiness'),
+                        \Filament\Forms\Components\TextInput::make('social_whatsapp')
+                            ->label('WhatsApp')
+                            ->placeholder('+1234567890 or URL'),
                         \Filament\Forms\Components\Select::make('business_category_id')
                             ->relationship('businessCategory', 'name')
                             ->reactive()
@@ -279,6 +352,28 @@ class ListBusiness extends Component implements HasForms, HasTable
                             })
                             ->reactive(),
                     ])
+                    ->mutateFormDataUsing(function (array $data): array {
+                        // Convert individual social media fields to JSON
+                        $socialMediaHandles = [];
+                        if (!empty($data['social_facebook'])) {
+                            $socialMediaHandles['facebook'] = $data['social_facebook'];
+                        }
+                        if (!empty($data['social_instagram'])) {
+                            $socialMediaHandles['instagram'] = $data['social_instagram'];
+                        }
+                        if (!empty($data['social_twitter'])) {
+                            $socialMediaHandles['twitter'] = $data['social_twitter'];
+                        }
+                        if (!empty($data['social_whatsapp'])) {
+                            $socialMediaHandles['whatsapp'] = $data['social_whatsapp'];
+                        }
+                        $data['social_media_handles'] = !empty($socialMediaHandles) ? $socialMediaHandles : null;
+                        
+                        // Remove individual social media fields
+                        unset($data['social_facebook'], $data['social_instagram'], $data['social_twitter'], $data['social_whatsapp']);
+                        
+                        return $data;
+                    })
                     ->visible(fn (Business $record): bool => Auth::user()->business_id === 1 || $record->id === Auth::user()->business_id),
                 Tables\Actions\DeleteAction::make()
                     ->visible(fn (Business $record): bool => Auth::user()->business_id === 1),

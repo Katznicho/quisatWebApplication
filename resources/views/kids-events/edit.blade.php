@@ -125,10 +125,8 @@
                                     <label for="status" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status *</label>
                                     <select id="status" name="status" 
                                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white @error('status') border-red-500 @enderror" required>
-                                        <option value="upcoming" {{ old('status', $kidsEvent->status) === 'upcoming' ? 'selected' : '' }}>Upcoming</option>
-                                        <option value="ongoing" {{ old('status', $kidsEvent->status) === 'ongoing' ? 'selected' : '' }}>Ongoing</option>
-                                        <option value="completed" {{ old('status', $kidsEvent->status) === 'completed' ? 'selected' : '' }}>Completed</option>
-                                        <option value="cancelled" {{ old('status', $kidsEvent->status) === 'cancelled' ? 'selected' : '' }}>Cancelled</option>
+                                        <option value="draft" {{ old('status', $kidsEvent->status) === 'draft' ? 'selected' : '' }}>Draft</option>
+                                        <option value="published" {{ old('status', $kidsEvent->status) === 'published' ? 'selected' : '' }}>Published</option>
                                     </select>
                                     @error('status')
                                         <p class="text-red-500 text-sm mt-1">{{ $message }}</p>

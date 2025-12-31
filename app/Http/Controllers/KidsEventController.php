@@ -96,6 +96,7 @@ class KidsEventController extends Controller
         $validated['business_id'] = Auth::user()->business_id;
         $validated['created_by'] = Auth::id();
         $validated['current_participants'] = 0;
+        $validated['status'] = 'draft'; // Default status is draft
 
         KidsEvent::create($validated);
 
@@ -135,7 +136,7 @@ class KidsEventController extends Controller
             'max_participants' => 'nullable|integer|min:1',
             'start_date' => 'required|date',
             'end_date' => 'required|date|after:start_date',
-            'status' => 'required|in:upcoming,ongoing,completed,cancelled',
+            'status' => 'required|in:draft,published',
             'requires_parent_permission' => 'boolean',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'target_age_groups' => 'nullable|array',
@@ -198,7 +199,7 @@ class KidsEventController extends Controller
     public function updateStatus(Request $request, KidsEvent $kidsEvent)
     {
         $validated = $request->validate([
-            'status' => 'required|in:upcoming,ongoing,completed,cancelled'
+            'status' => 'required|in:draft,published'
         ]);
 
         $kidsEvent->update($validated);

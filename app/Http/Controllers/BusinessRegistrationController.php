@@ -37,6 +37,11 @@ class BusinessRegistrationController extends Controller
             'business_city' => 'required|string|max:255',
             'business_category_id' => 'required|exists:business_categories,id',
             'business_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'website_link' => 'nullable|url|max:255',
+            'social_facebook' => 'nullable|url|max:255',
+            'social_instagram' => 'nullable|url|max:255',
+            'social_twitter' => 'nullable|url|max:255',
+            'social_whatsapp' => 'nullable|string|max:255',
             
             // Admin user details
             'admin_name' => 'required|string|max:255',
@@ -60,6 +65,21 @@ class BusinessRegistrationController extends Controller
                 $logoPath = $request->file('business_logo')->store('business_logos', 'public');
             }
 
+            // Prepare social media handles
+            $socialMediaHandles = [];
+            if ($request->filled('social_facebook')) {
+                $socialMediaHandles['facebook'] = $request->social_facebook;
+            }
+            if ($request->filled('social_instagram')) {
+                $socialMediaHandles['instagram'] = $request->social_instagram;
+            }
+            if ($request->filled('social_twitter')) {
+                $socialMediaHandles['twitter'] = $request->social_twitter;
+            }
+            if ($request->filled('social_whatsapp')) {
+                $socialMediaHandles['whatsapp'] = $request->social_whatsapp;
+            }
+
             // Create business
             $business = Business::create([
                 'name' => $request->business_name,
@@ -70,6 +90,8 @@ class BusinessRegistrationController extends Controller
                 'city' => $request->business_city,
                 'business_category_id' => $request->business_category_id,
                 'logo' => $logoPath,
+                'website_link' => $request->website_link,
+                'social_media_handles' => !empty($socialMediaHandles) ? $socialMediaHandles : null,
                 'account_number' => 'KS' . time(),
                 'account_balance' => 0,
                 'mode' => 'live',

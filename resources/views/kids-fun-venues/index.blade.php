@@ -1,20 +1,19 @@
 <x-app-layout>
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <!-- Page Header -->
             <div class="mb-8">
                 <div class="flex justify-between items-center">
                     <div>
                         <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                            {{ __('KidsMart Products') }}
+                            {{ __('Kids Fun Venues') }}
                         </h2>
-                        <p class="text-gray-600 dark:text-gray-400 mt-2">Manage your products for KidsMart</p>
+                        <p class="text-gray-600 dark:text-gray-400 mt-2">Manage fun venues for kids</p>
                     </div>
-                    <a href="{{ route('products.create') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2">
+                    <a href="{{ route('kids-fun-venues.create') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                         </svg>
-                        <span>Add Product</span>
+                        <span>Add Venue</span>
                     </a>
                 </div>
             </div>
@@ -25,32 +24,32 @@
                 </div>
             @endif
 
-            <!-- Products Grid -->
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
-                @if($products->count() > 0)
+                @if($venues->count() > 0)
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
-                        @foreach($products as $product)
+                        @foreach($venues as $venue)
                             <div class="border rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
-                                @if($product->image_url)
-                                    <img src="{{ Storage::url($product->image_url) }}" alt="{{ $product->name }}" class="w-full h-48 object-cover">
+                                @if($venue->images && count($venue->images) > 0)
+                                    <img src="{{ Storage::url($venue->images[0]) }}" alt="{{ $venue->name }}" class="w-full h-48 object-cover">
                                 @else
                                     <div class="w-full h-48 bg-gray-200 flex items-center justify-center">
                                         <svg class="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
                                         </svg>
                                     </div>
                                 @endif
                                 <div class="p-4">
-                                    <h3 class="font-semibold text-lg mb-2">{{ $product->name }}</h3>
-                                    <p class="text-gray-600 text-sm mb-2 line-clamp-2">{{ $product->description }}</p>
-                                    <div class="flex justify-between items-center mb-2">
-                                        <span class="text-lg font-bold text-blue-600">UGX {{ number_format($product->price, 2) }}</span>
-                                        <span class="text-sm text-gray-500">Stock: {{ $product->stock_quantity }}</span>
-                                    </div>
+                                    <h3 class="font-semibold text-lg mb-2">{{ $venue->name }}</h3>
+                                    <p class="text-gray-600 text-sm mb-2">{{ $venue->location }}</p>
+                                    <p class="text-sm text-gray-500 mb-2">{{ $venue->open_time }} - {{ $venue->close_time }}</p>
+                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                                        {{ $venue->status === 'published' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800' }}">
+                                        {{ ucfirst($venue->status) }}
+                                    </span>
                                     <div class="flex space-x-2 mt-4">
-                                        <a href="{{ route('products.show', $product) }}" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-center py-2 rounded">View</a>
-                                        <a href="{{ route('products.edit', $product) }}" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white text-center py-2 rounded">Edit</a>
-                                        <form action="{{ route('products.destroy', $product) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure?')">
+                                        <a href="{{ route('kids-fun-venues.show', $venue) }}" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-center py-2 rounded">View</a>
+                                        <a href="{{ route('kids-fun-venues.edit', $venue) }}" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white text-center py-2 rounded">Edit</a>
+                                        <form action="{{ route('kids-fun-venues.destroy', $venue) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure?')">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded">Delete</button>
@@ -61,21 +60,16 @@
                         @endforeach
                     </div>
                     <div class="px-6 py-4">
-                        {{ $products->links() }}
+                        {{ $venues->links() }}
                     </div>
                 @else
                     <div class="p-12 text-center">
-                        <p class="text-gray-500 mb-4">No products found. Create your first product!</p>
-                        <a href="{{ route('products.create') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg inline-block">Add Product</a>
+                        <p class="text-gray-500 mb-4">No venues found. Create your first venue!</p>
+                        <a href="{{ route('kids-fun-venues.create') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg inline-block">Add Venue</a>
                     </div>
                 @endif
             </div>
         </div>
     </div>
 </x-app-layout>
-
-
-
-
-
 

@@ -19,6 +19,7 @@ use App\Http\Controllers\TermController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\AdvertisementController;
 use App\Http\Controllers\KidsEventController;
+use App\Http\Controllers\KidsFunVenueController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\OrderController;
 
@@ -99,6 +100,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::resource("businesses", BusinessController::class);
     Route::patch('businesses/{business}/update-logo', [BusinessController::class, 'updateLogo'])->name('businesses.update-logo');
+    Route::patch('businesses/{business}/update-social-media', [BusinessController::class, 'updateSocialMedia'])->name('businesses.update-social-media');
     Route::resource("support", SupportController::class);
     Route::resource("transactions", TransactionController::class);
     Route::resource("users", UserController::class);
@@ -123,6 +125,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
     
     // KidsMart Products routes
     Route::resource("products", ProductController::class);
+    
+    // Kids Fun Venues routes
+    Route::resource("kids-fun-venues", KidsFunVenueController::class);
     
     // KidsMart Orders routes
     Route::resource("orders", OrderController::class)->only(['index', 'show']);
