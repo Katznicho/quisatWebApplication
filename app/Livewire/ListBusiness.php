@@ -287,7 +287,7 @@ class ListBusiness extends Component implements HasForms, HasTable
                             ->disabled(),
                     ]),
                 Tables\Actions\EditAction::make()
-                    ->mutateFormDataBeforeFill(function (array $data, Business $record): array {
+                    ->fillForm(function (Business $record, array $data): array {
                         // Extract social media handles from JSON and populate individual fields
                         $socialHandles = $record->social_media_handles ?? [];
                         $data['social_facebook'] = $socialHandles['facebook'] ?? null;
