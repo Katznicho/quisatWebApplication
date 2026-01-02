@@ -26,6 +26,7 @@ class ProgramRegistrationController extends Controller
                 'parent_phone' => 'required|string|max:20',
                 'parent_email' => 'nullable|email|max:255',
                 'gender' => 'required|in:male,female',
+                'payment_method' => 'required|in:cash,card,bank_transfer,airtel_money,mtn_mobile_money,other',
             ]);
 
             // Get the authenticated user (parent or user)
@@ -104,7 +105,7 @@ class ProgramRegistrationController extends Controller
                 'parent_phone' => $request->parent_phone,
                 'parent_email' => $request->parent_email ?? ($user instanceof \App\Models\ParentGuardian ? $user->email : $user->email),
                 'gender' => $request->gender,
-                'payment_method' => 'pending',
+                'payment_method' => $request->payment_method,
                 'amount_paid' => 0,
                 'amount_due' => $programEvent->price,
                 'status' => 'pending',
