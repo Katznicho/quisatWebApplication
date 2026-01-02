@@ -32,38 +32,35 @@
             }
         </script>         
     </head>
-    <body class="font-inter antialiased bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-400">
+    <body class="font-inter antialiased bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400">
 
-        <main class="bg-white dark:bg-gray-900">
+        <main class="flex min-h-screen">
 
-            <!-- Content -->
-            <div class="w-full">
+            <!-- Banner Image Section - 50% width -->
+            <div class="hidden lg:flex lg:w-1/2 relative overflow-hidden">
+                <img src="{{ asset('images/banner.jpeg') }}" alt="Banner" class="w-full h-full object-cover">
+            </div>
 
-                <div class="min-h-[100dvh] h-full">
+            <!-- Content Section - 50% width -->
+            <div class="w-full lg:w-1/2 flex flex-col bg-white dark:bg-gray-900">
 
-                    <!-- Header -->
-                    <div>
-                        <div class="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
-                            <!-- Logo -->
-                            <a class="block" href="{{ route('dashboard') }}">
-                                
-                                 {{-- <img src="{{ asset('images/logo.png') }}"/> --}}
-                                 <img src="{{ asset('images/logo.png') }}"
-     alt="Logo"
-     class="h-10 max-h-12 w-auto object-contain"
-     style="max-width: 150px;" />
-
-                            </a>
-                        </div>
-                    </div>
-
-                    <div class="w-full max-w-3xl mx-auto px-4 py-8">
-                        {{ $slot }}
-                    </div>
-
+                <!-- Header -->
+                <div class="flex items-center justify-between h-20 px-6 lg:px-12 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-900">
+                    <!-- Logo -->
+                    <a class="block" href="{{ route('dashboard') }}">
+                        <img src="{{ asset('images/logo.png') }}"
+                             alt="Logo"
+                             class="h-10 max-h-12 w-auto object-contain"
+                             style="max-width: 150px;" />
+                    </a>
                 </div>
 
-            </div>
+                <!-- Register Form Content -->
+                <div class="flex-1 overflow-y-auto">
+                    <div class="w-full max-w-4xl mx-auto px-6 lg:px-12 py-8">
+                        {{ $slot }}
+                    </div>
+                </div>
 
             </div>
 
