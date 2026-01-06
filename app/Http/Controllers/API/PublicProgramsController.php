@@ -113,6 +113,7 @@ class PublicProgramsController extends Controller
             'description' => $program->description,
             'image_url' => $resolveUrl($program->image ?? null),
             'video_url' => $resolveUrl($program->video ?? null),
+            'social_media_handles' => $program->social_media_handles,
             'category' => 'Christian Kids Hub',
             'is_featured' => false,
             'age_groups' => $ageGroups,

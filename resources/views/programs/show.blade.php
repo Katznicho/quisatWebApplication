@@ -14,6 +14,21 @@
                     <div>
                         <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{{ $program->name }}</h1>
                         <p class="text-gray-600 dark:text-gray-400 mt-2">{{ $program->description }}</p>
+                        @if($program->image || $program->video)
+                            <div class="mt-4">
+                                @if($program->image)
+                                    <img src="{{ Storage::url($program->image) }}"
+                                         alt="{{ $program->name }}"
+                                         class="w-full max-w-xl rounded-lg shadow-sm border border-gray-200" />
+                                @endif
+                                @if($program->video)
+                                    <video controls class="w-full max-w-xl rounded-lg shadow-sm border border-gray-200 mt-3">
+                                        <source src="{{ Storage::url($program->video) }}" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                @endif
+                            </div>
+                        @endif
                         <div class="flex items-center mt-4 space-x-4">
                             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
                                 Age Group: {{ $program->{'age-group'} }}
@@ -25,7 +40,7 @@
                         </div>
                     </div>
                     <div class="text-right">
-                        <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ $program->total_events }}</div>
+                        <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ $events->count() }}</div>
                         <div class="text-sm text-gray-600 dark:text-gray-400">Total Events</div>
                     </div>
                 </div>
@@ -56,7 +71,7 @@
                     </button>
                 </div>
 
-                @if($program->events->count() > 0)
+                @if($events->count() > 0)
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                             <thead class="bg-gray-50 dark:bg-gray-700">
@@ -69,7 +84,7 @@
                                 </tr>
                             </thead>
                             <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                @foreach($program->events as $event)
+                                @foreach($events as $event)
                                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer" 
                                         @click="selectedEvent = {{ $event->id }}; showAttendeeModal = true">
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{{ $event->name }}</td>
@@ -102,6 +117,88 @@
                 @endif
             </div>
 
+            @php
+                $organizerBusiness = $events->first()?->business;
+                $businessSocials = $organizerBusiness?->social_media_handles;
+                if (is_string($businessSocials)) {
+                    $decoded = json_decode($businessSocials, true);
+                    $businessSocials = is_array($decoded) ? $decoded : [];
+                }
+                $businessSocials = is_array($businessSocials) ? $businessSocials : [];
+
+                $firstEvent = $events->first();
+                $eventSocials = $firstEvent?->social_media_handles ?? [];
+                if (is_string($eventSocials)) {
+                    $decoded = json_decode($eventSocials, true);
+                    $eventSocials = is_array($decoded) ? $decoded : [];
+                }
+                $eventSocials = is_array($eventSocials) ? $eventSocials : [];
+            @endphp
+
+            <!-- Organizer / Social Links -->
+            @if($organizerBusiness || $firstEvent)
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 mb-6">
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Organizer & Social Links</h2>
+                    
+                    @if($organizerBusiness)
+                        <div class="mb-4">
+                            <div class="text-sm text-gray-600 dark:text-gray-400">Business</div>
+                            <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ $organizerBusiness->name }}</div>
+                            @if($organizerBusiness->website_link)
+                                <a class="text-blue-600 hover:text-blue-800 break-all" href="{{ $organizerBusiness->website_link }}" target="_blank" rel="noreferrer">
+                                    {{ $organizerBusiness->website_link }}
+                                </a>
+                            @endif
+                        </div>
+                        @if(count($businessSocials) > 0)
+                            <div class="flex flex-wrap gap-3">
+                                @foreach($businessSocials as $platform => $url)
+                                    @if($url)
+                                        <a class="px-3 py-1 rounded-full bg-gray-100 hover:bg-gray-200 text-sm text-gray-800"
+                                           href="{{ $url }}" target="_blank" rel="noreferrer">
+                                            {{ ucfirst($platform) }}
+                                        </a>
+                                    @endif
+                                @endforeach
+                            </div>
+                        @endif
+                    @endif
+
+                    @if($firstEvent)
+                        <div class="mt-6">
+                            <div class="text-sm text-gray-600 dark:text-gray-400 mb-2">Event Organizer Details</div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                @if($firstEvent->organizer_name)
+                                    <div><span class="font-medium">Name:</span> {{ $firstEvent->organizer_name }}</div>
+                                @endif
+                                @if($firstEvent->organizer_email)
+                                    <div><span class="font-medium">Email:</span> {{ $firstEvent->organizer_email }}</div>
+                                @endif
+                                @if($firstEvent->organizer_phone)
+                                    <div><span class="font-medium">Phone:</span> {{ $firstEvent->organizer_phone }}</div>
+                                @endif
+                                @if($firstEvent->organizer_address)
+                                    <div><span class="font-medium">Address:</span> {{ $firstEvent->organizer_address }}</div>
+                                @endif
+                            </div>
+                        </div>
+
+                        @if(count($eventSocials) > 0)
+                            <div class="mt-4 flex flex-wrap gap-3">
+                                @foreach($eventSocials as $platform => $url)
+                                    @if($url)
+                                        <a class="px-3 py-1 rounded-full bg-blue-50 hover:bg-blue-100 text-sm text-blue-800"
+                                           href="{{ $url }}" target="_blank" rel="noreferrer">
+                                            {{ ucfirst($platform) }}
+                                        </a>
+                                    @endif
+                                @endforeach
+                            </div>
+                        @endif
+                    @endif
+                </div>
+            @endif
+
             <!-- Register for Program Section -->
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 mb-6">
                 <div class="flex justify-between items-center mb-6">
@@ -125,7 +222,7 @@
                 
                 @php
                     $allAttendees = collect();
-                    foreach($program->events as $event) {
+                    foreach($events as $event) {
                         $allAttendees = $allAttendees->merge($event->attendees);
                     }
                 @endphp
@@ -353,7 +450,7 @@
                                  <label class="block text-sm font-medium text-gray-700">Select Event</label>
                                  <select x-model="selectedEvent" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                                      <option value="">Choose an event</option>
-                                     @foreach($program->events as $event)
+                                     @foreach($events as $event)
                                          <option value="{{ $event->uuid }}">{{ $event->name }} - {{ $event->start_date->format('M d, Y') }}</option>
                                      @endforeach
                                  </select>

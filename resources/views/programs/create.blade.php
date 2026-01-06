@@ -120,6 +120,45 @@
                             </div>
                         </div>
 
+                        <!-- Social Media & Website -->
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
+                            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Social Media & Website</h2>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">Optional links shown on the app under the program details.</p>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Website</label>
+                                    <input type="text" name="social_media_handles[website]" value="{{ old('social_media_handles.website') }}"
+                                           placeholder="https://example.com"
+                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Facebook</label>
+                                    <input type="text" name="social_media_handles[facebook]" value="{{ old('social_media_handles.facebook') }}"
+                                           placeholder="https://facebook.com/yourpage"
+                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Instagram</label>
+                                    <input type="text" name="social_media_handles[instagram]" value="{{ old('social_media_handles.instagram') }}"
+                                           placeholder="https://instagram.com/yourprofile"
+                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">X / Twitter</label>
+                                    <input type="text" name="social_media_handles[twitter]" value="{{ old('social_media_handles.twitter') }}"
+                                           placeholder="https://x.com/yourprofile"
+                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">WhatsApp</label>
+                                    <input type="text" name="social_media_handles[whatsapp]" value="{{ old('social_media_handles.whatsapp') }}"
+                                           placeholder="+2567xxxxxxxx or https://wa.me/..."
+                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white">
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="flex space-x-4">
                             <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium">
                                 Create Program

@@ -20,10 +20,12 @@ class Program extends Model
         'status',
         'image',
         'video',
+        'social_media_handles',
     ];
 
     protected $casts = [
         'program_ids' => 'array',
+        'social_media_handles' => 'array',
     ];
 
     // A program can have many events

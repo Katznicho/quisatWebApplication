@@ -43,6 +43,8 @@ class ProgramController extends Controller
             'media_type' => 'nullable|in:image,video',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             'video' => 'nullable|file|mimes:mp4,mov,avi,quicktime|max:10240',
+            'social_media_handles' => 'nullable|array',
+            'social_media_handles.*' => 'nullable|string|max:255',
         ]);
 
         // Handle media upload based on media_type
@@ -73,9 +75,14 @@ class ProgramController extends Controller
      */
     public function show(Program $program)
     {
-        $program->load(['events.attendees', 'events.currency']);
-        
-        return view('programs.show', compact('program'));
+        // NOTE: Program->events is implemented as an accessor querying JSON, so we fetch events explicitly
+        // (including relationships) and pass them to the view.
+        $events = ProgramEvent::whereJsonContains('program_ids', $program->id)
+            ->with(['attendees', 'currency', 'business'])
+            ->orderBy('start_date', 'asc')
+            ->get();
+
+        return view('programs.show', compact('program', 'events'));
     }
 
     /**
@@ -99,6 +106,8 @@ class ProgramController extends Controller
             'media_type' => 'nullable|in:image,video,remove',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             'video' => 'nullable|file|mimes:mp4,mov,avi,quicktime|max:10240',
+            'social_media_handles' => 'nullable|array',
+            'social_media_handles.*' => 'nullable|string|max:255',
         ]);
 
         $mediaType = $request->input('media_type');
