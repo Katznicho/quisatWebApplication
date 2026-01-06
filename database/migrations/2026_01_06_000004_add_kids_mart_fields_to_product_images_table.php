@@ -22,14 +22,6 @@ return new class extends Migration
                 $table->integer('sort_order')->default(0);
             }
         });
-
-        Schema::table('product_images', function (Blueprint $table) {
-            try {
-                $table->foreign('product_id')->references('id')->on('products')->cascadeOnDelete();
-            } catch (\Throwable $e) {
-                // ignore
-            }
-        });
     }
 
     public function down(): void

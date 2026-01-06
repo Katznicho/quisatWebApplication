@@ -40,14 +40,6 @@ return new class extends Migration
                 $table->decimal('total_amount', 10, 2)->default(0);
             }
         });
-
-        Schema::table('orders', function (Blueprint $table) {
-            try {
-                $table->foreign('business_id')->references('id')->on('businesses')->nullOnDelete();
-            } catch (\Throwable $e) {
-                // ignore
-            }
-        });
     }
 
     public function down(): void

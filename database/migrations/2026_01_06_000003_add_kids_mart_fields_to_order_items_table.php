@@ -28,19 +28,6 @@ return new class extends Migration
                 $table->string('selected_size')->nullable();
             }
         });
-
-        Schema::table('order_items', function (Blueprint $table) {
-            try {
-                $table->foreign('order_id')->references('id')->on('orders')->cascadeOnDelete();
-            } catch (\Throwable $e) {
-                // ignore
-            }
-            try {
-                $table->foreign('product_id')->references('id')->on('products')->nullOnDelete();
-            } catch (\Throwable $e) {
-                // ignore
-            }
-        });
     }
 
     public function down(): void

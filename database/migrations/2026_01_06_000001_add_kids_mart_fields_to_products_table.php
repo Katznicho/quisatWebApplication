@@ -43,16 +43,6 @@ return new class extends Migration
                 $table->string('status')->default('active')->index();
             }
         });
-
-        Schema::table('products', function (Blueprint $table) {
-            // Add FK only if not present
-            // (Laravel doesn't provide a clean "hasForeign" check, so we keep it simple)
-            try {
-                $table->foreign('business_id')->references('id')->on('businesses')->nullOnDelete();
-            } catch (\Throwable $e) {
-                // ignore if already exists
-            }
-        });
     }
 
     public function down(): void
