@@ -102,6 +102,9 @@ Route::prefix('v1')->group(function () {
         Route::get('kids-events', [PublicKidsEventsController::class, 'index']);
         Route::get('kids-events/{id}', [PublicKidsEventsController::class, 'show']);
         
+        // Kids Event Registration (public - supports guest registration)
+        Route::post('kids-events/{eventId}/register', [\App\Http\Controllers\API\KidsEventRegistrationController::class, 'store']);
+        
         // Kids Fun Venues
         Route::get('kids-fun-venues', [PublicKidsFunVenuesController::class, 'index']);
         Route::get('kids-fun-venues/{id}', [PublicKidsFunVenuesController::class, 'show']);
@@ -118,6 +121,10 @@ Route::prefix('v1')->group(function () {
         Route::middleware('auth:sanctum')->group(function () {
             Route::post('programmes/events/{eventId}/register', [ProgramRegistrationController::class, 'store']);
             Route::get('programmes/events/{eventId}/registrations', [ProgramRegistrationController::class, 'index']);
+            
+            // Kids Event Registrations (authenticated)
+            Route::get('kids-events/{eventId}/registrations', [\App\Http\Controllers\API\KidsEventRegistrationController::class, 'index']);
+            Route::get('my-kids-event-registrations', [\App\Http\Controllers\API\KidsEventRegistrationController::class, 'myRegistrations']);
         });
         
         // KidsMart Products (public)

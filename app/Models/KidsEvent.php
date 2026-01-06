@@ -70,6 +70,11 @@ class KidsEvent extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function registrations()
+    {
+        return $this->hasMany(KidsEventRegistration::class);
+    }
+
     // Accessors
     public function getSpotsAvailableAttribute(): int
     {
