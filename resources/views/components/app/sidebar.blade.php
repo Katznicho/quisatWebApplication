@@ -24,9 +24,7 @@
             <!-- Logo and Business Info -->
             <div class="flex flex-col items-center w-full">
                 <!-- Top-level System Name -->
-                @if(auth()->user()->business_id == 1)
-                    <h1 class="text-[#011478] font-extrabold text-xl mb-1">{{ env('APP_NAME') }}</h1>
-                @endif
+                <h1 class="text-[#011478] font-extrabold text-xl mb-1">{{ env('APP_NAME') }}</h1>
 
                 <!-- Business Logo -->
                 @php
@@ -117,67 +115,6 @@
                                     d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
                             </svg>
                             <span class="ml-3">Kids Events</span>
-                        </a>
-                    </li>
-                    @endif
-
-                    <!-- KidsMart Products -->
-                    @if (auth()->user()->business_id != 1 && $business->hasFeatureByName('KidsMart'))
-                    <li>
-                        <button @click="openGroup === 'kidsmart' ? openGroup = '' : openGroup = 'kidsmart'"
-                            :class="openGroup === 'kidsmart' ? 'border border-blue-500 text-blue-700 bg-blue-50' :
-                                'text-gray-700 hover:text-blue-700'"
-                            class="flex items-center justify-between w-full text-left pl-4 pr-3 py-2 rounded-md">
-                            <div class="flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                    stroke-width="1.5" stroke="currentColor" class="w-5 h-5 shrink-0">
-                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                        d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-                                </svg>
-                                <span class="ml-3">KidsMart</span>
-                            </div>
-                            <svg class="w-4 h-4 transform transition-transform duration-200"
-                                :class="{ 'rotate-180': openGroup === 'kidsmart' }" fill="none"
-                                stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                <path d="M19 9l-7 7-7-7" />
-                            </svg>
-                        </button>
-                        <ul x-show="openGroup === 'kidsmart'" x-collapse class="mt-1 space-y-1 pl-10">
-                            <li>
-                                <a href="/products"
-                                    class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">
-                                    My Products
-                                </a>
-                            </li>
-                            <li>
-                                <a href="/orders"
-                                    class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">
-                                    Orders
-                                </a>
-                            </li>
-                            <li>
-                                <a href="/products/create"
-                                    class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">
-                                    Add Product
-                                </a>
-                            </li>
-                        </ul>
-                    </li>
-                    @endif
-
-                    <!-- Kids Fun Venues -->
-                    @if (auth()->user()->business_id != 1 && $business->hasFeatureByName('Kids Fun Venues'))
-                    <li>
-                        <a href="{{ route('kids-fun-venues.index') }}"
-                            class="flex items-center pl-4 pr-3 py-2 rounded-md text-gray-700 hover:text-blue-700 hover:bg-blue-50">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                stroke-width="1.5" stroke="currentColor" class="w-5 h-5 shrink-0">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                            </svg>
-                            <span class="ml-3">Kids Fun Venues</span>
                         </a>
                     </li>
                     @endif

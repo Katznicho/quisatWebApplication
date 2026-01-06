@@ -106,7 +106,6 @@ class RoleController extends Controller
                     'description' => $request->description,
                     'permissions' => json_encode($request->permissions_menu),
                     'user_id' => auth()->user()->id,
-                    'business_id' => auth()->user()->business_id,
                     // 'entity_id' => auth()->user()->entity->id,
                 ]);
             }

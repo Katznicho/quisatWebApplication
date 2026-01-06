@@ -19,9 +19,6 @@ use App\Http\Controllers\TermController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\AdvertisementController;
 use App\Http\Controllers\KidsEventController;
-use App\Http\Controllers\KidsFunVenueController;
-use App\Http\Controllers\ProductController;
-use App\Http\Controllers\OrderController;
 
 // Test route for chat functionality (no auth required)
 Route::get('/chat-test', function () {
@@ -33,9 +30,6 @@ Route::get('/chat-demo', function () {
     $contacts = \App\Models\User::whereNotNull('business_id')->take(5)->get();
     return view('chat.demo', compact('contacts'));
 })->name('chat.demo');
-
-// Public KidsMart Products Page
-Route::get('/kidsmart', [ProductController::class, 'publicIndex'])->name('products.public');
 
 // Test route that mimics the main chat page (no auth required)
 Route::get('/chat-test-main', function () {
@@ -100,7 +94,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::resource("businesses", BusinessController::class);
     Route::patch('businesses/{business}/update-logo', [BusinessController::class, 'updateLogo'])->name('businesses.update-logo');
-    Route::patch('businesses/{business}/update-social-media', [BusinessController::class, 'updateSocialMedia'])->name('businesses.update-social-media');
     Route::resource("support", SupportController::class);
     Route::resource("transactions", TransactionController::class);
     Route::resource("users", UserController::class);
@@ -122,16 +115,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('kids-events/{kidsEvent}/update-status', [KidsEventController::class, 'updateStatus'])->name('kids-events.update-status');
     
     Route::resource("programs", ProgramController::class);
-    
-    // KidsMart Products routes
-    Route::resource("products", ProductController::class);
-    
-    // Kids Fun Venues routes
-    Route::resource("kids-fun-venues", KidsFunVenueController::class);
-    
-    // KidsMart Orders routes
-    Route::resource("orders", OrderController::class)->only(['index', 'show']);
-    Route::patch('orders/{order}/status', [OrderController::class, 'updateStatus'])->name('orders.update-status');
 
     // Admin Management Routes
     Route::prefix('admin')->name('admin.')->group(function () {
