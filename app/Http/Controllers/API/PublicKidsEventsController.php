@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\KidsEvent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class PublicKidsEventsController extends Controller
 {
@@ -17,12 +19,7 @@ class PublicKidsEventsController extends Controller
         try {
             $query = KidsEvent::query()
                 ->with('business:id,name,email,phone,address,website_link,social_media_handles')
-                ->where(function ($q) {
-                    // Consider published and active-type statuses as visible
-                    $q->where('status', 'published')
-                      ->orWhere('status', 'ongoing')
-                      ->orWhere('status', 'upcoming');
-                });
+                ->where('is_external', true);
 
             // Filters
             if ($status = $request->query('status')) {
@@ -43,6 +40,11 @@ class PublicKidsEventsController extends Controller
                       ->orWhere('description', 'like', "%{$search}%")
                       ->orWhere('location', 'like', "%{$search}%");
                 });
+            }
+
+            // Upcoming-only filter (used by app)
+            if (filter_var($request->query('upcoming_only'), FILTER_VALIDATE_BOOL)) {
+                $query->where('start_date', '>=', now());
             }
 
             $events = $query->orderBy('start_date', 'asc')->get();
@@ -103,19 +105,34 @@ class PublicKidsEventsController extends Controller
 
     private function transformEvent(KidsEvent $event, bool $includeDetails = false): array
     {
+        $resolveUrl = function (?string $pathOrUrl): ?string {
+            if (!$pathOrUrl) {
+                return null;
+            }
+            if (Str::startsWith($pathOrUrl, ['http://', 'https://'])) {
+                return $pathOrUrl;
+            }
+            // If stored as a relative storage path, map it
+            return Storage::url($pathOrUrl);
+        };
+
         $data = [
             'id' => $event->id,
             'title' => $event->title,
             'description' => $event->description,
-            'image_url' => $event->image_url,
+            'image_url' => $resolveUrl($event->image_url),
             'category' => $event->category,
+            'host_organization' => $event->host_organization,
             'location' => $event->location,
             'price' => $event->price !== null ? (float) $event->price : null,
+            'formatted_price' => $event->formatted_price ?? ($event->price > 0 ? ('UGX ' . number_format((float) $event->price, 0)) : 'Free'),
             'start_date' => $event->start_date?->toISOString(),
             'end_date' => $event->end_date?->toISOString(),
             'status' => $event->status,
             'is_featured' => (bool) $event->is_featured,
             'is_external' => (bool) $event->is_external,
+            'spots_available' => $event->spots_available ?? 999,
+            'is_full' => (bool) ($event->is_full ?? false),
             'business' => $event->business ? [
                 'id' => $event->business->id,
                 'name' => $event->business->name,

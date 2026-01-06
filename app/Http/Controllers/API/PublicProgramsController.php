@@ -8,6 +8,7 @@ use App\Models\ProgramEvent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class PublicProgramsController extends Controller
 {
@@ -85,13 +86,43 @@ class PublicProgramsController extends Controller
 
     private function transformProgram(Program $program, bool $includeDetails = false): array
     {
+        $resolveUrl = function (?string $pathOrUrl): ?string {
+            if (!$pathOrUrl) {
+                return null;
+            }
+            if (Str::startsWith($pathOrUrl, ['http://', 'https://'])) {
+                return $pathOrUrl;
+            }
+            return Storage::url($pathOrUrl);
+        };
+
+        $ageGroupRaw = $program->{'age-group'} ?? ($program->age_group ?? null);
+        $ageGroups = [];
+        if (is_string($ageGroupRaw) && trim($ageGroupRaw) !== '') {
+            // Accept "3-5, 6-8" or "3-5|6-8"
+            $ageGroups = preg_split('/[,\|]/', $ageGroupRaw) ?: [];
+            $ageGroups = array_values(array_filter(array_map('trim', $ageGroups)));
+        }
+
         $data = [
             'id' => $program->id,
             'uuid' => $program->uuid,
+            // Keep both keys to match different app screens
             'name' => $program->name,
+            'title' => $program->name,
             'description' => $program->description,
-            'image_url' => $program->image ? Storage::url($program->image) : null,
-            'video_url' => $program->video ? Storage::url($program->video) : null,
+            'image_url' => $resolveUrl($program->image ?? null),
+            'video_url' => $resolveUrl($program->video ?? null),
+            'category' => 'Christian Kids Hub',
+            'is_featured' => false,
+            'age_groups' => $ageGroups,
+            'duration' => null,
+            'schedule' => null,
+            'location' => null,
+            'formatted_price' => 'Free',
+            'price' => 0,
+            'spots_available' => 999,
+            'is_full' => false,
             'status' => $program->status,
         ];
 
@@ -105,10 +136,12 @@ class PublicProgramsController extends Controller
                         'id' => $event->id,
                         'uuid' => $event->uuid,
                         'name' => $event->name,
+                        'title' => $event->name,
                         'description' => $event->description,
                         'image_url' => $event->image ? Storage::url($event->image) : null,
                         'video_url' => $event->video ? Storage::url($event->video) : null,
                         'price' => $event->price !== null ? (float) $event->price : null,
+                        'formatted_price' => $event->price !== null && (float) $event->price > 0 ? ('UGX ' . number_format((float) $event->price, 0)) : 'Free',
                         'start_date' => $event->start_date?->toISOString(),
                         'end_date' => $event->end_date?->toISOString(),
                         'location' => $event->location,
@@ -127,6 +160,7 @@ class PublicProgramsController extends Controller
                 });
 
             $data['events'] = $events;
+            $data['total_events'] = $events->count();
         }
 
         return $data;
