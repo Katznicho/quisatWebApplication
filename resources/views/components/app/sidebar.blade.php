@@ -10,6 +10,7 @@
         @keydown.escape.window="sidebarOpen = false">
 
         <!-- Sidebar header -->
+        
         <!-- Sidebar header -->
         <div class="flex justify-between mb-10 pr-3 sm:px-2">
             <!-- Close button -->
