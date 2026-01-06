@@ -19,6 +19,7 @@ use App\Http\Controllers\TermController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\AdvertisementController;
 use App\Http\Controllers\KidsEventController;
+use App\Http\Controllers\ProductController;
 
 // Test route for chat functionality (no auth required)
 Route::get('/chat-test', function () {
@@ -226,4 +227,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/broadcast', [ChatController::class, 'sendBroadcast'])->name('broadcast');
         Route::post('/meetings', [ChatController::class, 'createMeeting'])->name('create-meeting');
     });
+
+    // Kids Mart Products Routes
+    Route::resource('products', ProductController::class);
 });

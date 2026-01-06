@@ -107,11 +107,9 @@ class ProductController extends Controller
                 ->sortBy(fn ($img) => [$img->is_primary ? 0 : 1, $img->sort_order, $img->id])
                 ->values()
                 ->map(function ($img) use ($resolveUrl) {
-                    // Some deployments historically used image_path instead of path; support both.
-                    $path = $img->path ?? ($img->image_path ?? null);
                     return [
                         'id' => $img->id,
-                        'url' => $resolveUrl($path),
+                        'url' => $resolveUrl($img->image_url),
                         'is_primary' => (bool) $img->is_primary,
                         'sort_order' => (int) $img->sort_order,
                     ];

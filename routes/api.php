@@ -67,6 +67,19 @@ Route::prefix('v1')->group(function () {
                     $checks['advertisements_table_exists'] = Schema::hasTable('advertisements');
                     $checks['kids_events_table_exists'] = Schema::hasTable('kids_events');
                     $checks['programs_table_exists'] = Schema::hasTable('programs');
+                    
+                    // Check product tables structure
+                    if (Schema::hasTable('products')) {
+                        $checks['products_columns'] = Schema::getColumnListing('products');
+                    }
+                    if (Schema::hasTable('product_images')) {
+                        $checks['product_images_columns'] = Schema::getColumnListing('product_images');
+                        // Get a sample product image
+                        $sampleImage = DB::table('product_images')->first();
+                        if ($sampleImage) {
+                            $checks['sample_product_image'] = $sampleImage;
+                        }
+                    }
                 } catch (\Exception $e) {
                     $checks['schema_error'] = $e->getMessage();
                 }
