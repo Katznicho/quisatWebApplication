@@ -7,6 +7,7 @@ use App\Models\Advertisement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class PublicAdvertisementsController extends Controller
 {
@@ -16,24 +17,11 @@ class PublicAdvertisementsController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = Advertisement::query()
-                ->with('business:id,name,email,phone,address,website_link,social_media_handles')
-                ->whereNull('deleted_at');
+            $query = Advertisement::withTrashed()
+                ->with('business:id,name,email,phone,address,website_link,social_media_handles');
 
-            // Only show currently visible ads:
-            // - active and within date range
-            // - or scheduled that have started
-            $now = now();
-            $query->where(function ($q) use ($now) {
-                $q->where(function ($q2) use ($now) {
-                    $q2->where('status', 'active')
-                       ->where('start_date', '<=', $now)
-                       ->where('end_date', '>=', $now);
-                })->orWhere(function ($q3) use ($now) {
-                    $q3->where('status', 'scheduled')
-                       ->where('start_date', '<=', $now);
-                });
-            });
+            // IMPORTANT: Per requirements, return ALL adverts (even draft/scheduled/paused/expired).
+            // We only exclude soft-deleted records.
 
             // Filters
             if ($mediaType = $request->query('media_type')) {
@@ -49,7 +37,7 @@ class PublicAdvertisementsController extends Controller
                 });
             }
 
-            $ads = $query->orderBy('start_date', 'desc')->get();
+            $ads = $query->orderBy('created_at', 'desc')->get();
 
             $data = $ads->map(function (Advertisement $ad) {
                 return $this->transformAdvertisement($ad, false);
@@ -108,13 +96,23 @@ class PublicAdvertisementsController extends Controller
 
     private function transformAdvertisement(Advertisement $ad, bool $includeDetails = false): array
     {
+        $resolveUrl = function (?string $pathOrUrl): ?string {
+            if (!$pathOrUrl) {
+                return null;
+            }
+            if (Str::startsWith($pathOrUrl, ['http://', 'https://'])) {
+                return $pathOrUrl;
+            }
+            return Storage::url($pathOrUrl);
+        };
+
         $data = [
             'id' => $ad->id,
             'uuid' => $ad->uuid,
             'title' => $ad->title,
             'description' => $ad->description,
             'media_type' => $ad->media_type,
-            'media_url' => $ad->media_path ? Storage::url($ad->media_path) : null,
+            'media_url' => $resolveUrl($ad->media_path),
             'start_date' => $ad->start_date?->toISOString(),
             'end_date' => $ad->end_date?->toISOString(),
             'status' => $ad->status,
