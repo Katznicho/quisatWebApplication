@@ -18,9 +18,7 @@ class KidsEventRegistrationController extends Controller
     {
         try {
             // Find the event
-            $event = KidsEvent::where('id', $eventId)
-                ->orWhere('uuid', $eventId)
-                ->first();
+            $event = KidsEvent::where('id', $eventId)->first();
 
             if (!$event) {
                 return response()->json([
@@ -110,9 +108,7 @@ class KidsEventRegistrationController extends Controller
     public function index(Request $request, $eventId)
     {
         try {
-            $event = KidsEvent::where('id', $eventId)
-                ->orWhere('uuid', $eventId)
-                ->first();
+            $event = KidsEvent::where('id', $eventId)->first();
 
             if (!$event) {
                 return response()->json([
