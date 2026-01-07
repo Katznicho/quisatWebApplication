@@ -109,7 +109,7 @@ class KidsEventController extends Controller
      */
     public function show(KidsEvent $kidsEvent)
     {
-        $kidsEvent->load(['business', 'creator']);
+        $kidsEvent->load(['business', 'creator', 'registrations']);
         return view('kids-events.show', compact('kidsEvent'));
     }
 

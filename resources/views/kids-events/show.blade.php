@@ -144,6 +144,68 @@
                                 </div>
                             </div>
                             @endif
+
+                            <!-- Registered Children -->
+                            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
+                                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                                    Registered Children ({{ $kidsEvent->registrations->count() }})
+                                </h2>
+                                
+                                @if($kidsEvent->registrations->count() > 0)
+                                <div class="overflow-x-auto">
+                                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
+                                        <thead class="bg-gray-100 dark:bg-gray-800">
+                                            <tr>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Child Name</th>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Age</th>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Parent Name</th>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email</th>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Phone</th>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Payment</th>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Registered</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white dark:bg-gray-700 divide-y divide-gray-200 dark:divide-gray-600">
+                                            @foreach($kidsEvent->registrations as $registration)
+                                            <tr>
+                                                <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                                                    {{ $registration->child_name }}
+                                                </td>
+                                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                                                    {{ $registration->child_age }} years
+                                                </td>
+                                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                                                    {{ $registration->parent_name }}
+                                                </td>
+                                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                                                    <a href="mailto:{{ $registration->parent_email }}" class="text-blue-600 hover:text-blue-800 dark:text-blue-400">
+                                                        {{ $registration->parent_email }}
+                                                    </a>
+                                                </td>
+                                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                                                    <a href="tel:{{ $registration->parent_phone }}" class="text-blue-600 hover:text-blue-800 dark:text-blue-400">
+                                                        {{ $registration->parent_phone }}
+                                                    </a>
+                                                </td>
+                                                <td class="px-4 py-3 whitespace-nowrap">
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $registration->payment_status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800' }}">
+                                                        {{ ucfirst($registration->payment_method) }} - {{ ucfirst($registration->payment_status) }}
+                                                    </span>
+                                                </td>
+                                                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                                                    {{ $registration->created_at->format('M d, Y') }}
+                                                </td>
+                                            </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                                @else
+                                <div class="text-center py-8">
+                                    <p class="text-gray-500 dark:text-gray-400">No children registered yet.</p>
+                                </div>
+                                @endif
+                            </div>
                         </div>
 
                         <!-- Analytics Sidebar -->
