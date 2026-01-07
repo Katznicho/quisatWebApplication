@@ -105,8 +105,9 @@ class OrderController extends Controller
                         'product_id' => $product->id,
                         'product_name' => $product->name,
                         'quantity' => $qty,
-                        'price' => $unit, // Store price
+                        'price' => $unit,
                         'unit_price' => $unit,
+                        'subtotal' => $line, // Store subtotal (same as total_price for now)
                         'total_price' => $line,
                         'selected_size' => $item['selected_size'] ?? null,
                     ]);

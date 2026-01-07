@@ -16,6 +16,7 @@ class OrderItem extends Model
         'quantity',
         'price',
         'unit_price',
+        'subtotal',
         'total_price',
         'selected_size',
     ];
@@ -24,6 +25,7 @@ class OrderItem extends Model
         'quantity' => 'integer',
         'price' => 'decimal:2',
         'unit_price' => 'decimal:2',
+        'subtotal' => 'decimal:2',
         'total_price' => 'decimal:2',
     ];
 
