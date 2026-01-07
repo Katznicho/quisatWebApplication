@@ -18,13 +18,6 @@ class OrderItem extends Model
         'total_price',
         'selected_size',
     ];
-        'order_id',
-        'product_id',
-        'quantity',
-        'unit_price',
-        'total_price',
-        'selected_size',
-    ];
 
     protected $casts = [
         'quantity' => 'integer',
