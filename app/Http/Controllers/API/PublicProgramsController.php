@@ -31,7 +31,8 @@ class PublicProgramsController extends Controller
             $programs = $query->get();
 
             $data = $programs->map(function (Program $program) {
-                return $this->transformProgram($program, false);
+                // Include events in list as well
+                return $this->transformProgram($program, true);
             });
 
             return response()->json([
@@ -56,26 +57,63 @@ class PublicProgramsController extends Controller
     public function show($id)
     {
         try {
+            Log::info('========================================');
+            Log::info('PublicProgramsController::show - START');
+            Log::info('Requested ID:', ['id' => $id]);
+            
             $program = Program::where(function ($q) use ($id) {
                     $q->where('uuid', $id)->orWhere('id', $id);
                 })
                 ->first();
 
             if (!$program) {
+                Log::info('PublicProgramsController::show - Program NOT FOUND');
                 return response()->json([
                     'success' => false,
                     'message' => 'Program not found',
                 ], 404);
             }
 
-            return response()->json([
+            Log::info('PublicProgramsController::show - Program found:', [
+                'id' => $program->id,
+                'name' => $program->name,
+                'uuid' => $program->uuid,
+            ]);
+
+            $transformedProgram = $this->transformProgram($program, true);
+            
+            Log::info('PublicProgramsController::show - Transformed program:', [
+                'id' => $transformedProgram['id'],
+                'name' => $transformedProgram['name'],
+                'total_events' => $transformedProgram['total_events'] ?? 'not set',
+                'events_count' => isset($transformedProgram['events']) ? count($transformedProgram['events']) : 'events key not present',
+                'has_events_key' => isset($transformedProgram['events']),
+            ]);
+
+            if (isset($transformedProgram['events'])) {
+                Log::info('PublicProgramsController::show - Events in response:', [
+                    'count' => count($transformedProgram['events']),
+                    'events' => $transformedProgram['events'],
+                ]);
+            } else {
+                Log::warning('PublicProgramsController::show - NO EVENTS KEY in transformed program!');
+            }
+
+            $response = [
                 'success' => true,
                 'data' => [
-                    'program' => $this->transformProgram($program, true),
+                    'program' => $transformedProgram,
                 ],
-            ]);
+            ];
+
+            Log::info('PublicProgramsController::show - Final response:', json_encode($response, JSON_PRETTY_PRINT));
+            Log::info('PublicProgramsController::show - END');
+            Log::info('========================================');
+
+            return response()->json($response);
         } catch (\Exception $e) {
-            Log::error('PublicProgramsController::show - ' . $e->getMessage());
+            Log::error('PublicProgramsController::show - Exception: ' . $e->getMessage());
+            Log::error('PublicProgramsController::show - Stack trace: ' . $e->getTraceAsString());
             return response()->json([
                 'success' => false,
                 'message' => 'Error fetching program',
@@ -128,11 +166,57 @@ class PublicProgramsController extends Controller
         ];
 
         if ($includeDetails) {
-            // Fetch related events by the JSON program_ids field
-            $events = ProgramEvent::whereJsonContains('program_ids', $program->id)
-                ->orderBy('start_date', 'asc')
-                ->get()
-                ->map(function (ProgramEvent $event) {
+            // Log program details for debugging
+            Log::info('PublicProgramsController::transformProgram - Fetching events', [
+                'program_id' => $program->id,
+                'program_name' => $program->name,
+                'program_uuid' => $program->uuid,
+            ]);
+
+            // Try to fetch events - check both JSON contains and direct array search
+            $eventsQuery = ProgramEvent::where(function($q) use ($program) {
+                // Try JSON contains (for MySQL 5.7+)
+                $q->whereJsonContains('program_ids', $program->id)
+                  // Also try direct array search as fallback
+                  ->orWhereRaw('JSON_CONTAINS(program_ids, ?)', [json_encode($program->id)]);
+            });
+
+            // Log the SQL query
+            $sql = $eventsQuery->toSql();
+            $bindings = $eventsQuery->getBindings();
+            Log::info('PublicProgramsController::transformProgram - Events query', [
+                'sql' => $sql,
+                'bindings' => $bindings,
+            ]);
+
+            // Get all events first to inspect
+            $allEvents = ProgramEvent::get(['id', 'name', 'program_ids']);
+            Log::info('PublicProgramsController::transformProgram - All events in DB', [
+                'total_events' => $allEvents->count(),
+                'events' => $allEvents->map(function($e) {
+                    return [
+                        'id' => $e->id,
+                        'name' => $e->name,
+                        'program_ids' => $e->program_ids,
+                        'program_ids_type' => gettype($e->program_ids),
+                    ];
+                })->toArray(),
+            ]);
+
+            $events = $eventsQuery->orderBy('start_date', 'asc')->get();
+
+            Log::info('PublicProgramsController::transformProgram - Events found', [
+                'count' => $events->count(),
+                'events' => $events->map(function($e) {
+                    return [
+                        'id' => $e->id,
+                        'name' => $e->name,
+                        'program_ids' => $e->program_ids,
+                    ];
+                })->toArray(),
+            ]);
+
+            $events = $events->map(function (ProgramEvent $event) {
                     return [
                         'id' => $event->id,
                         'uuid' => $event->uuid,
