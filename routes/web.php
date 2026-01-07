@@ -133,6 +133,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/users-by-role', [AdminManagementController::class, 'getUsersByRole'])->name('users-by-role');
     });
     Route::post('/programs/{program}/events', [ProgramController::class, 'storeEvent'])->name('programs.events.store')->where('program', '[a-f0-9\-]+');
+    Route::get('/programs/events/{eventUuid}', [ProgramController::class, 'showEvent'])->name('programs.events.show')->where('eventUuid', '[a-f0-9\-]+');
+    Route::delete('/programs/events/{eventUuid}', [ProgramController::class, 'destroyEvent'])->name('programs.events.destroy')->where('eventUuid', '[a-f0-9\-]+');
     Route::post('/events/{event}/attendees', [ProgramController::class, 'storeAttendee'])->name('events.attendees.store')->where('event', '[a-f0-9\-]+');
     Route::post('/attendees/{attendee}/payments', [ProgramController::class, 'storePayment'])->name('attendees.payments.store')->where('attendee', '[a-f0-9\-]+');
     Route::get('/attendees/{attendee}/payments', [ProgramController::class, 'getAttendeePayments'])->name('attendees.payments.index')->where('attendee', '[a-f0-9\-]+');

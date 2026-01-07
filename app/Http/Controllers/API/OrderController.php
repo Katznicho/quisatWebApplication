@@ -19,6 +19,11 @@ class OrderController extends Controller
     public function store(Request $request)
     {
         try {
+            Log::info('OrderController@store - Request received', [
+                'request_data' => $request->all(),
+                'headers' => $request->headers->all(),
+            ]);
+
             $payload = $request->validate([
                 'items' => 'required|array|min:1',
                 'items.*.product_id' => 'required|integer|exists:products,id',
@@ -28,6 +33,12 @@ class OrderController extends Controller
                 'customer_phone' => 'required|string|max:50',
                 'customer_address' => 'nullable|string|max:1000',
                 'notes' => 'nullable|string|max:2000',
+            ]);
+
+            Log::info('OrderController@store - Validation passed', [
+                'items_count' => count($payload['items']),
+                'customer_name' => $payload['customer_name'],
+                'customer_phone' => $payload['customer_phone'],
             ]);
 
             $items = $payload['items'];
@@ -99,18 +110,32 @@ class OrderController extends Controller
                 ]);
             });
         } catch (\Illuminate\Validation\ValidationException $e) {
+            $errorMessages = [];
+            foreach ($e->errors() as $field => $messages) {
+                $errorMessages[] = $field . ': ' . implode(', ', $messages);
+            }
+            $errorMessage = implode(' | ', $errorMessages);
+            
+            Log::error('OrderController@store - Validation failed', [
+                'errors' => $e->errors(),
+                'error_message' => $errorMessage,
+            ]);
+            
             return response()->json([
                 'success' => false,
-                'message' => 'Validation failed.',
+                'message' => 'Validation failed: ' . $errorMessage,
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            Log::error('OrderController@store - ' . $e->getMessage(), [
+            Log::error('OrderController@store - Exception', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString(),
             ]);
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to place order.',
+                'message' => 'Failed to place order: ' . $e->getMessage(),
                 'error' => $e->getMessage(),
             ], 500);
         }

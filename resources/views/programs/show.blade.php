@@ -81,13 +81,17 @@
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Venue</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Event Fee</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                 @foreach($events as $event)
-                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer" 
-                                        @click="selectedEvent = {{ $event->id }}; showAttendeeModal = true">
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{{ $event->name }}</td>
+                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                                            <button onclick="viewEvent('{{ $event->uuid }}')" class="text-blue-600 hover:text-blue-800">
+                                                {{ $event->name }}
+                                            </button>
+                                        </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                             {{ $event->start_date->format('M d, Y') }}
                                         </td>
@@ -100,6 +104,22 @@
                                                 {{ $event->status === 'open' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800' }}">
                                                 {{ ucfirst($event->status) }}
                                             </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <div class="flex space-x-2">
+                                                <button onclick="viewEvent('{{ $event->uuid }}')" 
+                                                    class="text-blue-600 hover:text-blue-900 px-3 py-1 rounded">
+                                                    View
+                                                </button>
+                                                <button onclick="selectEventForRegistration('{{ $event->uuid }}')" 
+                                                    class="text-green-600 hover:text-green-900 px-3 py-1 rounded">
+                                                    Register
+                                                </button>
+                                                <button onclick="deleteEvent('{{ $event->uuid }}', '{{ $event->name }}')" 
+                                                    class="text-red-600 hover:text-red-900 px-3 py-1 rounded">
+                                                    Delete
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 @endforeach
@@ -557,6 +577,63 @@
     </div>
 
     <script>
+        function viewEvent(eventUuid) {
+            // Navigate to event detail page or show in modal
+            window.location.href = `/programs/events/${eventUuid}`;
+        }
+
+        function selectEventForRegistration(eventUuid) {
+            // Set the selected event and open registration modal
+            const alpineElement = document.querySelector('[x-data]');
+            if (alpineElement && alpineElement.__x) {
+                alpineElement.__x.$data.selectedEvent = eventUuid;
+                alpineElement.__x.$data.showAttendeeModal = true;
+            }
+            // Also set the select dropdown value
+            const eventSelect = document.querySelector('select[x-model="selectedEvent"]');
+            if (eventSelect) {
+                eventSelect.value = eventUuid;
+                // Trigger change event for Alpine.js
+                eventSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+
+        function deleteEvent(eventUuid, eventName) {
+            if (!confirm(`Are you sure you want to delete the event "${eventName}"? This action cannot be undone.`)) {
+                return;
+            }
+
+            fetch(`/programs/events/${eventUuid}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value,
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        throw new Error(text || 'Failed to delete event');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success || data.message) {
+                    alert(data.message || 'Event deleted successfully!');
+                    window.location.reload();
+                } else {
+                    alert('Event deleted successfully!');
+                    window.location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error: ' + (error.message || 'Failed to delete event. Please try again.'));
+            });
+        }
+
         function submitForm() {
             console.error('🔵 [WEB REGISTRATION] Form submitted');
             const form = document.getElementById('attendeeForm');

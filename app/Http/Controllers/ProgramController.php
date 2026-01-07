@@ -210,6 +210,56 @@ class ProgramController extends Controller
         return redirect()->back()->with('success', 'Event created successfully!');
     }
 
+    public function showEvent($eventUuid)
+    {
+        $event = ProgramEvent::where('uuid', $eventUuid)
+            ->with(['attendees', 'currency', 'business'])
+            ->firstOrFail();
+
+        // Get the program that this event belongs to
+        $program = Program::find($event->program_ids[0] ?? null);
+
+        return view('programs.event-show', compact('event', 'program'));
+    }
+
+    public function destroyEvent($eventUuid)
+    {
+        try {
+            $event = ProgramEvent::where('uuid', $eventUuid)->firstOrFail();
+
+            // Delete associated media files
+            if ($event->image) {
+                Storage::disk('public')->delete($event->image);
+            }
+            if ($event->video) {
+                Storage::disk('public')->delete($event->video);
+            }
+
+            // Delete the event
+            $event->delete();
+
+            if (request()->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Event deleted successfully!',
+                ]);
+            }
+
+            return redirect()->back()->with('success', 'Event deleted successfully!');
+        } catch (\Exception $e) {
+            Log::error('Error deleting program event: ' . $e->getMessage());
+
+            if (request()->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to delete event. Please try again.',
+                ], 500);
+            }
+
+            return redirect()->back()->with('error', 'Failed to delete event. Please try again.');
+        }
+    }
+
     public function storeAttendee(Request $request, $event)
     {
         try {
