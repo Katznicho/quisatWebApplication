@@ -181,14 +181,32 @@ class OrderController extends Controller
                 $query->where('status', $request->status);
             }
 
-            // Filter by customer email if provided
-            if ($request->has('customer_email')) {
-                $query->where('customer_email', $request->customer_email);
+            // Determine if user is a staff/business user or a customer/parent
+            $isStaffOrBusiness = $user instanceof \App\Models\User && $user->business_id;
+            
+            if ($isStaffOrBusiness) {
+                // For staff/business users, show orders for their business
+                $query->where('business_id', $user->business_id);
+            } else {
+                // For customers/parents, show orders by their email
+                // Use the user's email to find their orders
+                $userEmail = $user->email ?? null;
+                if ($userEmail) {
+                    $query->where('customer_email', $userEmail);
+                } else {
+                    // If no email, return empty array
+                    return response()->json([
+                        'success' => true,
+                        'data' => [
+                            'orders' => [],
+                        ],
+                    ]);
+                }
             }
 
-            // For staff/business users, filter by business_id
-            if ($user->business_id) {
-                $query->where('business_id', $user->business_id);
+            // Filter by customer email if explicitly provided (for staff to view specific customer orders)
+            if ($request->has('customer_email') && $isStaffOrBusiness) {
+                $query->where('customer_email', $request->customer_email);
             }
 
             $orders = $query->orderBy('created_at', 'desc')->get();
