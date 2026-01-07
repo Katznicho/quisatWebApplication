@@ -57,19 +57,7 @@ class OrderController extends Controller
             $businessId = $businessIds->first();
 
             return DB::transaction(function () use ($payload, $items, $products, $businessId) {
-                $order = Order::create([
-                    'uuid' => (string) Str::uuid(),
-                    'order_number' => 'KM-' . strtoupper(Str::random(8)),
-                    'business_id' => $businessId,
-                    'customer_name' => $payload['customer_name'],
-                    'customer_email' => $payload['customer_email'] ?? null,
-                    'customer_phone' => $payload['customer_phone'],
-                    'customer_address' => $payload['customer_address'] ?? null,
-                    'notes' => $payload['notes'] ?? null,
-                    'status' => 'pending',
-                    'total_amount' => 0,
-                ]);
-
+                // Calculate total first
                 $total = 0;
                 foreach ($items as $item) {
                     /** @var Product $product */
@@ -82,6 +70,34 @@ class OrderController extends Controller
                     $unit = (float) ($product->price ?? 0);
                     $line = $unit * $qty;
                     $total += $line;
+                }
+
+                // Create order with subtotal and total_amount
+                $order = Order::create([
+                    'uuid' => (string) Str::uuid(),
+                    'order_number' => 'KM-' . strtoupper(Str::random(8)),
+                    'business_id' => $businessId,
+                    'customer_name' => $payload['customer_name'],
+                    'customer_email' => $payload['customer_email'] ?? null,
+                    'customer_phone' => $payload['customer_phone'],
+                    'customer_address' => $payload['customer_address'] ?? null,
+                    'notes' => $payload['notes'] ?? null,
+                    'status' => 'pending',
+                    'subtotal' => $total, // Set subtotal
+                    'total_amount' => $total,
+                ]);
+
+                // Create order items
+                foreach ($items as $item) {
+                    /** @var Product $product */
+                    $product = $products->get($item['product_id']);
+                    if (!$product) {
+                        throw new \RuntimeException('Product not found: ' . $item['product_id']);
+                    }
+
+                    $qty = (int) $item['quantity'];
+                    $unit = (float) ($product->price ?? 0);
+                    $line = $unit * $qty;
 
                     OrderItem::create([
                         'order_id' => $order->id,
@@ -92,8 +108,6 @@ class OrderController extends Controller
                         'selected_size' => $item['selected_size'] ?? null,
                     ]);
                 }
-
-                $order->update(['total_amount' => $total]);
 
                 return response()->json([
                     'success' => true,

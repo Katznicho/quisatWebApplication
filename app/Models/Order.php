@@ -20,10 +20,12 @@ class Order extends Model
         'customer_address',
         'notes',
         'status',
+        'subtotal',
         'total_amount',
     ];
 
     protected $casts = [
+        'subtotal' => 'decimal:2',
         'total_amount' => 'decimal:2',
     ];
 
