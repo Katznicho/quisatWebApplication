@@ -574,25 +574,54 @@
                 method: 'POST',
                 body: formData,
                 headers: {
-                    'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value
+                    'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value,
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
                 }
             })
             .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok: ' + response.status);
-                }
-                return response.json();
+                console.error('🔵 [WEB REGISTRATION] Response status:', response.status);
+                console.error('🔵 [WEB REGISTRATION] Response headers:', Object.fromEntries(response.headers.entries()));
+                
+                // Try to parse as JSON first
+                return response.text().then(text => {
+                    console.error('🔵 [WEB REGISTRATION] RAW RESPONSE TEXT:');
+                    console.error(text);
+                    console.error('════════════════════════════════════════');
+                    
+                    let data;
+                    try {
+                        data = JSON.parse(text);
+                        console.error('🔵 [WEB REGISTRATION] PARSED JSON:', JSON.stringify(data, null, 2));
+                    } catch (e) {
+                        console.error('❌ [WEB REGISTRATION] Failed to parse JSON:', e);
+                        throw new Error('Server returned invalid JSON: ' + text.substring(0, 200));
+                    }
+                    
+                    if (!response.ok) {
+                        const errorMessage = data.message || data.error || 'Unknown error occurred';
+                        console.error('❌ [WEB REGISTRATION] Error response:', errorMessage);
+                        throw new Error(errorMessage);
+                    }
+                    
+                    return data;
+                });
             })
             .then(data => {
                 if (data.success) {
+                    console.error('✅ [WEB REGISTRATION] Success:', data.message);
                     window.location.reload();
                 } else {
-                    alert('Error: ' + (data.message || 'Unknown error occurred'));
+                    const errorMessage = data.message || data.error || 'Unknown error occurred';
+                    console.error('❌ [WEB REGISTRATION] Registration failed:', errorMessage);
+                    alert('Error: ' + errorMessage);
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
-                alert('An error occurred while registering the child. Please try again.');
+                console.error('❌ [WEB REGISTRATION] Exception:', error);
+                console.error('❌ [WEB REGISTRATION] Error message:', error.message);
+                console.error('❌ [WEB REGISTRATION] Error stack:', error.stack);
+                alert('Error: ' + (error.message || 'An error occurred while registering the child. Please try again.'));
             });
         }
 

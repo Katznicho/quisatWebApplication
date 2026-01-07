@@ -212,18 +212,51 @@ class ProgramController extends Controller
 
     public function storeAttendee(Request $request, $event)
     {
-        $request->validate([
-            'child_name' => 'required|string|max:255',
-            'child_age' => 'required|integer|min:1|max:18',
-            'parent_name' => 'required|string|max:255',
-            'parent_phone' => 'required|string|max:20',
-            'parent_email' => 'nullable|email|max:255',
-            'gender' => 'required|in:male,female',
-            'payment_method' => 'required|in:cash,card,bank_transfer,airtel_money,mtn_mobile_money,other',
-        ]);
-
         try {
-            $programEvent = ProgramEvent::where('uuid', $event)->firstOrFail();
+            Log::info('storeAttendee - Request received', [
+                'event_uuid' => $event,
+                'request_data' => $request->all(),
+                'user_id' => Auth::id(),
+            ]);
+
+            $request->validate([
+                'child_name' => 'required|string|max:255',
+                'child_age' => 'required|integer|min:1|max:18',
+                'parent_name' => 'required|string|max:255',
+                'parent_phone' => 'required|string|max:20',
+                'parent_email' => 'nullable|email|max:255',
+                'gender' => 'required|in:male,female',
+                'payment_method' => 'required|in:cash,card,bank_transfer,airtel_money,mtn_mobile_money,other',
+                'program_event_id' => 'required',
+            ]);
+
+            Log::info('storeAttendee - Validation passed');
+
+            $programEvent = ProgramEvent::where('uuid', $event)
+                ->orWhere('uuid', $request->program_event_id)
+                ->first();
+
+            if (!$programEvent) {
+                Log::error('storeAttendee - Event not found', [
+                    'event_uuid' => $event,
+                    'program_event_id' => $request->program_event_id,
+                ]);
+                
+                $errorMsg = 'Event not found. Event UUID: ' . $event;
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => $errorMsg,
+                        'error' => $errorMsg,
+                    ], 404);
+                }
+                return redirect()->back()->with('error', $errorMsg);
+            }
+
+            Log::info('storeAttendee - Event found', [
+                'event_id' => $programEvent->id,
+                'event_name' => $programEvent->name,
+            ]);
             
             $attendee = EventAttendee::create([
                 'program_event_id' => $programEvent->id,
@@ -240,19 +273,48 @@ class ProgramController extends Controller
                 'status' => 'pending',
             ]);
 
+            Log::info('storeAttendee - Attendee created successfully', [
+                'attendee_id' => $attendee->id,
+            ]);
+
             if ($request->expectsJson()) {
                 return response()->json(['success' => true, 'message' => 'Child registered successfully!']);
             }
 
             return redirect()->back()->with('success', 'Child registered successfully!');
-        } catch (\Exception $e) {
-            Log::error('Error registering attendee: ' . $e->getMessage());
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $errorMsg = 'Validation failed: ' . implode(', ', $e->errors() ? array_merge(...array_values($e->errors())) : [$e->getMessage()]);
+            Log::error('storeAttendee - Validation error', [
+                'errors' => $e->errors(),
+                'message' => $errorMsg,
+            ]);
             
             if ($request->expectsJson()) {
-                return response()->json(['success' => false, 'message' => 'Failed to register child: ' . $e->getMessage()]);
+                return response()->json([
+                    'success' => false,
+                    'message' => $errorMsg,
+                    'errors' => $e->errors(),
+                ], 422);
+            }
+            return redirect()->back()->withErrors($e->errors())->with('error', $errorMsg);
+        } catch (\Exception $e) {
+            $errorMsg = $e->getMessage();
+            Log::error('storeAttendee - Exception occurred', [
+                'message' => $errorMsg,
+                'trace' => $e->getTraceAsString(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $errorMsg,
+                    'error' => $errorMsg,
+                ], 500);
             }
 
-            return redirect()->back()->with('error', 'Failed to register child. Please try again.');
+            return redirect()->back()->with('error', $errorMsg);
         }
     }
 
