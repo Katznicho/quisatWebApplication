@@ -103,8 +103,9 @@ class OrderController extends Controller
                     OrderItem::create([
                         'order_id' => $order->id,
                         'product_id' => $product->id,
-                        'product_name' => $product->name, // Store product name
+                        'product_name' => $product->name,
                         'quantity' => $qty,
+                        'price' => $unit, // Store price
                         'unit_price' => $unit,
                         'total_price' => $line,
                         'selected_size' => $item['selected_size'] ?? null,
