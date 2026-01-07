@@ -72,7 +72,7 @@ class OrderController extends Controller
                     $total += $line;
                 }
 
-                // Create order with subtotal and total_amount
+                // Create order with subtotal, total, and total_amount
                 $order = Order::create([
                     'uuid' => (string) Str::uuid(),
                     'order_number' => 'KM-' . strtoupper(Str::random(8)),
@@ -83,7 +83,8 @@ class OrderController extends Controller
                     'customer_address' => $payload['customer_address'] ?? null,
                     'notes' => $payload['notes'] ?? null,
                     'status' => 'pending',
-                    'subtotal' => $total, // Set subtotal
+                    'subtotal' => $total,
+                    'total' => $total, // Set total
                     'total_amount' => $total,
                 ]);
 
@@ -150,6 +151,235 @@ class OrderController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to place order: ' . $e->getMessage(),
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * List orders for authenticated user
+     */
+    public function index(Request $request)
+    {
+        try {
+            $user = \Illuminate\Support\Facades\Auth::guard('sanctum')->user();
+            
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication required.',
+                ], 401);
+            }
+
+            $query = Order::query()->with(['items.product', 'business']);
+
+            // Filter by status if provided
+            if ($request->has('status')) {
+                $query->where('status', $request->status);
+            }
+
+            // Filter by customer email if provided
+            if ($request->has('customer_email')) {
+                $query->where('customer_email', $request->customer_email);
+            }
+
+            // For staff/business users, filter by business_id
+            if ($user->business_id) {
+                $query->where('business_id', $user->business_id);
+            }
+
+            $orders = $query->orderBy('created_at', 'desc')->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'orders' => $orders->map(function ($order) {
+                        return [
+                            'id' => $order->id,
+                            'uuid' => $order->uuid,
+                            'order_number' => $order->order_number,
+                            'customer_name' => $order->customer_name,
+                            'customer_email' => $order->customer_email,
+                            'customer_phone' => $order->customer_phone,
+                            'status' => $order->status,
+                            'subtotal' => (float) ($order->subtotal ?? 0),
+                            'total' => (float) ($order->total ?? 0),
+                            'total_amount' => (float) $order->total_amount,
+                            'created_at' => $order->created_at?->toISOString(),
+                            'items' => $order->items->map(function ($item) {
+                                return [
+                                    'id' => $item->id,
+                                    'product_id' => $item->product_id,
+                                    'product_name' => $item->product->name ?? 'Unknown',
+                                    'quantity' => $item->quantity,
+                                    'unit_price' => (float) $item->unit_price,
+                                    'total_price' => (float) $item->total_price,
+                                ];
+                            }),
+                        ];
+                    }),
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('OrderController@index - ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch orders.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Show a specific order
+     */
+    public function show($id)
+    {
+        try {
+            $user = \Illuminate\Support\Facades\Auth::guard('sanctum')->user();
+            
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication required.',
+                ], 401);
+            }
+
+            $order = Order::where(function($q) use ($id) {
+                    $q->where('uuid', $id)->orWhere('id', $id);
+                })
+                ->with(['items.product', 'business'])
+                ->first();
+
+            if (!$order) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order not found.',
+                ], 404);
+            }
+
+            // Check if user has access to this order
+            if ($user->business_id && $order->business_id !== $user->business_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized access to this order.',
+                ], 403);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'order' => [
+                        'id' => $order->id,
+                        'uuid' => $order->uuid,
+                        'order_number' => $order->order_number,
+                        'customer_name' => $order->customer_name,
+                        'customer_email' => $order->customer_email,
+                        'customer_phone' => $order->customer_phone,
+                        'customer_address' => $order->customer_address,
+                        'notes' => $order->notes,
+                        'status' => $order->status,
+                        'subtotal' => (float) ($order->subtotal ?? 0),
+                        'total' => (float) ($order->total ?? 0),
+                        'total_amount' => (float) $order->total_amount,
+                        'created_at' => $order->created_at?->toISOString(),
+                        'updated_at' => $order->updated_at?->toISOString(),
+                        'business' => $order->business ? [
+                            'id' => $order->business->id,
+                            'name' => $order->business->name,
+                        ] : null,
+                        'items' => $order->items->map(function ($item) {
+                            return [
+                                'id' => $item->id,
+                                'product_id' => $item->product_id,
+                                'product' => $item->product ? [
+                                    'id' => $item->product->id,
+                                    'name' => $item->product->name,
+                                    'image_url' => $item->product->image_url,
+                                ] : null,
+                                'quantity' => $item->quantity,
+                                'unit_price' => (float) $item->unit_price,
+                                'total_price' => (float) $item->total_price,
+                                'selected_size' => $item->selected_size,
+                            ];
+                        }),
+                    ],
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('OrderController@show - ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch order.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Update order status
+     */
+    public function updateStatus(Request $request, $id)
+    {
+        try {
+            $user = \Illuminate\Support\Facades\Auth::guard('sanctum')->user();
+            
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication required.',
+                ], 401);
+            }
+
+            $request->validate([
+                'status' => 'required|in:pending,confirmed,processing,shipped,delivered,cancelled',
+            ]);
+
+            $order = Order::where(function($q) use ($id) {
+                    $q->where('uuid', $id)->orWhere('id', $id);
+                })
+                ->first();
+
+            if (!$order) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order not found.',
+                ], 404);
+            }
+
+            // Check if user has access to this order
+            if ($user->business_id && $order->business_id !== $user->business_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized access to this order.',
+                ], 403);
+            }
+
+            $order->update(['status' => $request->status]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Order status updated successfully.',
+                'data' => [
+                    'order' => [
+                        'id' => $order->id,
+                        'uuid' => $order->uuid,
+                        'order_number' => $order->order_number,
+                        'status' => $order->status,
+                    ],
+                ],
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('OrderController@updateStatus - ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update order status.',
                 'error' => $e->getMessage(),
             ], 500);
         }

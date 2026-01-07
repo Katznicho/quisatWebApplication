@@ -21,11 +21,13 @@ class Order extends Model
         'notes',
         'status',
         'subtotal',
+        'total',
         'total_amount',
     ];
 
     protected $casts = [
         'subtotal' => 'decimal:2',
+        'total' => 'decimal:2',
         'total_amount' => 'decimal:2',
     ];
 
