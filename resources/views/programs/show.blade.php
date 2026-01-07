@@ -599,9 +599,19 @@
                     }
                     
                     if (!response.ok) {
-                        const errorMessage = data.message || data.error || 'Unknown error occurred';
-                        console.error('❌ [WEB REGISTRATION] Error response:', errorMessage);
-                        throw new Error(errorMessage);
+                        const errorMessage = data.message || data.error || data.errors || 'HTTP Error ' + response.status + ': ' + response.statusText;
+                        console.error('❌ [WEB REGISTRATION] Error response status:', response.status);
+                        console.error('❌ [WEB REGISTRATION] Error response data:', data);
+                        console.error('❌ [WEB REGISTRATION] Error message:', errorMessage);
+                        
+                        // Show detailed error in alert
+                        let detailedError = errorMessage;
+                        if (data.errors && typeof data.errors === 'object') {
+                            const errorArray = Object.values(data.errors).flat();
+                            detailedError = errorArray.join('\n');
+                        }
+                        
+                        throw new Error(detailedError);
                     }
                     
                     return data;
@@ -610,18 +620,34 @@
             .then(data => {
                 if (data.success) {
                     console.error('✅ [WEB REGISTRATION] Success:', data.message);
+                    alert('Success: ' + data.message);
                     window.location.reload();
                 } else {
                     const errorMessage = data.message || data.error || 'Unknown error occurred';
+                    if (data.errors && typeof data.errors === 'object') {
+                        const errorArray = Object.values(data.errors).flat();
+                        errorMessage = errorArray.join('\n');
+                    }
                     console.error('❌ [WEB REGISTRATION] Registration failed:', errorMessage);
+                    console.error('❌ [WEB REGISTRATION] Full response:', JSON.stringify(data, null, 2));
                     alert('Error: ' + errorMessage);
                 }
             })
             .catch(error => {
-                console.error('❌ [WEB REGISTRATION] Exception:', error);
+                console.error('❌ [WEB REGISTRATION] Exception caught:', error);
+                console.error('❌ [WEB REGISTRATION] Error name:', error.name);
                 console.error('❌ [WEB REGISTRATION] Error message:', error.message);
                 console.error('❌ [WEB REGISTRATION] Error stack:', error.stack);
-                alert('Error: ' + (error.message || 'An error occurred while registering the child. Please try again.'));
+                
+                // Always show the exact error message
+                const errorMessage = error.message || 'An error occurred while registering the child. Please check the console for details.';
+                alert('ERROR: ' + errorMessage);
+                
+                // Also log to console for debugging
+                console.error('════════════════════════════════════════');
+                console.error('FULL ERROR DETAILS:');
+                console.error(error);
+                console.error('════════════════════════════════════════');
             });
         }
 
