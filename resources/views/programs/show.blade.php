@@ -558,9 +558,16 @@
 
     <script>
         function submitForm() {
+            console.error('🔵 [WEB REGISTRATION] Form submitted');
             const form = document.getElementById('attendeeForm');
             const formData = new FormData(form);
             const selectedEvent = document.querySelector('select[x-model="selectedEvent"]').value;
+            
+            console.error('🔵 [WEB REGISTRATION] Selected event:', selectedEvent);
+            console.error('🔵 [WEB REGISTRATION] Form data:');
+            for (let [key, value] of formData.entries()) {
+                console.error('  -', key + ':', value);
+            }
             
             if (!selectedEvent) {
                 alert('Please select an event');
@@ -569,6 +576,7 @@
             
             // Add the selected event to form data
             formData.append('program_event_id', selectedEvent);
+            console.error('🔵 [WEB REGISTRATION] URL:', `/events/${selectedEvent}/attendees`);
             
             fetch(`/events/${selectedEvent}/attendees`, {
                 method: 'POST',

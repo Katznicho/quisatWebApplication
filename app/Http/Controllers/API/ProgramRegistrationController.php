@@ -19,6 +19,11 @@ class ProgramRegistrationController extends Controller
     public function store(Request $request, $eventId)
     {
         try {
+            Log::info('🔵 [API] Program Registration - Request received', [
+                'event_id' => $eventId,
+                'request_data' => $request->all(),
+            ]);
+
             $request->validate([
                 'child_name' => 'required|string|max:255',
                 'child_age' => 'required|integer|min:1|max:18',
@@ -29,33 +34,64 @@ class ProgramRegistrationController extends Controller
                 'payment_method' => 'required|in:cash,card,bank_transfer,airtel_money,mtn_mobile_money,other',
             ]);
 
+            Log::info('🔵 [API] Program Registration - Validation passed');
+
             // Get the authenticated user (parent or user)
             $user = Auth::guard('sanctum')->user();
             
             if (!$user) {
+                Log::error('❌ [API] Program Registration - Authentication failed');
                 return response()->json([
                     'success' => false,
                     'message' => 'Authentication required.',
                 ], 401);
             }
 
-            // Get the program event
-            $programEvent = ProgramEvent::where(function($q) use ($eventId) {
-                    $q->where('id', $eventId)
-                      ->orWhere('uuid', $eventId);
-                })
-                ->where(function($q) {
-                    $q->where('status', 'active')
-                      ->orWhere('status', 'published')
-                      ->orWhereNull('status');
-                })
+            Log::info('🔵 [API] Program Registration - User authenticated', [
+                'user_id' => $user->id ?? null,
+                'user_type' => get_class($user),
+            ]);
+
+            // Find event by UUID first (matching web app pattern), then fallback to ID
+            // This matches the web app's ProgramController::storeAttendee pattern
+            $programEvent = ProgramEvent::where('uuid', $eventId)
+                ->orWhere('id', $eventId)
                 ->first();
 
             if (!$programEvent) {
+                Log::error('❌ [API] Program Registration - Event not found', [
+                    'event_id' => $eventId,
+                    'searched_by' => ['id', 'uuid'],
+                ]);
+                
+                // Log all events to help debug
+                $allEvents = ProgramEvent::select('id', 'uuid', 'name', 'status')->limit(10)->get();
+                Log::info('🔵 [API] Sample events in database:', $allEvents->toArray());
+                
                 return response()->json([
                     'success' => false,
-                    'message' => 'Event not found or not available for registration.',
+                    'message' => 'Event not found. Event ID: ' . $eventId,
                 ], 404);
+            }
+
+            Log::info('🔵 [API] Program Registration - Event found', [
+                'event_id' => $programEvent->id,
+                'event_uuid' => $programEvent->uuid,
+                'event_name' => $programEvent->name,
+                'event_status' => $programEvent->status,
+            ]);
+
+            // Check status - allow registration for most statuses, only block explicitly closed/cancelled
+            $blockedStatuses = ['closed', 'cancelled', 'completed'];
+            if (in_array(strtolower($programEvent->status ?? ''), $blockedStatuses)) {
+                Log::warning('⚠️ [API] Program Registration - Event not available for registration', [
+                    'event_id' => $programEvent->id,
+                    'status' => $programEvent->status,
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Event is not available for registration. Status: ' . $programEvent->status,
+                ], 403);
             }
 
             // Get or create user record for parent
