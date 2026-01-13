@@ -76,7 +76,7 @@
                     </li>
 
                     <!-- Chat & Communications -->
-                    @if (auth()->user()->business_id != 1 && $business->hasFeatureByName('Chat & Communication'))
+                    @if (auth()->user()->business_id != 1 && $business && $business->hasFeatureByName('Chat & Communication'))
                     <li>
                         <a href="{{ route('chat.index') }}"
                             class="flex items-center pl-4 pr-3 py-2 rounded-md text-gray-700 hover:text-blue-700 hover:bg-blue-50">
@@ -91,7 +91,7 @@
                     @endif
 
                     <!-- Business Advertising -->
-                    @if (auth()->user()->business_id != 1 && $business->hasFeatureByName('Business Advertising'))
+                    @if (auth()->user()->business_id != 1 && $business && $business->hasFeatureByName('Business Advertising'))
                     <li>
                         <a href="{{ route('advertisements.index') }}"
                             class="flex items-center pl-4 pr-3 py-2 rounded-md text-gray-700 hover:text-blue-700 hover:bg-blue-50">
@@ -106,7 +106,7 @@
                     @endif
 
                     <!-- Kids Events -->
-                    @if (auth()->user()->business_id != 1 && $business->hasFeatureByName('Kids Events Management'))
+                    @if (auth()->user()->business_id != 1 && $business && $business->hasFeatureByName('Kids Events Management'))
                     <li>
                         <a href="{{ route('kids-events.index') }}"
                             class="flex items-center pl-4 pr-3 py-2 rounded-md text-gray-700 hover:text-blue-700 hover:bg-blue-50">
@@ -121,7 +121,7 @@
                     @endif
 
                     <!-- Staff -->
-                    @if (auth()->user()->business_id == 1 || $business->hasFeatureByName('Staff Management'))
+                    @if (auth()->user()->business_id == 1 || ($business && $business->hasFeatureByName('Staff Management')))
                     <li>
                         <button @click="openGroup === 'staff' ? openGroup = '' : openGroup = 'staff'"
                             :class="openGroup === 'staff' ? 'border border-blue-500 text-blue-700 bg-blue-50' :
@@ -147,7 +147,7 @@
                                     {{ auth()->user()->business_id == 1 ? 'Manage Staff' : 'View My Staff' }}
                                 </a>
                             </li>
-                            @if (auth()->user()->business_id == 1 || $business->hasFeatureByName('Role-Based Access Control'))
+                            @if (auth()->user()->business_id == 1 || ($business && $business->hasFeatureByName('Role-Based Access Control')))
                             <li><a href="{{ route('roles.index') }}"
                                     class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">
                                     {{ auth()->user()->business_id == 1 ? 'Manage Roles' : 'My Roles' }}
@@ -196,7 +196,7 @@
                     <!-- School Features (Hidden for business_id == 1) -->
                     @if (auth()->user()->business_id != 1)
                         <!-- Terms -->
-                        @if ($business->hasFeatureByName('Term Management'))
+                        @if ($business && $business->hasFeatureByName('Term Management'))
                         <li>
                             <a href="{{ route('school-management.terms') }}"
                                 class="flex items-center pl-4 pr-3 py-2 rounded-md text-gray-700 hover:text-blue-700 hover:bg-blue-50">
@@ -211,7 +211,7 @@
                         @endif
 
                         <!-- Classes -->
-                        @if ($business->hasFeatureByName('Class Room Management'))
+                        @if ($business && $business->hasFeatureByName('Class Room Management'))
                         <li>
                             <a href="{{ route('school-management.classrooms') }}"
                                 class="flex items-center pl-4 pr-3 py-2 rounded-md text-gray-700 hover:text-blue-700 hover:bg-blue-50">
@@ -226,7 +226,7 @@
                         @endif
 
                         <!-- Subjects -->
-                        @if ($business->hasFeatureByName('Subject Management'))
+                        @if ($business && $business->hasFeatureByName('Subject Management'))
                         <li>
                             <a href="{{ route('school-management.subjects') }}"
                                 class="flex items-center pl-4 pr-3 py-2 rounded-md text-gray-700 hover:text-blue-700 hover:bg-blue-50">
@@ -241,7 +241,7 @@
                         @endif
 
                         <!-- Students -->
-                        @if ($business->hasFeatureByName('Student Management'))
+                        @if ($business && $business->hasFeatureByName('Student Management'))
                         <li>
                             <a href="{{ route('school-management.students') }}"
                                 class="flex items-center pl-4 pr-3 py-2 rounded-md text-gray-700 hover:text-blue-700 hover:bg-blue-50">
@@ -256,7 +256,7 @@
                         @endif
 
                         <!-- Attendance Tracking -->
-                        @if ($business->hasFeatureByName('Attendance Management'))
+                        @if ($business && $business->hasFeatureByName('Attendance Management'))
                         <li>
                             <a href="{{ route('school-management.attendance') }}"
                                 class="flex items-center pl-4 pr-3 py-2 rounded-md text-gray-700 hover:text-blue-700 hover:bg-blue-50">
@@ -271,7 +271,7 @@
                         @endif
 
                         <!-- Calendar & Events -->
-                        @if ($business->hasFeatureByName('Calendar & Events Management'))
+                        @if ($business && $business->hasFeatureByName('Calendar & Events Management'))
                         <li>
                             <a href="{{ route('school-management.calendar-events') }}"
                                 class="flex items-center pl-4 pr-3 py-2 rounded-md text-gray-700 hover:text-blue-700 hover:bg-blue-50">
@@ -286,7 +286,7 @@
                         @endif
 
                         <!-- Timetable -->
-                        @if ($business->hasFeatureByName('Timetable Management'))
+                        @if ($business && $business->hasFeatureByName('Timetable Management'))
                         <li>
                             <a href="{{ route('school-management.timetable') }}"
                                 class="flex items-center pl-4 pr-3 py-2 rounded-md text-gray-700 hover:text-blue-700 hover:bg-blue-50">
@@ -301,7 +301,7 @@
                         @endif
 
                         <!-- Assignments & Grades -->
-                        @if ($business->hasFeatureByName('Grade Management'))
+                        @if ($business && $business->hasFeatureByName('Grade Management'))
                         <li>
                             <a href="{{ route('school-management.grades') }}"
                                 class="flex items-center pl-4 pr-3 py-2 rounded-md text-gray-700 hover:text-blue-700 hover:bg-blue-50">
@@ -316,7 +316,7 @@
                         @endif
 
                         <!-- Exams -->
-                        @if ($business->hasFeatureByName('Exam Management'))
+                        @if ($business && $business->hasFeatureByName('Exam Management'))
                         <li>
                             <a href="{{ route('school-management.exams') }}"
                                 class="flex items-center pl-4 pr-3 py-2 rounded-md text-gray-700 hover:text-blue-700 hover:bg-blue-50">
@@ -331,7 +331,7 @@
                         @endif
 
                         <!-- Parents & Guardians -->
-                        @if ($business->hasFeatureByName('Parent Guardian Management'))
+                        @if ($business && $business->hasFeatureByName('Parent Guardian Management'))
                         <li>
                             <a href="{{ route('school-management.parents') }}"
                                 class="flex items-center pl-4 pr-3 py-2 rounded-md text-gray-700 hover:text-blue-700 hover:bg-blue-50">
@@ -346,7 +346,7 @@
                         @endif
 
                         <!-- Financials -->
-                        @if ($business->hasFeatureByName('Fee Management'))
+                        @if ($business && $business->hasFeatureByName('Fee Management'))
                         <li>
                             <a href="{{ route('school-management.fees') }}"
                                 class="flex items-center pl-4 pr-3 py-2 rounded-md text-gray-700 hover:text-blue-700 hover:bg-blue-50">
@@ -391,7 +391,7 @@
                     @endif
 
                     <!-- Kids Mart -->
-                    @if (auth()->user()->business_id != 1 && $business->hasFeatureByName('Kids Mart'))
+                    @if (auth()->user()->business_id != 1 && $business && $business->hasFeatureByName('KidsMart'))
                     <li>
                         <a href="{{ route('products.index') }}"
                             class="flex items-center pl-4 pr-3 py-2 rounded-md text-gray-700 hover:text-blue-700 hover:bg-blue-50">

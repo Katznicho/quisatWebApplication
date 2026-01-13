@@ -28,7 +28,7 @@ class DashboardController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $business = $user->business;
+        $business = $user->business ?? null;
         
         // Handle POST to set room_id in session
         if ($request->isMethod('post')) {

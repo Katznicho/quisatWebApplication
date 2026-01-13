@@ -95,6 +95,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::resource("businesses", BusinessController::class);
     Route::patch('businesses/{business}/update-logo', [BusinessController::class, 'updateLogo'])->name('businesses.update-logo');
+    Route::patch('businesses/{business}/update-social-media', [BusinessController::class, 'updateSocialMedia'])->name('businesses.update-social-media');
     Route::resource("support", SupportController::class);
     Route::resource("transactions", TransactionController::class);
     Route::resource("users", UserController::class);

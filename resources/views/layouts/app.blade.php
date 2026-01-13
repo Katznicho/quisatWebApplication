@@ -72,7 +72,11 @@
             <x-app.header :variant="$attributes['headerVariant'] ?? 'default'" />
 
             <main class="grow">
-                {{ $slot }}
+                @isset($slot)
+                    {{ $slot }}
+                @else
+                    @yield('content')
+                @endisset
             </main>
             <!-- Footer -->
             <footer class="w-full bg-gray-100 text-gray-600 py-2 border-t border-gray-200">

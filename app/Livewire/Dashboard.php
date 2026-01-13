@@ -580,6 +580,12 @@ class Dashboard extends Component
     {
         $user = Auth::user();
         $businessId = $user->business_id;
+        
+        // Load business if not already loaded
+        if (!$this->business && $businessId) {
+            $this->business = Business::find($businessId);
+        }
+        
         $business = $this->business;
         
         // Build query based on filters for this specific business
@@ -604,8 +610,10 @@ class Dashboard extends Component
             ->whereNotNull('role_id')
             ->count();
         
-        // Load feature-specific metrics based on enabled features
-        $this->loadFeatureSpecificMetrics($business, $businessId);
+        // Load feature-specific metrics based on enabled features (only if business exists)
+        if ($business) {
+            $this->loadFeatureSpecificMetrics($business, $businessId);
+        }
         
         // Calculate percentage changes for this business
         $this->calculateBusinessPercentageChanges();
@@ -616,6 +624,11 @@ class Dashboard extends Component
      */
     public function loadFeatureSpecificMetrics($business, $businessId)
     {
+        // Return early if business is null
+        if (!$business) {
+            return;
+        }
+        
         // Student Management feature
         if ($business->hasFeatureByName('Student Management')) {
             $this->totalStudents = Student::where('business_id', $businessId)->count();
