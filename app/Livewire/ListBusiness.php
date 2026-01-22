@@ -290,11 +290,25 @@ class ListBusiness extends Component implements HasForms, HasTable
                     ->fillForm(function (Business $record, array $data): array {
                         // Extract social media handles from JSON and populate individual fields
                         $socialHandles = $record->social_media_handles ?? [];
-                        $data['social_facebook'] = $socialHandles['facebook'] ?? null;
-                        $data['social_instagram'] = $socialHandles['instagram'] ?? null;
-                        $data['social_twitter'] = $socialHandles['twitter'] ?? null;
-                        $data['social_whatsapp'] = $socialHandles['whatsapp'] ?? null;
-                        return $data;
+                        
+                        // Explicitly populate all fields from the record
+                        // This ensures all form fields are pre-filled with existing values
+                        return [
+                            'name' => $record->name ?? '',
+                            'email' => $record->email ?? '',
+                            'phone' => $record->phone ?? '',
+                            'address' => $record->address ?? '',
+                            'country' => $record->country ?? '',
+                            'city' => $record->city ?? '',
+                            'shop_number' => $record->shop_number ?? '',
+                            'website_link' => $record->website_link ?? '',
+                            'business_category_id' => $record->business_category_id,
+                            'enabled_feature_ids' => $record->enabled_feature_ids ?? [],
+                            'social_facebook' => $socialHandles['facebook'] ?? null,
+                            'social_instagram' => $socialHandles['instagram'] ?? null,
+                            'social_twitter' => $socialHandles['twitter'] ?? null,
+                            'social_whatsapp' => $socialHandles['whatsapp'] ?? null,
+                        ];
                     })
                     ->form([
                         \Filament\Forms\Components\TextInput::make('name')

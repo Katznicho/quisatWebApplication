@@ -313,6 +313,13 @@
                                                         class="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700">
                                                     View Payments
                                                 </button>
+                                                <button onclick="event.stopPropagation(); deleteAttendee('{{ $attendee->uuid }}', '{{ $attendee->child_name }}')" 
+                                                        class="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 flex items-center space-x-1">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                                    </svg>
+                                                    <span>Delete</span>
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -903,6 +910,42 @@
             .catch(error => {
                 console.error('Error:', error);
                 alert('An error occurred while loading payment history.');
+            });
+        }
+
+        function deleteAttendee(attendeeUuid, childName) {
+            if (!confirm(`Are you sure you want to delete the registration for "${childName}"? This will also delete all associated payments. This action cannot be undone.`)) {
+                return;
+            }
+
+            fetch(`/attendees/${attendeeUuid}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value,
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        throw new Error(text || 'Failed to delete child registration');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success || data.message) {
+                    alert(data.message || 'Child registration deleted successfully!');
+                    window.location.reload();
+                } else {
+                    alert('Child registration deleted successfully!');
+                    window.location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error: ' + (error.message || 'Failed to delete child registration. Please try again.'));
             });
         }
     </script>

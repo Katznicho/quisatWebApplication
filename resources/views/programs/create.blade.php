@@ -108,13 +108,13 @@
                                     <label for="video" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         Program Video
                                     </label>
-                                    <input type="file" id="video" name="video" accept="video/mp4,video/mov,video/avi,video/quicktime"
+                                    <input type="file" id="video" name="video" accept="video/mp4,video/mov,video/avi,video/quicktime,video/webm,video/x-matroska"
                                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white @error('video') border-red-500 @enderror">
                                     @error('video')
                                         <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
                                     @enderror
                                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                        Supported formats: MP4, MOV, AVI, QuickTime (Max: 10MB)
+                                        Supported formats: MP4, MOV, AVI, QuickTime, WebM, MKV (Max: 100MB)
                                     </p>
                                 </div>
                             </div>

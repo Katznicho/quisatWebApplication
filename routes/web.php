@@ -19,6 +19,7 @@ use App\Http\Controllers\TermController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\AdvertisementController;
 use App\Http\Controllers\KidsEventController;
+use App\Http\Controllers\KidsFunVenueController;
 use App\Http\Controllers\ProductController;
 
 // Test route for chat functionality (no auth required)
@@ -116,6 +117,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('kids-events/{kidsEvent}/toggle-featured', [KidsEventController::class, 'toggleFeatured'])->name('kids-events.toggle-featured');
     Route::post('kids-events/{kidsEvent}/update-status', [KidsEventController::class, 'updateStatus'])->name('kids-events.update-status');
     
+    // Kids Fun Venues routes
+    Route::resource("kids-fun-venues", KidsFunVenueController::class);
+    
     Route::resource("programs", ProgramController::class);
 
     // Admin Management Routes
@@ -137,6 +141,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/programs/events/{eventUuid}', [ProgramController::class, 'showEvent'])->name('programs.events.show')->where('eventUuid', '[a-f0-9\-]+');
     Route::delete('/programs/events/{eventUuid}', [ProgramController::class, 'destroyEvent'])->name('programs.events.destroy')->where('eventUuid', '[a-f0-9\-]+');
     Route::post('/events/{event}/attendees', [ProgramController::class, 'storeAttendee'])->name('events.attendees.store')->where('event', '[a-f0-9\-]+');
+    Route::delete('/attendees/{attendee}', [ProgramController::class, 'destroyAttendee'])->name('attendees.destroy')->where('attendee', '[a-f0-9\-]+');
     Route::post('/attendees/{attendee}/payments', [ProgramController::class, 'storePayment'])->name('attendees.payments.store')->where('attendee', '[a-f0-9\-]+');
     Route::get('/attendees/{attendee}/payments', [ProgramController::class, 'getAttendeePayments'])->name('attendees.payments.index')->where('attendee', '[a-f0-9\-]+');
     

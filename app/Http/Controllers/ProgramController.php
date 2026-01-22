@@ -42,23 +42,48 @@ class ProgramController extends Controller
             'status' => 'required|in:active,inactive',
             'media_type' => 'nullable|in:image,video',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
-            'video' => 'nullable|file|mimes:mp4,mov,avi,quicktime|max:10240',
+            'video' => 'nullable|file|mimes:mp4,mov,avi,quicktime,webm,mkv|max:102400', // 100MB max
             'social_media_handles' => 'nullable|array',
             'social_media_handles.*' => 'nullable|string|max:255',
+        ], [
+            'video.max' => 'The video file size must not exceed 100MB.',
+            'video.mimes' => 'The video must be a file of type: mp4, mov, avi, quicktime, webm, mkv.',
         ]);
 
         // Handle media upload based on media_type
         $mediaType = $request->input('media_type');
         
-        if ($mediaType === 'image' && $request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->store('programs', 'public');
-            $validated['video'] = null; // Clear video if image is uploaded
-        } elseif ($mediaType === 'video' && $request->hasFile('video')) {
-            $validated['video'] = $request->file('video')->store('programs', 'public');
-            $validated['image'] = null; // Clear image if video is uploaded
-        } else {
-            // If no media type selected or no file uploaded, don't set media fields
-            unset($validated['image'], $validated['video']);
+        try {
+            if ($mediaType === 'image' && $request->hasFile('image')) {
+                $validated['image'] = $request->file('image')->store('programs', 'public');
+                $validated['video'] = null; // Clear video if image is uploaded
+            } elseif ($mediaType === 'video' && $request->hasFile('video')) {
+                $videoFile = $request->file('video');
+                Log::info('Video upload attempt', [
+                    'filename' => $videoFile->getClientOriginalName(),
+                    'size' => $videoFile->getSize(),
+                    'mime_type' => $videoFile->getMimeType(),
+                    'extension' => $videoFile->getClientOriginalExtension(),
+                ]);
+                
+                $validated['video'] = $videoFile->store('programs', 'public');
+                $validated['image'] = null; // Clear image if video is uploaded
+                
+                Log::info('Video uploaded successfully', [
+                    'path' => $validated['video'],
+                ]);
+            } else {
+                // If no media type selected or no file uploaded, don't set media fields
+                unset($validated['image'], $validated['video']);
+            }
+        } catch (\Exception $e) {
+            Log::error('Error uploading media file', [
+                'error' => $e->getMessage(),
+                'media_type' => $mediaType,
+            ]);
+            return redirect()->back()
+                ->withInput()
+                ->withErrors(['video' => 'Failed to upload video: ' . $e->getMessage()]);
         }
 
         // Remove media_type from validated data as it's not a database field
@@ -105,9 +130,12 @@ class ProgramController extends Controller
             'status' => 'required|in:active,inactive',
             'media_type' => 'nullable|in:image,video,remove',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
-            'video' => 'nullable|file|mimes:mp4,mov,avi,quicktime|max:10240',
+            'video' => 'nullable|file|mimes:mp4,mov,avi,quicktime,webm,mkv|max:102400', // 100MB max
             'social_media_handles' => 'nullable|array',
             'social_media_handles.*' => 'nullable|string|max:255',
+        ], [
+            'video.max' => 'The video file size must not exceed 100MB.',
+            'video.mimes' => 'The video must be a file of type: mp4, mov, avi, quicktime, webm, mkv.',
         ]);
 
         $mediaType = $request->input('media_type');
@@ -135,16 +163,38 @@ class ProgramController extends Controller
             $validated['image'] = $request->file('image')->store('programs', 'public');
             $validated['video'] = null;
         } elseif ($mediaType === 'video' && $request->hasFile('video')) {
-            // Delete old video if exists
-            if ($program->video) {
-                Storage::disk('public')->delete($program->video);
+            try {
+                // Delete old video if exists
+                if ($program->video) {
+                    Storage::disk('public')->delete($program->video);
+                }
+                // Delete old image if exists
+                if ($program->image) {
+                    Storage::disk('public')->delete($program->image);
+                }
+                
+                $videoFile = $request->file('video');
+                Log::info('Video upload attempt (edit)', [
+                    'filename' => $videoFile->getClientOriginalName(),
+                    'size' => $videoFile->getSize(),
+                    'mime_type' => $videoFile->getMimeType(),
+                    'extension' => $videoFile->getClientOriginalExtension(),
+                ]);
+                
+                $validated['video'] = $videoFile->store('programs', 'public');
+                $validated['image'] = null;
+                
+                Log::info('Video uploaded successfully (edit)', [
+                    'path' => $validated['video'],
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Error uploading video (edit)', [
+                    'error' => $e->getMessage(),
+                ]);
+                return redirect()->back()
+                    ->withInput()
+                    ->withErrors(['video' => 'Failed to upload video: ' . $e->getMessage()]);
             }
-            // Delete old image if exists
-            if ($program->image) {
-                Storage::disk('public')->delete($program->image);
-            }
-            $validated['video'] = $request->file('video')->store('programs', 'public');
-            $validated['image'] = null;
         } else {
             // Keep existing media if no new media is uploaded
             unset($validated['image'], $validated['video']);
@@ -493,5 +543,43 @@ class ProgramController extends Controller
             'balance' => $attendeeModel->amount_due - $manualTotal,
             'payment_status' => $manualTotal >= $attendeeModel->amount_due ? 'paid' : ($manualTotal > 0 ? 'partial' : 'unpaid')
         ]);
+    }
+
+    public function destroyAttendee($attendee)
+    {
+        try {
+            $attendeeModel = EventAttendee::where('uuid', $attendee)->firstOrFail();
+            
+            $childName = $attendeeModel->child_name;
+            
+            // Delete associated payments first
+            $attendeeModel->payments()->delete();
+            
+            // Delete the attendee (soft delete since EventAttendee uses SoftDeletes)
+            $attendeeModel->delete();
+
+            if (request()->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Child registration deleted successfully!',
+                ]);
+            }
+
+            return redirect()->back()->with('success', 'Child registration deleted successfully!');
+        } catch (\Exception $e) {
+            Log::error('Error deleting attendee: ' . $e->getMessage(), [
+                'attendee_uuid' => $attendee,
+                'exception' => $e
+            ]);
+
+            if (request()->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to delete child registration. Please try again.',
+                ], 500);
+            }
+
+            return redirect()->back()->with('error', 'Failed to delete child registration. Please try again.');
+        }
     }
 }
