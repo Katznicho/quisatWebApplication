@@ -450,27 +450,27 @@
                         <div class="space-y-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Child Full Name</label>
-                                <input type="text" name="child_name" placeholder="Enter child's full name" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                                <input type="text" name="child_name" placeholder="e.g., Sarah Nakato" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                             </div>
                             
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Child Age</label>
-                                <input type="number" name="child_age" placeholder="Enter child's age" min="1" max="18" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                                <input type="number" name="child_age" placeholder="e.g., 8" min="1" max="18" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                             </div>
                             
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Parent/Guardian Name</label>
-                                <input type="text" name="parent_name" placeholder="Enter parent/guardian name" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                                <input type="text" name="parent_name" placeholder="e.g., John Mukasa" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                             </div>
                             
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Contact Number</label>
-                                <input type="tel" name="parent_phone" placeholder="Enter contact number" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                                <input type="tel" name="parent_phone" placeholder="e.g., +256 700 000 000" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                             </div>
                             
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Parent Email</label>
-                                <input type="email" name="parent_email" placeholder="Enter parent email (optional)" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                                <input type="email" name="parent_email" placeholder="e.g., parent@example.com (optional)" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                             </div>
                             
                                                          <div>

@@ -166,86 +166,53 @@ class PublicProgramsController extends Controller
         ];
 
         if ($includeDetails) {
-            // Log program details for debugging
-            Log::info('PublicProgramsController::transformProgram - Fetching events', [
-                'program_id' => $program->id,
-                'program_name' => $program->name,
-                'program_uuid' => $program->uuid,
-            ]);
+            // Fetch events for this program
+            // Use whereJsonContains which should work for JSON arrays
+            $events = ProgramEvent::whereJsonContains('program_ids', $program->id)
+                ->orderBy('start_date', 'asc')
+                ->get();
 
-            // Try to fetch events - check both JSON contains and direct array search
-            $eventsQuery = ProgramEvent::where(function($q) use ($program) {
-                // Try JSON contains (for MySQL 5.7+)
-                $q->whereJsonContains('program_ids', $program->id)
-                  // Also try direct array search as fallback
-                  ->orWhereRaw('JSON_CONTAINS(program_ids, ?)', [json_encode($program->id)]);
+            // Transform events
+            $transformedEvents = $events->map(function (ProgramEvent $event) {
+                return [
+                    'id' => $event->id,
+                    'uuid' => $event->uuid,
+                    'name' => $event->name,
+                    'title' => $event->name,
+                    'description' => $event->description,
+                    'image_url' => $event->image ? Storage::url($event->image) : null,
+                    'video_url' => $event->video ? Storage::url($event->video) : null,
+                    'price' => $event->price !== null ? (float) $event->price : null,
+                    'formatted_price' => $event->price !== null && (float) $event->price > 0 ? ('UGX ' . number_format((float) $event->price, 0)) : 'Free',
+                    'start_date' => $event->start_date?->toISOString(),
+                    'end_date' => $event->end_date?->toISOString(),
+                    'location' => $event->location,
+                    'status' => $event->status,
+                    'registration_method' => $event->registration_method,
+                    'registration_link' => $event->registration_link,
+                    'registration_list' => $event->registration_list,
+                    'organizer' => [
+                        'name' => $event->organizer_name,
+                        'email' => $event->organizer_email,
+                        'phone' => $event->organizer_phone,
+                        'address' => $event->organizer_address,
+                    ],
+                    'social_media_handles' => $event->social_media_handles,
+                ];
             });
 
-            // Log the SQL query
-            $sql = $eventsQuery->toSql();
-            $bindings = $eventsQuery->getBindings();
-            Log::info('PublicProgramsController::transformProgram - Events query', [
-                'sql' => $sql,
-                'bindings' => $bindings,
-            ]);
-
-            // Get all events first to inspect
-            $allEvents = ProgramEvent::get(['id', 'name', 'program_ids']);
-            Log::info('PublicProgramsController::transformProgram - All events in DB', [
-                'total_events' => $allEvents->count(),
-                'events' => $allEvents->map(function($e) {
-                    return [
-                        'id' => $e->id,
-                        'name' => $e->name,
-                        'program_ids' => $e->program_ids,
-                        'program_ids_type' => gettype($e->program_ids),
-                    ];
-                })->toArray(),
-            ]);
-
-            $events = $eventsQuery->orderBy('start_date', 'asc')->get();
-
-            Log::info('PublicProgramsController::transformProgram - Events found', [
-                'count' => $events->count(),
-                'events' => $events->map(function($e) {
-                    return [
-                        'id' => $e->id,
-                        'name' => $e->name,
-                        'program_ids' => $e->program_ids,
-                    ];
-                })->toArray(),
-            ]);
-
-            $events = $events->map(function (ProgramEvent $event) {
-                    return [
-                        'id' => $event->id,
-                        'uuid' => $event->uuid,
-                        'name' => $event->name,
-                        'title' => $event->name,
-                        'description' => $event->description,
-                        'image_url' => $event->image ? Storage::url($event->image) : null,
-                        'video_url' => $event->video ? Storage::url($event->video) : null,
-                        'price' => $event->price !== null ? (float) $event->price : null,
-                        'formatted_price' => $event->price !== null && (float) $event->price > 0 ? ('UGX ' . number_format((float) $event->price, 0)) : 'Free',
-                        'start_date' => $event->start_date?->toISOString(),
-                        'end_date' => $event->end_date?->toISOString(),
-                        'location' => $event->location,
-                        'status' => $event->status,
-                        'registration_method' => $event->registration_method,
-                        'registration_link' => $event->registration_link,
-                        'registration_list' => $event->registration_list,
-                        'organizer' => [
-                            'name' => $event->organizer_name,
-                            'email' => $event->organizer_email,
-                            'phone' => $event->organizer_phone,
-                            'address' => $event->organizer_address,
-                        ],
-                        'social_media_handles' => $event->social_media_handles,
-                    ];
-                });
-
-            $data['events'] = $events;
-            $data['total_events'] = $events->count();
+            $eventsCount = $transformedEvents->count();
+            
+            // Always include events array, even if empty
+            $data['events'] = $transformedEvents->values()->all(); // Use values() to reset array keys
+            $data['total_events'] = $eventsCount;
+            $data['events_count'] = $eventsCount;
+            $data['has_events'] = $eventsCount > 0;
+        } else {
+            $data['events'] = [];
+            $data['events_count'] = 0;
+            $data['has_events'] = false;
+            $data['total_events'] = 0;
         }
 
         return $data;
