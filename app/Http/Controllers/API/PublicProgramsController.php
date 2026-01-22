@@ -166,8 +166,9 @@ class PublicProgramsController extends Controller
         ];
 
         if ($includeDetails) {
-            // Fetch events for this program
-            // Use whereJsonContains which should work for JSON arrays
+            // Fetch events for this program - matching exactly how the web app does it
+            // Events are stored with program_ids as JSON array: [program_id]
+            // The web app uses: ProgramEvent::whereJsonContains('program_ids', $program->id)
             $events = ProgramEvent::whereJsonContains('program_ids', $program->id)
                 ->orderBy('start_date', 'asc')
                 ->get();
@@ -202,11 +203,13 @@ class PublicProgramsController extends Controller
             });
 
             $eventsCount = $transformedEvents->count();
+            $eventsArray = $transformedEvents->values()->all();
             
             // Always include events array, even if empty
-            $data['events'] = $transformedEvents->values()->all(); // Use values() to reset array keys
+            $data['events'] = $eventsArray;
             $data['total_events'] = $eventsCount;
             $data['events_count'] = $eventsCount;
+            // has_events should be true only if there are actually events
             $data['has_events'] = $eventsCount > 0;
         } else {
             $data['events'] = [];
