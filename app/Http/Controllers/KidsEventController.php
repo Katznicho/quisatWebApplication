@@ -85,6 +85,10 @@ class KidsEventController extends Controller
             'contact_info' => 'nullable|string',
             'contact_email' => 'nullable|email',
             'contact_phone' => 'nullable|string',
+            'organizer_name' => 'nullable|string|max:255',
+            'organizer_email' => 'nullable|email|max:255',
+            'organizer_phone' => 'nullable|string|max:255',
+            'organizer_address' => 'nullable|string|max:255',
             'is_featured' => 'boolean',
         ]);
 
@@ -146,6 +150,10 @@ class KidsEventController extends Controller
             'contact_info' => 'nullable|string',
             'contact_email' => 'nullable|email',
             'contact_phone' => 'nullable|string',
+            'organizer_name' => 'nullable|string|max:255',
+            'organizer_email' => 'nullable|email|max:255',
+            'organizer_phone' => 'nullable|string|max:255',
+            'organizer_address' => 'nullable|string|max:255',
             'is_featured' => 'boolean',
         ]);
 

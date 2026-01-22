@@ -198,6 +198,53 @@
                             </div>
                         </div>
 
+                        <!-- Organizer Information -->
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
+                            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Organizer Information</h2>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label for="organizer_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Organizer Name</label>
+                                    <input type="text" id="organizer_name" name="organizer_name" value="{{ old('organizer_name') }}" 
+                                           placeholder="Organizer or contact person name"
+                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white @error('organizer_name') border-red-500 @enderror">
+                                    @error('organizer_name')
+                                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                                    @enderror
+                                </div>
+                                
+                                <div>
+                                    <label for="organizer_email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Organizer Email</label>
+                                    <input type="email" id="organizer_email" name="organizer_email" value="{{ old('organizer_email') }}" 
+                                           placeholder="organizer@organization.com"
+                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white @error('organizer_email') border-red-500 @enderror">
+                                    @error('organizer_email')
+                                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                                    @enderror
+                                </div>
+                                
+                                <div>
+                                    <label for="organizer_phone" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Organizer Phone</label>
+                                    <input type="tel" id="organizer_phone" name="organizer_phone" value="{{ old('organizer_phone') }}" 
+                                           placeholder="+1 (555) 123-4567"
+                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white @error('organizer_phone') border-red-500 @enderror">
+                                    @error('organizer_phone')
+                                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                                    @enderror
+                                </div>
+                                
+                                <div>
+                                    <label for="organizer_address" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Organizer Address</label>
+                                    <input type="text" id="organizer_address" name="organizer_address" value="{{ old('organizer_address') }}" 
+                                           placeholder="Organizer address"
+                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white @error('organizer_address') border-red-500 @enderror">
+                                    @error('organizer_address')
+                                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Form Actions -->
                         <div class="flex justify-end space-x-4 pt-6 border-t border-gray-200 dark:border-gray-700">
                             <a href="{{ route('kids-events.index') }}" 
