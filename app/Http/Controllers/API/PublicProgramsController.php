@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\Program;
 use App\Models\ProgramEvent;
+use App\Models\Business;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -170,6 +171,7 @@ class PublicProgramsController extends Controller
             // Events are stored with program_ids as JSON array: [program_id]
             // The web app uses: ProgramEvent::whereJsonContains('program_ids', $program->id)
             $events = ProgramEvent::whereJsonContains('program_ids', $program->id)
+                ->with('business')
                 ->orderBy('start_date', 'asc')
                 ->get();
 
@@ -211,6 +213,64 @@ class PublicProgramsController extends Controller
             $data['events_count'] = $eventsCount;
             // has_events should be true only if there are actually events
             $data['has_events'] = $eventsCount > 0;
+
+            // Get business contact information from the first event (Christian Kids Hub is business_id == 1)
+            $firstEvent = $events->first();
+            if ($firstEvent && $firstEvent->business) {
+                $business = $firstEvent->business;
+                $data['business'] = [
+                    'id' => $business->id,
+                    'name' => $business->name,
+                    'email' => $business->email,
+                    'phone' => $business->phone,
+                    'address' => $business->address,
+                    'shop_number' => $business->shop_number,
+                    'website_link' => $business->website_link,
+                    'social_media_handles' => $business->social_media_handles,
+                ];
+            }
+
+            // Get contact information - prioritize program contact, then event organizer, then business
+            $contactInfo = null;
+            $contactEmail = null;
+            $contactPhone = null;
+
+            // First priority: Program's own contact fields
+            if ($program->contact_email || $program->contact_phone) {
+                $contactEmail = $program->contact_email;
+                $contactPhone = $program->contact_phone;
+            }
+            // Second priority: Event organizer contact
+            elseif ($firstEvent) {
+                if ($firstEvent->organizer_email || $firstEvent->organizer_phone) {
+                    $contactEmail = $firstEvent->organizer_email;
+                    $contactPhone = $firstEvent->organizer_phone;
+                }
+            }
+            // Third priority: Business contact
+            if ((!$contactEmail && !$contactPhone) && isset($data['business'])) {
+                $contactEmail = $data['business']['email'] ?? null;
+                $contactPhone = $data['business']['phone'] ?? null;
+            }
+
+            // Build contact info string if we have any contact
+            if ($contactEmail || $contactPhone) {
+                $contactParts = [];
+                if ($contactEmail) {
+                    $contactParts[] = "Email: {$contactEmail}";
+                }
+                if ($contactPhone) {
+                    $contactParts[] = "Phone: {$contactPhone}";
+                }
+                $contactInfo = implode("\n", $contactParts);
+            }
+
+            // Include contact information in the response
+            $data['contact'] = [
+                'info' => $contactInfo,
+                'email' => $contactEmail,
+                'phone' => $contactPhone,
+            ];
         } else {
             $data['events'] = [];
             $data['events_count'] = 0;

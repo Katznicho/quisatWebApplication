@@ -142,6 +142,37 @@
                             </div>
                         </div>
 
+                        <!-- Contact Information -->
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
+                            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Contact Information</h2>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">Contact details that will be displayed in the app when users click "Contact Instructor".</p>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label for="contact_email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Contact Email
+                                    </label>
+                                    <input type="email" id="contact_email" name="contact_email" value="{{ old('contact_email', $program->contact_email) }}"
+                                           placeholder="program@example.com"
+                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white @error('contact_email') border-red-500 @enderror">
+                                    @error('contact_email')
+                                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                                    @enderror
+                                </div>
+                                <div>
+                                    <label for="contact_phone" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Contact Phone Number
+                                    </label>
+                                    <input type="tel" id="contact_phone" name="contact_phone" value="{{ old('contact_phone', $program->contact_phone) }}"
+                                           placeholder="+256 700 000 000"
+                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white @error('contact_phone') border-red-500 @enderror">
+                                    @error('contact_phone')
+                                        <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Social Media & Website -->
                         <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
                             <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Social Media & Website</h2>

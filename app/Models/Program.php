@@ -21,6 +21,8 @@ class Program extends Model
         'image',
         'video',
         'social_media_handles',
+        'contact_email',
+        'contact_phone',
     ];
 
     protected $casts = [

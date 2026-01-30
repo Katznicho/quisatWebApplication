@@ -45,6 +45,8 @@ class ProgramController extends Controller
             'video' => 'nullable|file|mimes:mp4,mov,avi,quicktime,webm,mkv|max:102400', // 100MB max
             'social_media_handles' => 'nullable|array',
             'social_media_handles.*' => 'nullable|string|max:255',
+            'contact_email' => 'nullable|email|max:255',
+            'contact_phone' => 'nullable|string|max:255',
         ], [
             'video.max' => 'The video file size must not exceed 100MB.',
             'video.mimes' => 'The video must be a file of type: mp4, mov, avi, quicktime, webm, mkv.',
@@ -133,6 +135,8 @@ class ProgramController extends Controller
             'video' => 'nullable|file|mimes:mp4,mov,avi,quicktime,webm,mkv|max:102400', // 100MB max
             'social_media_handles' => 'nullable|array',
             'social_media_handles.*' => 'nullable|string|max:255',
+            'contact_email' => 'nullable|email|max:255',
+            'contact_phone' => 'nullable|string|max:255',
         ], [
             'video.max' => 'The video file size must not exceed 100MB.',
             'video.mimes' => 'The video must be a file of type: mp4, mov, avi, quicktime, webm, mkv.',
