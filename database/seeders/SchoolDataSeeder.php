@@ -17,6 +17,7 @@ use Carbon\Carbon;
 class SchoolDataSeeder extends Seeder
 {
     /**
+     * 
      * Run the database seeds.
      */
     public function run(): void
