@@ -144,6 +144,13 @@ class PublicParentCornersController extends Controller
             'is_featured' => (bool) $event->is_featured,
             'spots_available' => $event->spots_available ?? 999,
             'is_full' => (bool) ($event->is_full ?? false),
+            'contact_email' => $event->contact_email,
+            'contact_phone' => $event->contact_phone,
+            'contact_info' => $event->contact_info,
+            'organizer_name' => $event->organizer_name,
+            'organizer_email' => $event->organizer_email,
+            'organizer_phone' => $event->organizer_phone,
+            'organizer_address' => $event->organizer_address,
             'business' => $event->business ? [
                 'id' => $event->business->id,
                 'name' => $event->business->name,
