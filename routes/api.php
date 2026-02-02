@@ -18,6 +18,7 @@ use App\Http\Controllers\API\StudentProgressController;
 use App\Http\Controllers\API\DocumentController;
 use App\Http\Controllers\API\TimetableController;
 use App\Http\Controllers\API\PublicKidsEventsController;
+use App\Http\Controllers\API\PublicParentCornersController;
 use App\Http\Controllers\API\PublicKidsFunVenuesController;
 use App\Http\Controllers\API\PublicAdvertisementsController;
 use App\Http\Controllers\API\PublicProgramsController;
@@ -105,6 +106,13 @@ Route::prefix('v1')->group(function () {
         // Kids Event Registration (public - supports guest registration)
         Route::post('kids-events/{eventId}/register', [\App\Http\Controllers\API\KidsEventRegistrationController::class, 'store']);
         
+        // Parent Corner Events
+        Route::get('parent-corners', [PublicParentCornersController::class, 'index']);
+        Route::get('parent-corners/{id}', [PublicParentCornersController::class, 'show']);
+        
+        // Parent Corner Registration (public - supports guest registration)
+        Route::post('parent-corners/{eventId}/register', [\App\Http\Controllers\API\ParentCornerRegistrationController::class, 'store']);
+        
         // Kids Fun Venues
         Route::get('kids-fun-venues', [PublicKidsFunVenuesController::class, 'index']);
         Route::get('kids-fun-venues/{id}', [PublicKidsFunVenuesController::class, 'show']);
@@ -125,6 +133,10 @@ Route::prefix('v1')->group(function () {
             // Kids Event Registrations (authenticated)
             Route::get('kids-events/{eventId}/registrations', [\App\Http\Controllers\API\KidsEventRegistrationController::class, 'index']);
             Route::get('my-kids-event-registrations', [\App\Http\Controllers\API\KidsEventRegistrationController::class, 'myRegistrations']);
+            
+            // Parent Corner Registrations (authenticated)
+            Route::get('parent-corners/{eventId}/registrations', [\App\Http\Controllers\API\ParentCornerRegistrationController::class, 'index']);
+            Route::get('my-parent-corner-registrations', [\App\Http\Controllers\API\ParentCornerRegistrationController::class, 'myRegistrations']);
         });
         
         // KidsMart Products (public)

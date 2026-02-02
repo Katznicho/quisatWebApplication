@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
+use App\Models\ParentGuardian;
 use App\Models\BroadcastAnnouncement;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -27,40 +28,135 @@ class ChatController extends Controller
             ->orderBy('last_message_at', 'desc')
             ->get();
 
-        // Get contacts (other users in the same business) with unread message counts
-        $contacts = User::where('business_id', $user->business_id)
-            ->where('id', '!=', $user->id)
-            ->with('role')
-            ->get()
-            ->map(function ($contact) use ($user) {
-                // Get unread message count for this contact
-                $unreadCount = 0;
-                $conversation = Conversation::where('type', 'direct')
-                    ->where('business_id', $user->business_id)
-                    ->whereHas('users', function ($query) use ($user, $contact) {
-                        $query->whereIn('users.id', [$user->id, $contact->id]);
-                    })
-                    ->withCount(['users' => function ($query) use ($user, $contact) {
-                        $query->whereIn('users.id', [$user->id, $contact->id]);
-                    }])
-                    ->having('users_count', 2)
-                    ->first();
+        // Get contacts based on user type
+        // Staff can see all parents and other staff
+        // Parents can only see staff (not other parents)
+        $isParent = $user instanceof ParentGuardian;
+        $contacts = collect();
+        
+        if ($isParent) {
+            // Parents can only see staff members (User records)
+            $contacts = User::where('business_id', $user->business_id)
+                ->where('status', 'active')
+                ->with('role')
+                ->get()
+                ->map(function ($contact) use ($user) {
+                    $unreadCount = 0;
+                    $conversation = Conversation::where('type', 'direct')
+                        ->where('business_id', $user->business_id)
+                        ->whereHas('users', function ($query) use ($user, $contact) {
+                            $query->whereIn('users.id', [$user->id, $contact->id]);
+                        })
+                        ->withCount(['users' => function ($query) use ($user, $contact) {
+                            $query->whereIn('users.id', [$user->id, $contact->id]);
+                        }])
+                        ->having('users_count', 2)
+                        ->first();
 
-                if ($conversation) {
-                    $unreadCount = $conversation->messages()
-                        ->where('sender_id', $contact->id)
-                        ->where('created_at', '>', $conversation->users()->where('user_id', $user->id)->first()->pivot->last_read_at ?? '1970-01-01')
-                        ->count();
-                }
+                    if ($conversation) {
+                        $lastReadAt = $conversation->users()->where('user_id', $user->id)->first()->pivot->last_read_at ?? '1970-01-01';
+                        $unreadCount = $conversation->messages()
+                            ->where('sender_id', $contact->id)
+                            ->where('created_at', '>', $lastReadAt)
+                            ->count();
+                    }
 
-                return [
-                    'id' => $contact->id,
-                    'name' => $contact->name,
-                    'role' => $contact->role->name ?? 'No Role',
-                    'avatar' => $contact->avatar_url ?? null,
-                    'unread_count' => $unreadCount
-                ];
-            });
+                    return [
+                        'id' => $contact->id,
+                        'name' => $contact->name,
+                        'role' => $contact->role->name ?? 'Staff',
+                        'avatar' => $contact->avatar_url ?? null,
+                        'unread_count' => $unreadCount
+                    ];
+                });
+        } else {
+            // Staff can see all parents and other staff
+            // Get all staff (excluding self)
+            $staffContacts = User::where('business_id', $user->business_id)
+                ->where('id', '!=', $user->id)
+                ->where('status', 'active')
+                ->with('role')
+                ->get()
+                ->map(function ($contact) use ($user) {
+                    $unreadCount = 0;
+                    $conversation = Conversation::where('type', 'direct')
+                        ->where('business_id', $user->business_id)
+                        ->whereHas('users', function ($query) use ($user, $contact) {
+                            $query->whereIn('users.id', [$user->id, $contact->id]);
+                        })
+                        ->withCount(['users' => function ($query) use ($user, $contact) {
+                            $query->whereIn('users.id', [$user->id, $contact->id]);
+                        }])
+                        ->having('users_count', 2)
+                        ->first();
+
+                    if ($conversation) {
+                        $lastReadAt = $conversation->users()->where('user_id', $user->id)->first()->pivot->last_read_at ?? '1970-01-01';
+                        $unreadCount = $conversation->messages()
+                            ->where('sender_id', $contact->id)
+                            ->where('created_at', '>', $lastReadAt)
+                            ->count();
+                    }
+
+                    return [
+                        'id' => $contact->id,
+                        'name' => $contact->name,
+                        'role' => $contact->role->name ?? 'No Role',
+                        'avatar' => $contact->avatar_url ?? null,
+                        'unread_count' => $unreadCount
+                    ];
+                });
+            
+            // Get all parents
+            $parentContacts = ParentGuardian::where('business_id', $user->business_id)
+                ->where('status', 'active')
+                ->get()
+                ->map(function ($parent) use ($user) {
+                    // Find or create User record for parent
+                    $parentUser = User::where('email', $parent->email)->first();
+                    if (!$parentUser) {
+                        $parentUser = User::create([
+                            'name' => $parent->full_name,
+                            'email' => $parent->email,
+                            'business_id' => $parent->business_id,
+                            'role_id' => null,
+                            'branch_id' => null,
+                            'password' => '',
+                            'status' => 'active',
+                        ]);
+                    }
+                    
+                    $unreadCount = 0;
+                    $conversation = Conversation::where('type', 'direct')
+                        ->where('business_id', $user->business_id)
+                        ->whereHas('users', function ($query) use ($user, $parentUser) {
+                            $query->whereIn('users.id', [$user->id, $parentUser->id]);
+                        })
+                        ->withCount(['users' => function ($query) use ($user, $parentUser) {
+                            $query->whereIn('users.id', [$user->id, $parentUser->id]);
+                        }])
+                        ->having('users_count', 2)
+                        ->first();
+
+                    if ($conversation) {
+                        $lastReadAt = $conversation->users()->where('user_id', $user->id)->first()->pivot->last_read_at ?? '1970-01-01';
+                        $unreadCount = $conversation->messages()
+                            ->where('sender_id', $parentUser->id)
+                            ->where('created_at', '>', $lastReadAt)
+                            ->count();
+                    }
+
+                    return [
+                        'id' => $parentUser->id,
+                        'name' => $parent->full_name,
+                        'role' => 'Parent',
+                        'avatar' => $parentUser->avatar_url ?? null,
+                        'unread_count' => $unreadCount
+                    ];
+                });
+            
+            $contacts = $staffContacts->merge($parentContacts);
+        }
 
 
         return view('chat.index', compact('conversations', 'contacts'));
@@ -369,36 +465,174 @@ class ChatController extends Controller
     {
         $user = Auth::user();
         
+        // Mark all unread messages in this conversation as read
+        $conversation->messages()
+            ->where('sender_id', '!=', $user->id)
+            ->where('is_read', false)
+            ->update([
+                'is_read' => true,
+                'read_at' => now()
+            ]);
+        
+        // Update the last_read_at timestamp for this user in the conversation
         $conversation->users()->updateExistingPivot($user->id, [
             'last_read_at' => now()
         ]);
 
-        return response()->json(['success' => true]);
+        return response()->json([
+            'success' => true,
+            'message' => 'Messages marked as read'
+        ]);
     }
 
     /**
      * Get contacts for the current user
+     * Staff can see all parents and other staff
+     * Parents can only see staff (not other parents)
      */
     public function getContacts()
     {
         $user = Auth::user();
+        $contacts = collect();
         
-        $contacts = User::where('business_id', $user->business_id)
-            ->where('id', '!=', $user->id)
-            ->where('status', 'active')
-            ->with('role')
-            ->get()
-            ->map(function ($contact) {
-                return [
-                    'id' => $contact->id,
-                    'name' => $contact->name,
-                    'role' => $contact->role->name ?? 'No Role',
-                    'email' => $contact->email,
-                    'profile_photo_url' => $contact->profile_photo_url
-                ];
-            });
+        // Check if user is a staff member (User model) or parent (ParentGuardian)
+        $isParent = $user instanceof \App\Models\ParentGuardian;
+        
+        if ($isParent) {
+            // Parents can only see staff members (User records), not other parents
+            $contacts = User::where('business_id', $user->business_id)
+                ->where('status', 'active')
+                ->with('role')
+                ->get()
+                ->map(function ($contact) use ($user) {
+                    // Get unread message count for this contact
+                    $unreadCount = 0;
+                    $conversation = Conversation::where('type', 'direct')
+                        ->where('business_id', $user->business_id)
+                        ->whereHas('users', function ($query) use ($user, $contact) {
+                            // Find conversation between parent and staff
+                            $query->whereIn('users.id', [$user->id, $contact->id]);
+                        })
+                        ->withCount(['users' => function ($query) use ($user, $contact) {
+                            $query->whereIn('users.id', [$user->id, $contact->id]);
+                        }])
+                        ->having('users_count', 2)
+                        ->first();
 
-        return response()->json($contacts);
+                    if ($conversation) {
+                        $lastReadAt = $conversation->users()->where('user_id', $user->id)->first()->pivot->last_read_at ?? '1970-01-01';
+                        $unreadCount = $conversation->messages()
+                            ->where('sender_id', $contact->id)
+                            ->where('created_at', '>', $lastReadAt)
+                            ->count();
+                    }
+
+                    return [
+                        'id' => $contact->id,
+                        'name' => $contact->name,
+                        'role' => $contact->role->name ?? 'Staff',
+                        'email' => $contact->email,
+                        'profile_photo_url' => $contact->profile_photo_url,
+                        'unread_count' => $unreadCount,
+                        'type' => 'staff'
+                    ];
+                });
+        } else {
+            // Staff can see all parents and other staff
+            // Get all staff (excluding self)
+            $staffContacts = User::where('business_id', $user->business_id)
+                ->where('id', '!=', $user->id)
+                ->where('status', 'active')
+                ->with('role')
+                ->get()
+                ->map(function ($contact) use ($user) {
+                    $unreadCount = 0;
+                    $conversation = Conversation::where('type', 'direct')
+                        ->where('business_id', $user->business_id)
+                        ->whereHas('users', function ($query) use ($user, $contact) {
+                            $query->whereIn('users.id', [$user->id, $contact->id]);
+                        })
+                        ->withCount(['users' => function ($query) use ($user, $contact) {
+                            $query->whereIn('users.id', [$user->id, $contact->id]);
+                        }])
+                        ->having('users_count', 2)
+                        ->first();
+
+                    if ($conversation) {
+                        $lastReadAt = $conversation->users()->where('user_id', $user->id)->first()->pivot->last_read_at ?? '1970-01-01';
+                        $unreadCount = $conversation->messages()
+                            ->where('sender_id', $contact->id)
+                            ->where('created_at', '>', $lastReadAt)
+                            ->count();
+                    }
+
+                    return [
+                        'id' => $contact->id,
+                        'name' => $contact->name,
+                        'role' => $contact->role->name ?? 'No Role',
+                        'email' => $contact->email,
+                        'profile_photo_url' => $contact->profile_photo_url,
+                        'unread_count' => $unreadCount,
+                        'type' => 'staff'
+                    ];
+                });
+            
+            // Get all parents
+            $parentContacts = \App\Models\ParentGuardian::where('business_id', $user->business_id)
+                ->where('status', 'active')
+                ->get()
+                ->map(function ($parent) use ($user) {
+                    // Find or create User record for parent
+                    $parentUser = User::where('email', $parent->email)->first();
+                    if (!$parentUser) {
+                        // Create a user account for the parent if it doesn't exist
+                        $parentUser = User::create([
+                            'name' => $parent->full_name,
+                            'email' => $parent->email,
+                            'business_id' => $parent->business_id,
+                            'role_id' => null,
+                            'branch_id' => null,
+                            'password' => '', // Empty password - parent uses ParentGuardian login
+                            'status' => 'active',
+                        ]);
+                    }
+                    
+                    $unreadCount = 0;
+                    $conversation = Conversation::where('type', 'direct')
+                        ->where('business_id', $user->business_id)
+                        ->whereHas('users', function ($query) use ($user, $parentUser) {
+                            $query->whereIn('users.id', [$user->id, $parentUser->id]);
+                        })
+                        ->withCount(['users' => function ($query) use ($user, $parentUser) {
+                            $query->whereIn('users.id', [$user->id, $parentUser->id]);
+                        }])
+                        ->having('users_count', 2)
+                        ->first();
+
+                    if ($conversation) {
+                        $lastReadAt = $conversation->users()->where('user_id', $user->id)->first()->pivot->last_read_at ?? '1970-01-01';
+                        $unreadCount = $conversation->messages()
+                            ->where('sender_id', $parentUser->id)
+                            ->where('created_at', '>', $lastReadAt)
+                            ->count();
+                    }
+
+                    return [
+                        'id' => $parentUser->id,
+                        'name' => $parent->full_name,
+                        'role' => 'Parent',
+                        'email' => $parent->email,
+                        'profile_photo_url' => $parentUser->profile_photo_url,
+                        'unread_count' => $unreadCount,
+                        'type' => 'parent',
+                        'parent_id' => $parent->id
+                    ];
+                });
+            
+            $contacts = $staffContacts->merge($parentContacts);
+        }
+
+        return response()->json($contacts->values());
     }
 
     /**

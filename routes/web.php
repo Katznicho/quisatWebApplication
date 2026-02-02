@@ -20,6 +20,7 @@ use App\Http\Controllers\ChatController;
 use App\Http\Controllers\AdvertisementController;
 use App\Http\Controllers\KidsEventController;
 use App\Http\Controllers\KidsFunVenueController;
+use App\Http\Controllers\ParentCornerController;
 use App\Http\Controllers\ProductController;
 
 // Test route for chat functionality (no auth required)
@@ -119,6 +120,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
     
     // Kids Fun Venues routes
     Route::resource("kids-fun-venues", KidsFunVenueController::class);
+    
+    // Parent Corner routes
+    Route::resource("parent-corners", ParentCornerController::class);
+    Route::post('parent-corners/{id}/registrations', [ParentCornerController::class, 'storeRegistration'])->name('parent-corner-registrations.store');
+    Route::delete('parent-corner-registrations/{uuid}', [ParentCornerController::class, 'destroyRegistration'])->name('parent-corner-registrations.destroy')->where('uuid', '[a-f0-9\-]+');
     
     Route::resource("programs", ProgramController::class);
 
