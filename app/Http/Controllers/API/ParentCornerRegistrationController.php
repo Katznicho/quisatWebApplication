@@ -19,7 +19,6 @@ class ParentCornerRegistrationController extends Controller
         try {
             // Find the event
             $event = ParentCorner::where('id', $eventId)
-                ->where('status', 'published')
                 ->first();
 
             if (!$event) {

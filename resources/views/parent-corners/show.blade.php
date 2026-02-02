@@ -122,6 +122,49 @@
                                 </div>
                             </div>
 
+                            <!-- Event Organizer Information -->
+                            @if($parentCorner->organizer_name || $parentCorner->organizer_email || $parentCorner->organizer_phone || $parentCorner->organizer_address)
+                            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
+                                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Event Organizer</h2>
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    @if($parentCorner->organizer_name)
+                                    <div>
+                                        <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Organizer Name</label>
+                                        <p class="text-gray-900 dark:text-white font-medium mt-1">{{ $parentCorner->organizer_name }}</p>
+                                    </div>
+                                    @endif
+                                    
+                                    @if($parentCorner->organizer_email)
+                                    <div>
+                                        <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Email</label>
+                                        <a href="mailto:{{ $parentCorner->organizer_email }}" 
+                                           class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 block mt-1">
+                                            {{ $parentCorner->organizer_email }}
+                                        </a>
+                                    </div>
+                                    @endif
+                                    
+                                    @if($parentCorner->organizer_phone)
+                                    <div>
+                                        <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Phone</label>
+                                        <a href="tel:{{ $parentCorner->organizer_phone }}" 
+                                           class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 block mt-1">
+                                            {{ $parentCorner->organizer_phone }}
+                                        </a>
+                                    </div>
+                                    @endif
+                                    
+                                    @if($parentCorner->organizer_address)
+                                    <div class="md:col-span-2">
+                                        <label class="text-sm font-medium text-gray-500 dark:text-gray-400">Address</label>
+                                        <p class="text-gray-900 dark:text-white mt-1">{{ $parentCorner->organizer_address }}</p>
+                                    </div>
+                                    @endif
+                                </div>
+                            </div>
+                            @endif
+
                             <!-- Contact Information -->
                             @if($parentCorner->contact_email || $parentCorner->contact_phone || $parentCorner->contact_info)
                             <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
