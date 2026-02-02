@@ -83,10 +83,28 @@ class PublicParentCornersController extends Controller
                 ], 404);
             }
 
+            $transformedEvent = $this->transformEvent($event, true);
+            
+            // Log the full response to see what's being returned
+            Log::info('PublicParentCornersController::show - Full Response', [
+                'event_id' => $id,
+                'event_title' => $event->title,
+                'organizer' => $transformedEvent['organizer'] ?? null,
+                'contact' => $transformedEvent['contact'] ?? null,
+                'organizer_name' => $event->organizer_name,
+                'organizer_email' => $event->organizer_email,
+                'organizer_phone' => $event->organizer_phone,
+                'organizer_address' => $event->organizer_address,
+                'contact_email' => $event->contact_email,
+                'contact_phone' => $event->contact_phone,
+                'contact_info' => $event->contact_info,
+                'full_response' => $transformedEvent,
+            ]);
+            
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'event' => $this->transformEvent($event, true),
+                    'event' => $transformedEvent,
                 ],
             ]);
         } catch (\Exception $e) {
