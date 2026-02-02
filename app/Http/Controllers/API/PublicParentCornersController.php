@@ -18,8 +18,7 @@ class PublicParentCornersController extends Controller
     {
         try {
             $query = ParentCorner::query()
-                ->with('business:id,name,email,phone,address,website_link,social_media_handles')
-                ->where('status', 'published');
+                ->with('business:id,name,email,phone,address,website_link,social_media_handles');
 
             // Filters
             if ($category = $request->query('category')) {
@@ -75,7 +74,6 @@ class PublicParentCornersController extends Controller
                 ->where(function ($q) use ($id) {
                     $q->where('id', $id)->orWhere('id', intval($id));
                 })
-                ->where('status', 'published')
                 ->first();
 
             if (!$event) {
