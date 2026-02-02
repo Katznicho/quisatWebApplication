@@ -166,9 +166,10 @@ class PublicParentCornersController extends Controller
                 'address' => $event->organizer_address,
             ];
             $data['social_media_handles'] = $event->social_media_handles;
+            // Use business email and phone as contact details
             $data['contact'] = [
-                'email' => $event->contact_email,
-                'phone' => $event->contact_phone,
+                'email' => $event->business->email ?? null,
+                'phone' => $event->business->phone ?? null,
                 'info' => $event->contact_info,
             ];
         }
