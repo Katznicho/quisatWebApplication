@@ -11,12 +11,10 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Hidden;
-use Filament\Notifications\Notification;
 use Filament\Tables;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
-use Filament\Tables\Actions\CreateAction;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Actions\DeleteAction;
 use Filament\Tables\Filters\TrashedFilter;
@@ -157,78 +155,6 @@ class StudentManagement extends Component implements HasForms, HasTable
                     Tables\Actions\ForceDeleteBulkAction::make(),
                     Tables\Actions\RestoreBulkAction::make(),
                 ]),
-            ])
-            ->headerActions([
-                CreateAction::make()
-                    ->label('Add New Student')
-                    ->modalHeading('Add New Student')
-                    ->form([
-                        Hidden::make('business_id')
-                            ->default(auth()->user()->business_id),
-                        TextInput::make('first_name')
-                            ->required()
-                            ->placeholder('Enter first name'),
-                        TextInput::make('last_name')
-                            ->required()
-                            ->placeholder('Enter last name'),
-                        TextInput::make('email')
-                            ->email()
-                            ->required()
-                            ->placeholder('Enter email address'),
-                        TextInput::make('phone')
-                            ->tel()
-                            ->placeholder('Enter phone number'),
-                        TextInput::make('student_id')
-                            ->required()
-                            ->placeholder('Enter student ID'),
-                        DatePicker::make('date_of_birth')
-                            ->label('Date of Birth')
-                            ->required(),
-                        Select::make('gender')
-                            ->options([
-                                'male' => 'Male',
-                                'female' => 'Female',
-                                'other' => 'Other',
-                            ])
-                            ->required(),
-                        DatePicker::make('admission_date')
-                            ->label('Admission Date')
-                            ->required(),
-                        Select::make('class_room_id')
-                            ->relationship('classRoom', 'name')
-                            ->label('Class')
-                            ->placeholder('Select class (optional)'),
-                        Select::make('parent_guardian_id')
-                            ->options(function () {
-                                $query = ParentGuardian::query();
-                                if (auth()->user()->business_id !== 1) {
-                                    $query->where('business_id', auth()->user()->business_id);
-                                }
-                                return $query->get()->pluck('full_name', 'id');
-                            })
-                            ->label('Parent/Guardian')
-                            ->required()
-                            ->searchable(),
-                        Select::make('status')
-                            ->options([
-                                'active' => 'Active',
-                                'inactive' => 'Inactive',
-                                'graduated' => 'Graduated',
-                                'transferred' => 'Transferred',
-                            ])
-                            ->default('active')
-                            ->required(),
-                        Textarea::make('address')
-                            ->placeholder('Enter address')
-                            ->rows(3),
-                    ])
-                    ->createAnother(false)
-                    ->after(function (Student $record) {
-                        Notification::make()
-                            ->title('Student created successfully.')
-                            ->success()
-                            ->send();
-                    }),
             ]);
     }
 

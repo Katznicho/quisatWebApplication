@@ -28,6 +28,7 @@ class Student extends Model
         'class_room_id',
         'parent_guardian_id',
         'status',
+        'photo',
     ];
 
     protected $casts = [

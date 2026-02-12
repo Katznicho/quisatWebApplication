@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('parent_corner_registrations')) {
+            return;
+        }
+        
         Schema::create('parent_corner_registrations', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();

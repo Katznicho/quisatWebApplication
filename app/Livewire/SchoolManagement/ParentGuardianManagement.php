@@ -7,15 +7,12 @@ use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Hidden;
-use Filament\Notifications\Notification;
 use Filament\Tables;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
-use Filament\Tables\Actions\CreateAction;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Actions\DeleteAction;
 use Filament\Tables\Filters\TrashedFilter;
@@ -129,58 +126,6 @@ class ParentGuardianManagement extends Component implements HasForms, HasTable
                     Tables\Actions\ForceDeleteBulkAction::make(),
                     Tables\Actions\RestoreBulkAction::make(),
                 ]),
-            ])
-            ->headerActions([
-                CreateAction::make()
-                    ->label('Add Parent/Guardian')
-                    ->modalHeading('Add New Parent/Guardian')
-                    ->form([
-                        Hidden::make('business_id')
-                            ->default(auth()->user()->business_id),
-                        TextInput::make('first_name')
-                            ->required()
-                            ->placeholder('Enter first name'),
-                        TextInput::make('last_name')
-                            ->required()
-                            ->placeholder('Enter last name'),
-                        TextInput::make('email')
-                            ->email()
-                            ->required()
-                            ->placeholder('Enter email address'),
-                        TextInput::make('phone')
-                            ->tel()
-                            ->required()
-                            ->placeholder('Enter phone number'),
-                        Select::make('relationship')
-                            ->options([
-                                'father' => 'Father',
-                                'mother' => 'Mother',
-                                'guardian' => 'Guardian',
-                                'other' => 'Other',
-                            ])
-                            ->required(),
-                        TextInput::make('occupation')
-                            ->placeholder('Enter occupation'),
-                        TextInput::make('emergency_contact')
-                            ->placeholder('Enter emergency contact'),
-                        Textarea::make('address')
-                            ->placeholder('Enter address')
-                            ->rows(3),
-                        Select::make('status')
-                            ->options([
-                                'active' => 'Active',
-                                'inactive' => 'Inactive',
-                            ])
-                            ->default('active')
-                            ->required(),
-                    ])
-                    ->createAnother(false)
-                    ->after(function (ParentGuardian $record) {
-                        Notification::make()
-                            ->title('Parent/Guardian created successfully.')
-                            ->success()
-                            ->send();
-                    }),
             ]);
     }
 

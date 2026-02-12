@@ -22,6 +22,8 @@ use App\Http\Controllers\KidsEventController;
 use App\Http\Controllers\KidsFunVenueController;
 use App\Http\Controllers\ParentCornerController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\SchoolManagement\ParentGuardianController;
+use App\Http\Controllers\SchoolManagement\StudentController;
 
 // Test route for chat functionality (no auth required)
 Route::get('/chat-test', function () {
@@ -100,6 +102,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::patch('businesses/{business}/update-social-media', [BusinessController::class, 'updateSocialMedia'])->name('businesses.update-social-media');
     Route::resource("support", SupportController::class);
     Route::resource("transactions", TransactionController::class);
+    // User routes - custom routes must come before resource route to avoid conflicts
+    Route::get('/users/bulk-upload', [UserController::class, 'bulkUploadPage'])->name('users.bulk-upload-page');
+    Route::get('/users/download-template', [UserController::class, 'downloadTemplate'])->name('users.download-template');
+    Route::post('/users/bulk-upload', [UserController::class, 'bulkUpload'])->name('users.bulk-upload');
     Route::resource("users", UserController::class);
     Route::resource("roles", RoleController::class);
     Route::resource("features", FeatureController::class);
@@ -183,6 +189,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
             return view('school-management.students');
         })->name('students');
         
+        Route::get('/students/create', [StudentController::class, 'create'])->name('students.create');
+        Route::post('/students', [StudentController::class, 'store'])->name('students.store');
+        Route::get('/students/bulk-upload', [StudentController::class, 'bulkUploadPage'])->name('students.bulk-upload-page');
+        Route::get('/students/download-template', [StudentController::class, 'downloadTemplate'])->name('students.download-template');
+        Route::post('/students/bulk-upload', [StudentController::class, 'bulkUpload'])->name('students.bulk-upload');
+        
         Route::get('/attendance', function () {
             return view('school-management.attendance');
         })->name('attendance');
@@ -218,6 +230,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/parents', function () {
             return view('school-management.parents');
         })->name('parents');
+        
+        Route::get('/parents/create', [ParentGuardianController::class, 'create'])->name('parents.create');
+        Route::post('/parents', [ParentGuardianController::class, 'store'])->name('parents.store');
+        Route::get('/parents/bulk-upload', [ParentGuardianController::class, 'bulkUploadPage'])->name('parents.bulk-upload-page');
+        Route::get('/parents/download-template', [ParentGuardianController::class, 'downloadTemplate'])->name('parents.download-template');
+        Route::post('/parents/bulk-upload', [ParentGuardianController::class, 'bulkUpload'])->name('parents.bulk-upload');
         
         Route::get('/terms', function () {
             return view('school-management.terms');

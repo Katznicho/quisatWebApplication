@@ -17,6 +17,11 @@ class ParentCornerRegistrationController extends Controller
     public function store(Request $request, $eventId)
     {
         try {
+            Log::info('ParentCornerRegistration::store - Request received', [
+                'event_id' => $eventId,
+                'request_data' => $request->all(),
+            ]);
+            
             // Find the event
             $event = ParentCorner::where('id', $eventId)
                 ->first();

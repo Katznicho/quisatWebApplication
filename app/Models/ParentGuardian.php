@@ -26,6 +26,7 @@ class ParentGuardian extends Model
         'emergency_contact',
         'business_id',
         'status',
+        'photo',
     ];
 
     protected $hidden = [
