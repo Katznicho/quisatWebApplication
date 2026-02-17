@@ -189,7 +189,8 @@ class ListRoles extends Component implements HasForms, HasTable
                                 ->options(Business::pluck('name', 'id'))
                                 ->required()
                                 ->disabled(fn() => Auth::user()->business_id !== 1)
-                                ->default($record->business_id),
+                                ->default($record->business_id)
+                                ->dehydrated(), // Ensure it's included in form data even when disabled
 
                             TextInput::make('name')
                                 ->label('Role Name')
@@ -207,7 +208,7 @@ class ListRoles extends Component implements HasForms, HasTable
                                 ->schema($permissionsSchema),
                         ];
                     })
-                    ->mutateFormDataUsing(function (array $data) {
+                    ->mutateFormDataUsing(function (array $data, Role $record) {
                         $permissionMap = [];
                         $this->buildPermissionCheckboxes(self::getAccessControl(), [], $permissionMap);
 
@@ -219,6 +220,12 @@ class ListRoles extends Component implements HasForms, HasTable
                             unset($data[$key]);
                         }
                         $data['permissions'] = json_encode($selectedPermissions);
+                        
+                        // Ensure business_id is set when field is disabled
+                        if (!isset($data['business_id']) || empty($data['business_id'])) {
+                            $data['business_id'] = $record->business_id ?? Auth::user()->business_id;
+                        }
+                        
                         return $data;
                     })
                     ->action(function (Role $record, array $data) {
@@ -256,7 +263,8 @@ class ListRoles extends Component implements HasForms, HasTable
                                 ->options(Business::pluck('name', 'id'))
                                 ->required()
                                 ->default(Auth::user()->business_id)
-                                ->disabled(fn() => Auth::user()->business_id !== 1),
+                                ->disabled(fn() => Auth::user()->business_id !== 1)
+                                ->dehydrated(), // Ensure it's included in form data even when disabled
 
                             TextInput::make('name')
                                 ->label('Role Name')
@@ -284,6 +292,12 @@ class ListRoles extends Component implements HasForms, HasTable
                             unset($data[$key]);
                         }
                         $data['permissions'] = json_encode($selectedPermissions);
+                        
+                        // Ensure business_id is set when field is disabled
+                        if (!isset($data['business_id']) || empty($data['business_id'])) {
+                            $data['business_id'] = Auth::user()->business_id;
+                        }
+                        
                         return $data;
                     })
                     ->action(function (array $data) {
