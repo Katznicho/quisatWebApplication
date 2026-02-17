@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\User;
+use App\Models\ParentGuardian;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Tables;
@@ -13,6 +14,7 @@ use Livewire\Component;
 use Illuminate\Contracts\View\View;
 use App\Models\Business;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class ListUsers extends Component implements HasForms, HasTable
 {
@@ -27,6 +29,14 @@ class ListUsers extends Component implements HasForms, HasTable
         if (Auth::check() && Auth::user()->business_id !== 1) {
             $query->where('business_id', Auth::user()->business_id);
         }
+        
+        // Exclude users who are parents (have matching email in parent_guardians table)
+        // Use whereNotExists with a subquery for case-insensitive email matching
+        $query->whereNotExists(function ($subquery) {
+            $subquery->select(\DB::raw(1))
+                ->from('parent_guardians')
+                ->whereRaw('LOWER(TRIM(parent_guardians.email)) = LOWER(TRIM(users.email))');
+        });
 
         return $table
             ->query($query)

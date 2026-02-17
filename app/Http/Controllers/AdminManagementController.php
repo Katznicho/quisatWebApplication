@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Business;
 use App\Models\Branch;
 use App\Models\Role;
+use App\Models\ParentGuardian;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
@@ -37,7 +38,17 @@ class AdminManagementController extends Controller
             return $user->isBusinessAdmin();
         });
         
-        $staff = $users->filter(function ($user) {
+        // Get all parent emails (case-insensitive) to exclude them from staff
+        $parentEmails = ParentGuardian::pluck('email')->map(function ($email) {
+            return strtolower(trim($email));
+        })->toArray();
+        
+        $staff = $users->filter(function ($user) use ($parentEmails) {
+            // Exclude users who are parents (have matching email in parent_guardians table)
+            $userEmail = strtolower(trim($user->email ?? ''));
+            if (in_array($userEmail, $parentEmails)) {
+                return false;
+            }
             return $user->isStaff();
         });
 
