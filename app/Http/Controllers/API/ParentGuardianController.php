@@ -106,6 +106,9 @@ class ParentGuardianController extends Controller
     protected function transformParent(ParentGuardian $parent, bool $includeDetails = false): array
     {
         $students = $parent->students->map(function ($student) {
+            // Ensure classRoom is loaded
+            $student->loadMissing('classRoom');
+            
             return [
                 'id' => $student->id,
                 'full_name' => $student->full_name,

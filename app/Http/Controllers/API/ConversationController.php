@@ -258,13 +258,16 @@ class ConversationController extends Controller
 
         // If parent_email is provided, find or create user for that parent
         if (!empty($validated['parent_email'])) {
-            $parent = ParentGuardian::where('email', $validated['parent_email'])
+            $parentEmail = strtolower(trim($validated['parent_email']));
+            
+            // Use case-insensitive email matching
+            $parent = ParentGuardian::whereRaw('LOWER(TRIM(email)) = ?', [$parentEmail])
                 ->where('business_id', $businessId)
                 ->first();
 
             if (!$parent) {
                 // If parent not found, try to find a user with that email (could be staff)
-                $parentUser = User::where('email', $validated['parent_email'])
+                $parentUser = User::whereRaw('LOWER(TRIM(email)) = ?', [$parentEmail])
                     ->where('business_id', $businessId)
                     ->first();
 
@@ -278,20 +281,57 @@ class ConversationController extends Controller
                 }
             } else {
                 // Find user with same email, or create one
-                $parentUser = User::where('email', $parent->email)
+                // Use case-insensitive email matching
+                $parentEmailLower = strtolower(trim($parent->email));
+                
+                // First try to find by email and business_id
+                $parentUser = User::whereRaw('LOWER(TRIM(email)) = ?', [$parentEmailLower])
                     ->where('business_id', $businessId)
                     ->first();
 
+                // If not found, try to find by email only (in case business_id doesn't match)
                 if (!$parentUser) {
-                    // Create a user account for the parent
-                    $parentUser = User::create([
-                        'name' => $parent->full_name,
-                        'email' => $parent->email,
-                        'business_id' => $businessId,
-                        'status' => 'active',
-                        'branch_id' => null, // Parents don't belong to a branch
-                        'password' => '', // Empty password - parent uses ParentGuardian login
-                    ]);
+                    $parentUser = User::whereRaw('LOWER(TRIM(email)) = ?', [$parentEmailLower])->first();
+                }
+
+                if (!$parentUser) {
+                    try {
+                        // Create a user account for the parent
+                        $parentUser = User::create([
+                            'name' => $parent->full_name,
+                            'email' => $parent->email,
+                            'business_id' => $businessId,
+                            'status' => 'active',
+                            'branch_id' => null, // Parents don't belong to a branch
+                            'password' => '', // Empty password - parent uses ParentGuardian login
+                        ]);
+                    } catch (\Illuminate\Database\QueryException $e) {
+                        // Handle unique constraint violation (email already exists)
+                        if ($e->getCode() == 23000) {
+                            // Email already exists, try to find it again
+                            $parentUser = User::where('email', $parent->email)->first();
+                            if (!$parentUser) {
+                                return response()->json([
+                                    'success' => false,
+                                    'message' => 'Unable to create or find user account for parent.',
+                                    'error' => 'Database constraint violation',
+                                ], 500);
+                            }
+                        } else {
+                            throw $e;
+                        }
+                    } catch (\Exception $e) {
+                        Log::error('Error creating user for parent in conversation: ' . $e->getMessage(), [
+                            'parent_email' => $parent->email,
+                            'business_id' => $businessId,
+                            'trace' => $e->getTraceAsString(),
+                        ]);
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Unable to create user account for parent.',
+                            'error' => $e->getMessage(),
+                        ], 500);
+                    }
                 }
 
                 $participantIds[] = $parentUser->id;
@@ -409,6 +449,20 @@ class ConversationController extends Controller
             }
 
             return response()->json($responseData, 201);
+        } catch (\Illuminate\Database\QueryException $e) {
+            DB::rollBack();
+            Log::error('Database error creating conversation: ' . $e->getMessage(), [
+                'user_id' => $user->id,
+                'business_id' => $businessId,
+                'participant_ids' => $participantIds,
+                'error' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create conversation due to a database error. Please try again.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Database error',
+            ], 500);
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Failed to create conversation: ' . $e->getMessage(), [
@@ -421,6 +475,7 @@ class ConversationController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create conversation. Please try again.',
+                'error' => config('app.debug') ? $e->getMessage() : 'An unexpected error occurred',
             ], 500);
         }
     }
