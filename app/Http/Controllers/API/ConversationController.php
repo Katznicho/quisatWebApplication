@@ -475,9 +475,18 @@ class ConversationController extends Controller
             'last_message_at' => optional($conversation->last_message_at)->toIso8601String(),
             'participants' => $conversation->users->map(function (User $participantUser) use ($user) {
                 // Check if participant is a parent by checking if their email exists in ParentGuardian table
-                $isParent = ParentGuardian::where('email', $participantUser->email)
+                // Use case-insensitive comparison and check both with and without business_id constraint
+                // to handle edge cases where business_id might not match exactly
+                $email = strtolower(trim($participantUser->email));
+                $isParent = ParentGuardian::whereRaw('LOWER(TRIM(email)) = ?', [$email])
                     ->where('business_id', $participantUser->business_id)
                     ->exists();
+                
+                // If not found with business_id, try without it (fallback)
+                if (!$isParent) {
+                    $isParent = ParentGuardian::whereRaw('LOWER(TRIM(email)) = ?', [$email])
+                        ->exists();
+                }
                 
                 return [
                     'id' => $participantUser->id,
