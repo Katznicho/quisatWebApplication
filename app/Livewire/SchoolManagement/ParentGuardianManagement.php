@@ -27,7 +27,8 @@ class ParentGuardianManagement extends Component implements HasForms, HasTable
 
     public function table(Table $table): Table
     {
-        $query = ParentGuardian::query();
+        $query = ParentGuardian::query()
+            ->with(['students.classRoom']);
         
         // Filter by business_id for non-admin users
         if (auth()->user()->business_id !== 1) {
@@ -36,6 +37,7 @@ class ParentGuardianManagement extends Component implements HasForms, HasTable
         
         return $table
             ->query($query)
+            ->searchable()
             ->columns([
                 Tables\Columns\TextColumn::make('first_name')
                     ->searchable()
@@ -52,6 +54,28 @@ class ParentGuardianManagement extends Component implements HasForms, HasTable
                     ->sortable(),
                 Tables\Columns\TextColumn::make('occupation')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('students')
+                    ->label('Children')
+                    ->formatStateUsing(function ($state, $record) {
+                        if ($record->students->isEmpty()) {
+                            return 'No children';
+                        }
+                        
+                        return $record->students->map(function ($student) {
+                            $className = $student->classRoom?->name ?? 'Not Assigned';
+                            return $student->full_name . ' (' . $className . ')';
+                        })->join(', ');
+                    })
+                    ->wrap()
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        return $query->whereHas('students', function ($q) use ($search) {
+                            $q->where('first_name', 'like', "%{$search}%")
+                                ->orWhere('last_name', 'like', "%{$search}%")
+                                ->orWhereHas('classRoom', function ($classQuery) use ($search) {
+                                    $classQuery->where('name', 'like', "%{$search}%");
+                                });
+                        });
+                    }),
                 Tables\Columns\TextColumn::make('business.name')
                     ->label('Business')
                     ->sortable(),
