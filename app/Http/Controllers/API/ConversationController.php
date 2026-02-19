@@ -474,12 +474,18 @@ class ConversationController extends Controller
             'unread_count' => $unreadCount,
             'last_message_at' => optional($conversation->last_message_at)->toIso8601String(),
             'participants' => $conversation->users->map(function (User $participantUser) use ($user) {
+                // Check if participant is a parent by checking if their email exists in ParentGuardian table
+                $isParent = ParentGuardian::where('email', $participantUser->email)
+                    ->where('business_id', $participantUser->business_id)
+                    ->exists();
+                
                 return [
                     'id' => $participantUser->id,
                     'name' => $participantUser->name,
                     'email' => $participantUser->email,
                     'avatar_url' => $participantUser->profile_photo_url,
                     'is_self' => $participantUser->id === $user->id,
+                    'type' => $isParent ? 'parent' : 'staff',
                 ];
             })->values()->all(),
         ];
