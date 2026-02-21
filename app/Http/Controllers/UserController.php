@@ -221,8 +221,9 @@ class UserController extends Controller
                 continue;
             }
 
-            // Check if email already exists
-            if (User::where('email', $data['email'])->exists()) {
+            // Check if email already exists (case-insensitive)
+            $emailLower = strtolower(trim($data['email']));
+            if (User::whereRaw('LOWER(TRIM(email)) = ?', [$emailLower])->exists()) {
                 $errorCount++;
                 $errors[] = "Row {$rowNumber}: Email already exists: {$data['email']}";
                 continue;

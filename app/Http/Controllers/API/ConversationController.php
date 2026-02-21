@@ -621,20 +621,57 @@ class ConversationController extends Controller
 
         // If ParentGuardian, find or create corresponding User
         if ($authenticatedUser instanceof ParentGuardian) {
-            $user = User::where('email', $authenticatedUser->email)
+            $parentEmail = strtolower(trim($authenticatedUser->email));
+            
+            // First try to find by email and business_id (case-insensitive)
+            $user = User::whereRaw('LOWER(TRIM(email)) = ?', [$parentEmail])
                 ->where('business_id', $businessId)
                 ->first();
 
+            // If not found, try to find by email only (in case business_id doesn't match)
             if (!$user) {
-                // Create a user account for the parent
-                $user = User::create([
-                    'name' => $authenticatedUser->full_name,
-                    'email' => $authenticatedUser->email,
-                    'business_id' => $businessId,
-                    'status' => 'active',
-                    'branch_id' => null, // Parents don't belong to a branch
-                    'password' => '', // Empty password - parent uses ParentGuardian login
-                ]);
+                $user = User::whereRaw('LOWER(TRIM(email)) = ?', [$parentEmail])->first();
+            }
+
+            if (!$user) {
+                try {
+                    // Create a user account for the parent
+                    $user = User::create([
+                        'name' => $authenticatedUser->full_name,
+                        'email' => $authenticatedUser->email,
+                        'business_id' => $businessId,
+                        'status' => 'active',
+                        'branch_id' => null, // Parents don't belong to a branch
+                        'password' => '', // Empty password - parent uses ParentGuardian login
+                    ]);
+                } catch (\Illuminate\Database\QueryException $e) {
+                    // Handle unique constraint violation (email already exists)
+                    if ($e->getCode() == 23000) {
+                        // Email already exists, try to find it again (case-insensitive)
+                        $user = User::whereRaw('LOWER(TRIM(email)) = ?', [$parentEmail])->first();
+                        if (!$user) {
+                            Log::error('Failed to find user after duplicate email error', [
+                                'parent_email' => $authenticatedUser->email,
+                                'business_id' => $businessId,
+                            ]);
+                            return null;
+                        }
+                    } else {
+                        Log::error('Error creating user for parent in conversation: ' . $e->getMessage(), [
+                            'parent_email' => $authenticatedUser->email,
+                            'business_id' => $businessId,
+                            'trace' => $e->getTraceAsString(),
+                        ]);
+                        throw $e;
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Error creating user for parent in conversation: ' . $e->getMessage(), [
+                        'parent_email' => $authenticatedUser->email,
+                        'business_id' => $businessId,
+                        'trace' => $e->getTraceAsString(),
+                    ]);
+                    return null;
+                }
             }
 
             return $user;
