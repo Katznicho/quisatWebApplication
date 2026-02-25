@@ -35,7 +35,8 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index(['business_id', 'student_id', 'record_date']);
+            // Short composite index name to avoid MySQL's 64‑character limit
+            $table->index(['business_id', 'student_id', 'record_date'], 'scr_bus_student_date_idx');
 
             $table->foreign('business_id')->references('id')->on('businesses')->onDelete('cascade');
             $table->foreign('student_id')->references('id')->on('students')->onDelete('cascade');
