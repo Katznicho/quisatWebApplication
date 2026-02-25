@@ -11,6 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Make this migration safe on environments where the table
+        // might already have been created manually.
+        if (Schema::hasTable('student_character_reports')) {
+            return;
+        }
+
         Schema::create('student_character_reports', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
