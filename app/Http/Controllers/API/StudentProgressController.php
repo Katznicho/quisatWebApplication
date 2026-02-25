@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use App\Models\Grade;
 use App\Models\Student;
+use App\Models\StudentCharacterReport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
@@ -26,11 +27,34 @@ class StudentProgressController extends Controller
             ->where('student_id', $student->id)
             ->orderBy('created_at')
             ->get();
-
         $attendanceRecords = Attendance::where('student_id', $student->id)->get();
 
-        $overallAverage = round($grades->avg('percentage') ?? 0, 2);
+        $averageFromGrades = $grades->avg('percentage');
+        $overallAverage = is_null($averageFromGrades) ? null : round($averageFromGrades, 2);
+
         $attendancePercentage = $this->calculateAttendancePercentage($attendanceRecords);
+
+        // Find the most recent character report for this student (if any)
+        $latestCharacterReport = StudentCharacterReport::query()
+            ->where('business_id', $business->id)
+            ->where('student_id', $student->id)
+            ->orderByDesc('record_date')
+            ->orderByDesc('created_at')
+            ->first();
+
+        // Determine overall progress label.
+        // Priority:
+        //   1. Explicit status from the latest character report (staff input)
+        //   2. Derived from academic average
+        //   3. Fallback when there is only attendance data
+        $overallProgress = null;
+        if ($latestCharacterReport && $latestCharacterReport->status) {
+            $overallProgress = $latestCharacterReport->status;
+        } elseif (! is_null($overallAverage)) {
+            $overallProgress = $this->labelForAverage($overallAverage);
+        } elseif (! is_null($attendancePercentage)) {
+            $overallProgress = 'Insufficient academic data';
+        }
 
         $monthly = $this->buildPerformanceSeries($grades, 'Y-m');
         $quarterly = $this->buildPerformanceSeries($grades, 'Y-\QQ');
@@ -47,7 +71,7 @@ class StudentProgressController extends Controller
                     'avatar_url' => "https://ui-avatars.com/api/?name=" . urlencode($student->full_name) . "&background=4A90E2&color=ffffff",
                 ],
                 'overview' => [
-                    'overall_progress' => $this->labelForAverage($overallAverage),
+                    'overall_progress' => $overallProgress,
                     'academic_average' => $overallAverage,
                     'attendance' => $attendancePercentage,
                 ],
@@ -56,6 +80,15 @@ class StudentProgressController extends Controller
                     'quarterly' => $quarterly,
                     'annually' => $annually,
                 ],
+                'character_program' => $latestCharacterReport ? [
+                    'id' => $latestCharacterReport->id,
+                    'uuid' => $latestCharacterReport->uuid,
+                    'record_date' => optional($latestCharacterReport->record_date)->toDateString(),
+                    'status' => $latestCharacterReport->status,
+                    'headline' => $latestCharacterReport->headline,
+                    'notes' => $latestCharacterReport->notes,
+                    'traits' => $latestCharacterReport->traits ?: [],
+                ] : null,
             ],
         ]);
     }
