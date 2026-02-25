@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use App\Models\Student;
+use App\Models\Term;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -271,5 +272,113 @@ class AttendanceController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Get attendance history for a student (by route param). Same format as studentHistory.
+     */
+    public function studentAttendanceHistory(Request $request, Student $student)
+    {
+        $business = $request->get('business');
+
+        if ($student->business_id !== $business->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Student not found in your business.',
+            ], 404);
+        }
+
+        $limit = (int) $request->query('limit', 20);
+        $limit = $limit > 0 ? min($limit, 100) : 20;
+
+        $attendanceRecords = Attendance::query()
+            ->with('classRoom:id,name,code')
+            ->where('business_id', $business->id)
+            ->where('student_id', $student->id)
+            ->orderByDesc('attendance_date')
+            ->limit($limit)
+            ->get()
+            ->map(function (Attendance $attendance) {
+                return [
+                    'id' => $attendance->id,
+                    'attendance_date' => optional($attendance->attendance_date)->toDateString(),
+                    'status' => $attendance->status,
+                    'class_room' => $attendance->classRoom?->name,
+                    'marked_by' => $attendance->marked_by,
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Attendance history loaded successfully.',
+            'data' => [
+                'student' => [
+                    'id' => $student->id,
+                    'full_name' => $student->full_name,
+                    'class' => $student->classRoom?->name,
+                ],
+                'attendance' => $attendanceRecords,
+            ],
+        ]);
+    }
+
+    /**
+     * Record daily attendance for a student (staff). Used from Student Character / progress flow.
+     */
+    public function recordForStudent(Request $request, Student $student)
+    {
+        $business = $request->get('business');
+        $user = $request->get('authenticated_user');
+
+        if ($student->business_id !== $business->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Student not found in your business.',
+            ], 404);
+        }
+
+        if (! $user instanceof User) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only staff can record attendance for a student.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'record_date' => 'required|date',
+            'status' => 'required|in:present,absent,late,excused,sick',
+            'remarks' => 'nullable|string|max:500',
+        ]);
+
+        $recordDate = Carbon::parse($validated['record_date'])->startOfDay();
+        $term = Term::where('business_id', $business->id)->where('is_current_term', true)->first();
+
+        $record = Attendance::updateOrCreate(
+            [
+                'business_id' => $business->id,
+                'student_id' => $student->id,
+                'class_room_id' => $student->class_room_id,
+                'attendance_date' => $recordDate,
+            ],
+            [
+                'term_id' => $term?->id,
+                'status' => $validated['status'],
+                'marked_by' => $user->id,
+                'remarks' => $validated['remarks'] ?? null,
+            ]
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Attendance recorded successfully.',
+            'data' => [
+                'attendance' => [
+                    'id' => $record->id,
+                    'attendance_date' => $record->attendance_date->toDateString(),
+                    'status' => $record->status,
+                    'remarks' => $record->remarks,
+                ],
+            ],
+        ]);
     }
 }

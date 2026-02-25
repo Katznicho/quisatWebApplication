@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use App\Models\Grade;
 use App\Models\Student;
+use App\Models\StudentAcademicEntry;
 use App\Models\StudentCharacterReport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -28,6 +29,37 @@ class StudentProgressController extends Controller
             ->orderBy('created_at')
             ->get();
         $attendanceRecords = Attendance::where('student_id', $student->id)->get();
+
+        $recentAttendance = Attendance::query()
+            ->where('student_id', $student->id)
+            ->orderByDesc('attendance_date')
+            ->limit(20)
+            ->get()
+            ->map(function (Attendance $a) {
+                return [
+                    'id' => $a->id,
+                    'attendance_date' => optional($a->attendance_date)->toDateString(),
+                    'status' => $a->status,
+                    'remarks' => $a->remarks,
+                ];
+            });
+
+        $recentAcademicEntries = StudentAcademicEntry::query()
+            ->with('subject:id,name')
+            ->where('student_id', $student->id)
+            ->orderByDesc('record_date')
+            ->orderByDesc('created_at')
+            ->limit(15)
+            ->get()
+            ->map(function (StudentAcademicEntry $e) {
+                return [
+                    'id' => $e->id,
+                    'record_date' => optional($e->record_date)->toDateString(),
+                    'subject' => $e->subject?->name,
+                    'percentage' => (float) $e->percentage,
+                    'notes' => $e->notes,
+                ];
+            });
 
         $averageFromGrades = $grades->avg('percentage');
         $overallAverage = is_null($averageFromGrades) ? null : round($averageFromGrades, 2);
@@ -89,6 +121,8 @@ class StudentProgressController extends Controller
                     'notes' => $latestCharacterReport->notes,
                     'traits' => $latestCharacterReport->traits ?: [],
                 ] : null,
+                'recent_attendance' => $recentAttendance->values()->all(),
+                'recent_academic_entries' => $recentAcademicEntries->values()->all(),
             ],
         ]);
     }
