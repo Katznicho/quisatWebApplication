@@ -231,6 +231,7 @@ Route::prefix('v1')->group(function () {
                 Route::get('{assignment}/submissions/{submission}', [AssignmentSubmissionController::class, 'show']);
             });
 
+            Route::get('conversations/staff-for-messaging', [ConversationController::class, 'staffForMessaging']);
             Route::prefix('conversations')->group(function () {
                 Route::get('/', [ConversationController::class, 'index']);
                 Route::post('/', [ConversationController::class, 'store']);

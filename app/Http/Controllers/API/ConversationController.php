@@ -18,6 +18,9 @@ class ConversationController extends Controller
         $businessId = $request->get('business_id');
         $authenticatedUser = $request->get('authenticated_user');
         
+        // Check if authenticated user is a parent
+        $isParent = $authenticatedUser instanceof ParentGuardian;
+        
         // Get the User record - if authenticated user is ParentGuardian, find/create corresponding User
         $user = $this->getUserForConversation($authenticatedUser, $businessId);
         if (!$user) {
@@ -30,7 +33,7 @@ class ConversationController extends Controller
         $perPage = (int) $request->query('per_page', 25);
         $perPage = $perPage > 0 ? min($perPage, 100) : 25;
 
-        $conversations = Conversation::query()
+        $conversationsQuery = Conversation::query()
             ->with([
                 'users:id,name,email,profile_photo_path',
                 'latestMessage' => function ($query) {
@@ -40,7 +43,24 @@ class ConversationController extends Controller
             ->where('business_id', $businessId)
             ->whereHas('participants', function ($query) use ($user) {
                 $query->where('user_id', $user->id);
-            })
+            });
+
+        // If user is a parent, filter to only show conversations with staff (not other parents)
+        if ($isParent) {
+            // Exclude conversations where any other participant is a parent
+            // We check if any participant's email exists in the ParentGuardian table
+            $conversationsQuery->whereDoesntHave('users', function ($query) use ($user, $businessId) {
+                $query->where('users.id', '!=', $user->id)
+                    ->whereExists(function ($subQuery) use ($businessId) {
+                        $subQuery->select(DB::raw(1))
+                            ->from('parent_guardians')
+                            ->where('business_id', $businessId)
+                            ->whereColumn(DB::raw('LOWER(TRIM(parent_guardians.email))'), DB::raw('LOWER(TRIM(users.email))'));
+                    });
+            });
+        }
+
+        $conversations = $conversationsQuery
             ->orderByDesc('last_message_at')
             ->orderByDesc('updated_at')
             ->paginate($perPage);
@@ -60,6 +80,62 @@ class ConversationController extends Controller
                     'total' => $conversations->total(),
                     'last_page' => $conversations->lastPage(),
                     'has_more' => $conversations->hasMorePages(),
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * List staff members for messaging (for parents: search and start conversation with staff).
+     */
+    public function staffForMessaging(Request $request)
+    {
+        $businessId = $request->get('business_id');
+
+        $query = User::query()
+            ->select('users.id', 'users.name', 'users.email', 'users.profile_photo_path')
+            ->where('users.business_id', $businessId)
+            ->where('users.status', 'active')
+            ->whereNotExists(function ($subQuery) use ($businessId) {
+                $subQuery->select(DB::raw(1))
+                    ->from('parent_guardians')
+                    ->where('parent_guardians.business_id', $businessId)
+                    ->whereColumn(DB::raw('LOWER(TRIM(parent_guardians.email))'), DB::raw('LOWER(TRIM(users.email))'));
+            });
+
+        if ($search = $request->query('search')) {
+            $search = trim($search);
+            $query->where(function ($q) use ($search) {
+                $q->where('users.name', 'like', "%{$search}%")
+                    ->orWhere('users.email', 'like', "%{$search}%");
+            });
+        }
+
+        $perPage = (int) $request->query('per_page', 50);
+        $perPage = $perPage > 0 ? min($perPage, 100) : 50;
+
+        $staff = $query->orderBy('users.name')->paginate($perPage);
+
+        $staff->getCollection()->transform(function (User $u) {
+            return [
+                'id' => $u->id,
+                'name' => $u->name,
+                'email' => $u->email,
+                'avatar_url' => $u->profile_photo_path ? \Storage::url($u->profile_photo_path) : null,
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Staff list retrieved successfully.',
+            'data' => [
+                'staff' => $staff->items(),
+                'pagination' => [
+                    'current_page' => $staff->currentPage(),
+                    'per_page' => $staff->perPage(),
+                    'total' => $staff->total(),
+                    'last_page' => $staff->lastPage(),
+                    'has_more' => $staff->hasMorePages(),
                 ],
             ],
         ]);
