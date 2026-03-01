@@ -39,7 +39,12 @@ class ParentDashboardController extends Controller
 
         $announcements = BroadcastAnnouncement::query()
             ->where('business_id', $business->id)
-            ->where('status', 'sent')
+            ->whereIn('status', ['published', 'sent'])
+            ->where(function ($q) {
+                $q->whereNull('target_roles')
+                    ->orWhereJsonContains('target_roles', 'all_users')
+                    ->orWhereJsonContains('target_roles', 'parents');
+            })
             ->orderByDesc('sent_at')
             ->orderByDesc('created_at')
             ->limit(5)
