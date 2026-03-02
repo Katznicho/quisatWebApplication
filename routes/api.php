@@ -258,6 +258,7 @@ Route::prefix('v1')->group(function () {
             Route::post('attendance/check-in', [AttendanceController::class, 'checkIn']);
             Route::post('attendance/check-out', [AttendanceController::class, 'checkOut']);
             Route::get('documents', [DocumentController::class, 'index']);
+            Route::post('documents', [DocumentController::class, 'store']);
             
             // KidsMart Orders (for authenticated users - viewing their orders)
             Route::prefix('orders')->group(function () {
