@@ -2,6 +2,7 @@
 
 namespace App\Livewire\SchoolManagement;
 
+use App\Models\Branch;
 use App\Models\ClassRoom;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -21,6 +22,7 @@ use Filament\Tables\Filters\TrashedFilter;
 use Livewire\Component;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Validation\Rule;
 
 class ClassRoomManagement extends Component implements HasForms, HasTable
 {
@@ -85,15 +87,19 @@ class ClassRoomManagement extends Component implements HasForms, HasTable
                             ->placeholder('Enter classroom name'),
                         TextInput::make('code')
                             ->required()
-                            ->placeholder('Enter classroom code'),
+                            ->placeholder('Enter classroom code')
+                            ->rules(fn ($record) => [
+                                Rule::unique('class_rooms', 'code')->where('business_id', auth()->user()->business_id)->ignore($record?->id),
+                            ]),
                         TextInput::make('capacity')
                             ->numeric()
                             ->required()
                             ->placeholder('Enter capacity'),
                         Select::make('branch_id')
-                            ->relationship('branch', 'name')
                             ->label('Branch')
-                            ->placeholder('Select branch (optional)'),
+                            ->options(fn () => Branch::when(auth()->user()->business_id, fn ($q) => $q->where('business_id', auth()->user()->business_id))->orderBy('name')->pluck('name', 'id'))
+                            ->placeholder('Select branch (optional)')
+                            ->searchable(),
                         Textarea::make('description')
                             ->placeholder('Enter description')
                             ->rows(3),
@@ -129,15 +135,19 @@ class ClassRoomManagement extends Component implements HasForms, HasTable
                             ->placeholder('Enter classroom name'),
                         TextInput::make('code')
                             ->required()
-                            ->placeholder('Enter classroom code'),
+                            ->placeholder('Enter classroom code')
+                            ->rules(fn ($record) => [
+                                Rule::unique('class_rooms', 'code')->where('business_id', auth()->user()->business_id)->ignore($record?->id),
+                            ]),
                         TextInput::make('capacity')
                             ->numeric()
                             ->required()
                             ->placeholder('Enter capacity'),
                         Select::make('branch_id')
-                            ->relationship('branch', 'name')
                             ->label('Branch')
-                            ->placeholder('Select branch (optional)'),
+                            ->options(fn () => Branch::when(auth()->user()->business_id, fn ($q) => $q->where('business_id', auth()->user()->business_id))->orderBy('name')->pluck('name', 'id'))
+                            ->placeholder('Select branch (optional)')
+                            ->searchable(),
                         Textarea::make('description')
                             ->placeholder('Enter description')
                             ->rows(3),

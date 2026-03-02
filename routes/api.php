@@ -19,6 +19,7 @@ use App\Http\Controllers\API\DocumentController;
 use App\Http\Controllers\API\TimetableController;
 use App\Http\Controllers\API\StudentCharacterController;
 use App\Http\Controllers\API\StudentAcademicEntryController;
+use App\Http\Controllers\API\StudentDocumentController;
 use App\Http\Controllers\API\PublicKidsEventsController;
 use App\Http\Controllers\API\PublicParentCornersController;
 use App\Http\Controllers\API\PublicKidsFunVenuesController;
@@ -187,6 +188,8 @@ Route::prefix('v1')->group(function () {
                 Route::post('{student}/attendance', [AttendanceController::class, 'recordForStudent']);
                 Route::get('{student}/academic-entries', [StudentAcademicEntryController::class, 'index']);
                 Route::post('{student}/academic-entries', [StudentAcademicEntryController::class, 'store']);
+                Route::get('{student}/documents', [StudentDocumentController::class, 'index']);
+                Route::post('{student}/documents', [StudentDocumentController::class, 'store']);
             });
 
             Route::get('subjects', function (Request $request) {

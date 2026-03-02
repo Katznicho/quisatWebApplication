@@ -154,10 +154,9 @@ class ChatController extends Controller
                         'unread_count' => $unreadCount
                     ];
                 });
-            
-            $contacts = $staffContacts->merge($parentContacts);
-        }
 
+            $contacts = collect(array_merge($staffContacts->values()->all(), $parentContacts->values()->all()));
+        }
 
         return view('chat.index', compact('conversations', 'contacts'));
     }
