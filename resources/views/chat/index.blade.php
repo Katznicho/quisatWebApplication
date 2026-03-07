@@ -120,6 +120,42 @@
             </div>
         </div>
 
+        <!-- Broadcasted Messages Section -->
+        <div class="mt-6 bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Broadcasted Messages</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Recent announcements sent to all parents for this school.</p>
+            <div id="broadcastsList" class="space-y-3 max-h-64 overflow-y-auto">
+                <div id="broadcastsLoading" class="text-center text-gray-500 dark:text-gray-400 py-4">
+                    <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                    <p class="mt-2 text-sm">Loading broadcasts...</p>
+                </div>
+                <div id="broadcastsContent" class="hidden space-y-3"></div>
+                <div id="broadcastsEmpty" class="hidden text-center text-gray-500 dark:text-gray-400 py-6 text-sm">
+                    No broadcasts yet. Send one below.
+                </div>
+            </div>
+        </div>
+
+        <!-- Broadcast view modal -->
+        <div id="broadcastViewModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[90vh] flex flex-col">
+                <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                    <h3 id="broadcastModalTitle" class="text-lg font-semibold text-gray-900 dark:text-gray-100">Broadcast</h3>
+                    <button type="button" id="broadcastModalClose" class="p-1 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 rounded" aria-label="Close">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+                    <button type="button" id="broadcastModalCloseBtn" class="w-full px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500">Close</button>
+                </div>
+                <div class="p-4 overflow-y-auto flex-1">
+                    <p id="broadcastModalType" class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2"></p>
+                    <p id="broadcastModalContent" class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap"></p>
+                    <p id="broadcastModalMeta" class="text-xs text-gray-500 dark:text-gray-500 mt-3"></p>
+                </div>
+            </div>
+        </div>
+
         <!-- Broadcast Announcement Section -->
         <div class="mt-6 bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6">
             <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Broadcast Announcement</h3>
@@ -719,18 +755,167 @@
             }
         });
 
+        // Load broadcasted messages
+        function loadBroadcasts() {
+            const loadingEl = document.getElementById('broadcastsLoading');
+            const contentEl = document.getElementById('broadcastsContent');
+            const emptyEl = document.getElementById('broadcastsEmpty');
+            if (!loadingEl || !contentEl || !emptyEl) return;
+
+            loadingEl.classList.remove('hidden');
+            contentEl.classList.add('hidden');
+            contentEl.innerHTML = '';
+            emptyEl.classList.add('hidden');
+
+            fetch('/chat/broadcasts', {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                }
+            })
+                .then(response => response.json())
+                .then(broadcasts => {
+                    loadingEl.classList.add('hidden');
+                    if (!Array.isArray(broadcasts) || broadcasts.length === 0) {
+                        emptyEl.classList.remove('hidden');
+                        return;
+                    }
+                    const typeBadge = (type) => {
+                        const classes = type === 'urgent' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' : (type === 'info' ? 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300');
+                        return '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ' + classes + '">' + (type || 'general') + '</span>';
+                    };
+                    broadcasts.forEach(b => {
+                        const sentAt = b.sent_at ? new Date(b.sent_at).toLocaleString() : '';
+                        const bid = escapeHtml(String(b.id));
+                        const bTitle = escapeHtml(b.title);
+                        const bContent = escapeHtml(b.content);
+                        const bType = escapeHtml(b.type || 'general');
+                        const bSender = escapeHtml(b.sender_name || 'School');
+                        contentEl.innerHTML += `
+                            <div class="border border-gray-200 dark:border-gray-600 rounded-lg p-3 broadcast-card" data-broadcast-id="${bid}" data-broadcast-title="${bTitle.replace(/"/g, '&quot;')}" data-broadcast-content="${bContent.replace(/"/g, '&quot;').replace(/\n/g, '&#10;')}" data-broadcast-type="${bType}" data-broadcast-sender="${bSender.replace(/"/g, '&quot;')}" data-broadcast-sent="${escapeHtml(sentAt)}">
+                                <div class="flex items-start justify-between gap-2">
+                                    <h4 class="font-medium text-gray-900 dark:text-gray-100 text-sm cursor-pointer hover:underline" data-view-broadcast>${bTitle}</h4>
+                                    ${typeBadge(b.type)}
+                                </div>
+                                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2 cursor-pointer" data-view-broadcast>${bContent}</p>
+                                <div class="flex items-center justify-between mt-2">
+                                    <p class="text-xs text-gray-500 dark:text-gray-500">${bSender} · ${sentAt}</p>
+                                    <div class="flex items-center gap-1">
+                                        <button type="button" class="text-xs px-2 py-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded" data-view-broadcast>View</button>
+                                        <button type="button" class="text-xs px-2 py-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded" data-delete-broadcast>Delete</button>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    contentEl.classList.remove('hidden');
+                    // View broadcast: open modal with data from card
+                    contentEl.querySelectorAll('[data-view-broadcast]').forEach(el => {
+                        el.addEventListener('click', function() {
+                            const card = this.closest('.broadcast-card');
+                            if (!card) return;
+                            document.getElementById('broadcastModalTitle').textContent = card.dataset.broadcastTitle || 'Broadcast';
+                            document.getElementById('broadcastModalType').textContent = (card.dataset.broadcastType || 'general').charAt(0).toUpperCase() + (card.dataset.broadcastType || 'general').slice(1);
+                            document.getElementById('broadcastModalContent').textContent = (card.dataset.broadcastContent || '').replace(/&#10;/g, '\n');
+                            document.getElementById('broadcastModalMeta').textContent = (card.dataset.broadcastSender || '') + ' · ' + (card.dataset.broadcastSent || '');
+                            document.getElementById('broadcastViewModal').classList.remove('hidden');
+                        });
+                    });
+                    contentEl.querySelectorAll('[data-delete-broadcast]').forEach(btn => {
+                        btn.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            const card = this.closest('.broadcast-card');
+                            if (!card || !confirm('Delete this broadcast? This cannot be undone.')) return;
+                            const id = card.dataset.broadcastId;
+                            fetch('/chat/broadcasts/' + id, {
+                                method: 'DELETE',
+                                headers: {
+                                    'Accept': 'application/json',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                                }
+                            })
+                                .then(r => r.json())
+                                .then(data => {
+                                    if (data.success) {
+                                        card.remove();
+                                        if (contentEl.querySelectorAll('.broadcast-card').length === 0) {
+                                            contentEl.classList.add('hidden');
+                                            document.getElementById('broadcastsEmpty').classList.remove('hidden');
+                                        }
+                                    } else {
+                                        alert(data.message || 'Could not delete broadcast.');
+                                    }
+                                })
+                                .catch(() => alert('Could not delete broadcast.'));
+                        });
+                    });
+                    contentEl.classList.remove('hidden');
+                })
+                .catch(() => {
+                    loadingEl.classList.add('hidden');
+                    emptyEl.classList.remove('hidden');
+                    emptyEl.textContent = 'Unable to load broadcasts.';
+                });
+        }
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        loadBroadcasts();
+
+        // Broadcast view modal close
+        function closeBroadcastModal() {
+            document.getElementById('broadcastViewModal').classList.add('hidden');
+        }
+        document.getElementById('broadcastModalClose').addEventListener('click', closeBroadcastModal);
+        document.getElementById('broadcastModalCloseBtn').addEventListener('click', closeBroadcastModal);
+        document.getElementById('broadcastViewModal').addEventListener('click', function(e) {
+            if (e.target === this) closeBroadcastModal();
+        });
+
         // Broadcast form submission
         document.getElementById('broadcastForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            
-            const formData = new FormData(this);
-            const data = Object.fromEntries(formData);
-            
-            // Here you would send the broadcast via AJAX
-            
-            // Show success message
-            alert('Broadcast sent successfully!');
-            this.reset();
+            const form = this;
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span> Sending...';
+
+            const data = {
+                title: document.getElementById('broadcastTitle').value.trim(),
+                content: document.getElementById('broadcastContent').value.trim(),
+                type: document.getElementById('broadcastType').value
+            };
+
+            fetch('/chat/broadcast', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify(data)
+            })
+                .then(response => {
+                    if (!response.ok) return response.json().then(j => { throw new Error(j.message || 'Failed to send broadcast'); });
+                    return response.json();
+                })
+                .then(result => {
+                    const count = result.delivered_to_parents != null ? result.delivered_to_parents : 0;
+                    alert('Broadcast sent successfully!' + (count > 0 ? ' Delivered to ' + count + ' parent(s).' : ''));
+                    form.reset();
+                    loadBroadcasts();
+                })
+                .catch(err => {
+                    alert(err.message || 'Failed to send broadcast. Please try again.');
+                })
+                .finally(() => {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                });
         });
 
         // Phone Call functionality - moved to DOMContentLoaded

@@ -249,6 +249,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // Chat & Communications Routes
     Route::prefix('chat')->name('chat.')->group(function () {
         Route::get('/', [ChatController::class, 'index'])->name('index');
+        Route::get('/broadcasts', [ChatController::class, 'broadcasts'])->name('broadcasts');
+        Route::delete('/broadcasts/{broadcast}', [ChatController::class, 'destroyBroadcast'])->name('broadcasts.destroy');
         Route::get('/conversations', [ChatController::class, 'conversations'])->name('conversations');
         Route::get('/conversations/{conversation}', [ChatController::class, 'show'])->name('show');
         Route::post('/conversations', [ChatController::class, 'store'])->name('store');

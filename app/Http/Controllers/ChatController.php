@@ -635,7 +635,7 @@ class ChatController extends Controller
     }
 
     /**
-     * Send broadcast announcement
+     * Send broadcast announcement and deliver as a message to all parents for the school.
      */
     public function sendBroadcast(Request $request)
     {
@@ -648,7 +648,7 @@ class ChatController extends Controller
         ]);
 
         $user = Auth::user();
-        
+
         $broadcast = BroadcastAnnouncement::create([
             'business_id' => $user->business_id,
             'sender_id' => $user->id,
@@ -662,10 +662,104 @@ class ChatController extends Controller
             'sent_at' => now()
         ]);
 
+        // Deliver broadcast as a message to every parent's conversation with this sender (school)
+        $broadcastMessageContent = '📢 **Broadcast: ' . $broadcast->title . "**\n\n" . $broadcast->content;
+        $parents = ParentGuardian::where('business_id', $user->business_id)
+            ->where('status', 'active')
+            ->get();
+
+        $deliveredCount = 0;
+        foreach ($parents as $parent) {
+            $parentUser = User::where('email', $parent->email)->first();
+            if (!$parentUser) {
+                $parentUser = User::create([
+                    'name' => $parent->full_name,
+                    'email' => $parent->email,
+                    'business_id' => $parent->business_id,
+                    'role_id' => null,
+                    'branch_id' => null,
+                    'password' => '',
+                    'status' => 'active',
+                ]);
+            }
+
+            $conversation = Conversation::where('type', 'direct')
+                ->where('business_id', $user->business_id)
+                ->whereHas('users', function ($query) use ($user, $parentUser) {
+                    $query->whereIn('users.id', [$user->id, $parentUser->id]);
+                })
+                ->withCount(['users' => function ($query) use ($user, $parentUser) {
+                    $query->whereIn('users.id', [$user->id, $parentUser->id]);
+                }])
+                ->having('users_count', 2)
+                ->first();
+
+            if (!$conversation) {
+                $conversation = Conversation::create([
+                    'type' => 'direct',
+                    'title' => null,
+                    'business_id' => $user->business_id,
+                    'created_by' => $user->id,
+                    'last_message_at' => now(),
+                ]);
+                $conversation->users()->attach([$user->id, $parentUser->id], [
+                    'joined_at' => now(),
+                    'is_active' => true,
+                ]);
+            }
+
+            $conversation->messages()->create([
+                'sender_id' => $user->id,
+                'content' => $broadcastMessageContent,
+                'type' => 'text',
+            ]);
+            $conversation->update(['last_message_at' => now()]);
+            $deliveredCount++;
+        }
+
         return response()->json([
             'broadcast' => $broadcast,
-            'message' => 'Broadcast sent successfully'
+            'message' => 'Broadcast sent successfully',
+            'delivered_to_parents' => $deliveredCount,
         ]);
+    }
+
+    /**
+     * List broadcast announcements for the current user's business (for the "Broadcasted messages" section).
+     */
+    public function broadcasts()
+    {
+        $user = Auth::user();
+        $broadcasts = BroadcastAnnouncement::where('business_id', $user->business_id)
+            ->with('sender:id,name')
+            ->orderBy('sent_at', 'desc')
+            ->limit(50)
+            ->get()
+            ->map(function ($b) {
+                return [
+                    'id' => $b->id,
+                    'title' => $b->title,
+                    'content' => $b->content,
+                    'type' => $b->type,
+                    'sender_name' => $b->sender ? $b->sender->name : null,
+                    'sent_at' => $b->sent_at ? $b->sent_at->toISOString() : null,
+                ];
+            });
+
+        return response()->json($broadcasts);
+    }
+
+    /**
+     * Delete a broadcast announcement (must belong to current user's business).
+     */
+    public function destroyBroadcast(BroadcastAnnouncement $broadcast)
+    {
+        $user = Auth::user();
+        if ($broadcast->business_id !== $user->business_id) {
+            abort(403, 'You cannot delete this broadcast.');
+        }
+        $broadcast->delete();
+        return response()->json(['success' => true, 'message' => 'Broadcast deleted.']);
     }
 
     /**

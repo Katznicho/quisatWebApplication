@@ -4,6 +4,8 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\ClassAssignment;
+use App\Models\ParentGuardian;
+use App\Models\Timetable;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -27,6 +29,29 @@ class ClassAssignmentController extends Controller
             ->where('business_id', $businessId)
             ->orderByDesc('published_at')
             ->orderByDesc('due_date');
+
+        // Parents: only assignments for their children's classes (not all classes)
+        if ($user instanceof ParentGuardian) {
+            $childrenClassRoomIds = $user->students()->whereNotNull('class_room_id')->pluck('class_room_id')->unique()->values()->all();
+            if (empty($childrenClassRoomIds)) {
+                $query->whereRaw('1 = 0'); // no children or no classes -> no assignments
+            } else {
+                $query->whereIn('class_room_id', $childrenClassRoomIds);
+            }
+        }
+
+        // Teachers: only assignments for classes they are linked to (via Timetable)
+        if ($user instanceof User) {
+            $teacherClassRoomIds = Timetable::where('teacher_id', $user->id)
+                ->where('business_id', $businessId)
+                ->pluck('class_room_id')
+                ->unique()
+                ->values()
+                ->all();
+            if (!empty($teacherClassRoomIds)) {
+                $query->whereIn('class_room_id', $teacherClassRoomIds);
+            }
+        }
 
         if ($assignmentType = $request->query('type')) {
             $query->where('assignment_type', $assignmentType);
@@ -118,6 +143,20 @@ class ClassAssignmentController extends Controller
                 'attachments.*.mime_type' => 'required_with:attachments.*|string',
                 'attachments.*.size' => 'nullable|integer',
             ]);
+
+            // Teacher-class linkage: teachers may only create assignments for classes they teach
+            $teacherClassRoomIds = Timetable::where('teacher_id', $user->id)
+                ->where('business_id', $businessId)
+                ->pluck('class_room_id')
+                ->unique()
+                ->values()
+                ->all();
+            if (!empty($teacherClassRoomIds) && !in_array((int) $validated['class_room_id'], $teacherClassRoomIds)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You can only create assignments for classes you are linked to. Please select a class you teach.',
+                ], 403);
+            }
 
             $attachments = [];
             if (isset($validated['attachments']) && is_array($validated['attachments'])) {
@@ -229,6 +268,35 @@ class ClassAssignmentController extends Controller
                 'success' => false,
                 'message' => 'Assignment not found.',
             ], 404);
+        }
+
+        // Parents: only allow if assignment is for one of their children's classes
+        if ($user instanceof ParentGuardian) {
+            $childrenClassRoomIds = $user->students()->whereNotNull('class_room_id')->pluck('class_room_id')->unique()->values()->all();
+            if (!in_array($record->class_room_id, $childrenClassRoomIds)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You are not authorized to view this assignment.',
+                ], 403);
+            }
+        }
+
+        // Teachers: only allow if assignment is for a class they are linked to (or they created it)
+        if ($user instanceof User) {
+            $teacherClassRoomIds = Timetable::where('teacher_id', $user->id)
+                ->where('business_id', $record->business_id)
+                ->pluck('class_room_id')
+                ->unique()
+                ->values()
+                ->all();
+            $canView = $record->teacher_id === $user->id
+                || in_array($record->class_room_id, $teacherClassRoomIds);
+            if (!empty($teacherClassRoomIds) && !$canView) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You are not authorized to view this assignment.',
+                ], 403);
+            }
         }
 
         if ($user instanceof User && $user->branch_id && $record->branch_id && $record->branch_id !== $user->branch_id) {
