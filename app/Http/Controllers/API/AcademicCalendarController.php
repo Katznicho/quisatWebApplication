@@ -141,11 +141,16 @@ class AcademicCalendarController extends Controller
         $start = $event->start_date instanceof Carbon ? $event->start_date : Carbon::parse($event->start_date);
         $end = $event->end_date instanceof Carbon ? $event->end_date : Carbon::parse($event->end_date);
 
+        $coverImageUrl = $event->cover_image
+            ? (str_starts_with($event->cover_image, 'http') ? $event->cover_image : asset('storage/' . $event->cover_image))
+            : null;
+
         $data = [
             'id' => $event->id,
             'uuid' => $event->uuid,
             'title' => $event->title,
             'description' => $event->description,
+            'cover_image_url' => $coverImageUrl,
             'start_date' => $start->toDateString(),
             'end_date' => $end->toDateString(),
             'start_time' => $event->is_all_day ? null : $start->format('H:i'),

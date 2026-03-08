@@ -19,6 +19,7 @@ class CalendarEvent extends Model
         'start_date',
         'end_date',
         'location',
+        'cover_image',
         'color',
         'event_type',
         'priority',

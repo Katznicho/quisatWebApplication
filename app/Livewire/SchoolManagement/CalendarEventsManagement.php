@@ -11,6 +11,7 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\TimePicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\FileUpload;
 use Filament\Notifications\Notification;
 use Filament\Tables;
 use Filament\Tables\Concerns\InteractsWithTable;
@@ -100,6 +101,15 @@ class CalendarEventsManagement extends Component implements HasForms, HasTable
                         TextInput::make('location')
                             ->maxLength(255)
                             ->placeholder('Enter event location'),
+                        FileUpload::make('cover_image')
+                            ->label('Event cover image')
+                            ->image()
+                            ->directory('calendar-events')
+                            ->disk('public')
+                            ->imageResizeMode('cover')
+                            ->imageCropAspectRatio('16:9')
+                            ->maxSize(2048)
+                            ->helperText('Upload a photo that matches this event. Shown on the app.'),
                         Toggle::make('is_all_day')
                             ->label('All Day Event'),
                         Select::make('priority')
@@ -186,6 +196,15 @@ class CalendarEventsManagement extends Component implements HasForms, HasTable
                         TextInput::make('location')
                             ->maxLength(255)
                             ->placeholder('Enter event location'),
+                        FileUpload::make('cover_image')
+                            ->label('Event cover image')
+                            ->image()
+                            ->directory('calendar-events')
+                            ->disk('public')
+                            ->imageResizeMode('cover')
+                            ->imageCropAspectRatio('16:9')
+                            ->maxSize(2048)
+                            ->helperText('Upload a photo that matches this event. Shown on the app.'),
                         Toggle::make('is_all_day')
                             ->label('All Day Event'),
                         Select::make('priority')
