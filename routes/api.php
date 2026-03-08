@@ -250,6 +250,7 @@ Route::prefix('v1')->group(function () {
                 Route::get('{conversation}/messages', [ConversationController::class, 'messages']);
                 Route::post('{conversation}/messages', [ConversationController::class, 'storeMessage']);
                 Route::post('{conversation}/read', [ConversationController::class, 'markAsRead']);
+                Route::post('{conversation}/clear', [ConversationController::class, 'clear']);
             });
 
             Route::get('staff/dashboard', [StaffDashboardController::class, 'index']);

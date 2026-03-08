@@ -165,10 +165,16 @@ class ConversationController extends Controller
         $perPage = (int) $request->query('per_page', 50);
         $perPage = $perPage > 0 ? min($perPage, 100) : 50;
 
-        $messages = $conversation->messages()
+        $messagesQuery = $conversation->messages()
             ->with('sender:id,name,email,profile_photo_path')
-            ->orderBy('created_at', 'desc')
-            ->paginate($perPage);
+            ->orderBy('created_at', 'desc');
+
+        $pivot = $conversation->users()->where('user_id', $user->id)->first()?->pivot;
+        if ($pivot && $pivot->cleared_at !== null) {
+            $messagesQuery->where('messages.created_at', '>', $pivot->cleared_at);
+        }
+
+        $messages = $messagesQuery->paginate($perPage);
 
         $messageItems = collect($messages->items())
             ->map(fn (Message $message) => $this->transformMessage($message, $user))
@@ -585,16 +591,53 @@ class ConversationController extends Controller
         ]);
     }
 
+    /**
+     * Clear chat for the current user. Hides all messages before now for this user only;
+     * the other participant still sees the full thread. New messages will still appear.
+     */
+    public function clear(Request $request, Conversation $conversation)
+    {
+        $businessId = $request->get('business_id');
+        $authenticatedUser = $request->get('authenticated_user');
+
+        $user = $this->getUserForConversation($authenticatedUser, $businessId);
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to find user account for conversations.',
+            ], 404);
+        }
+
+        if ($conversation->business_id !== $businessId || !$this->userInConversation($conversation, $user)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Access denied.',
+            ], 403);
+        }
+
+        $conversation->participants()
+            ->where('user_id', $user->id)
+            ->update(['cleared_at' => now()]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Chat cleared. Messages are hidden for you only.',
+        ]);
+    }
+
     protected function transformConversation(Conversation $conversation, User $user): array
     {
         $conversation->loadMissing(['users:id,name,email,profile_photo_path', 'latestMessage.sender:id,name,email,profile_photo_path']);
 
         $latestMessage = $conversation->latestMessage;
         $participant = $conversation->participants()->where('user_id', $user->id)->first();
-        $unreadCount = $conversation->messages()
+        $unreadQuery = $conversation->messages()
             ->where('sender_id', '!=', $user->id)
-            ->where('is_read', false)
-            ->count();
+            ->where('is_read', false);
+        if ($participant && $participant->cleared_at) {
+            $unreadQuery->where('messages.created_at', '>', $participant->cleared_at);
+        }
+        $unreadCount = $unreadQuery->count();
 
         return [
             'id' => $conversation->id,

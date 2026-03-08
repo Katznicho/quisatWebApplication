@@ -14,12 +14,14 @@ class ConversationParticipant extends Model
         'user_id',
         'joined_at',
         'last_read_at',
+        'cleared_at',
         'is_active'
     ];
 
     protected $casts = [
         'joined_at' => 'datetime',
         'last_read_at' => 'datetime',
+        'cleared_at' => 'datetime',
         'is_active' => 'boolean'
     ];
 
