@@ -20,6 +20,7 @@ use App\Http\Controllers\ChatController;
 use App\Http\Controllers\AdvertisementController;
 use App\Http\Controllers\KidsEventController;
 use App\Http\Controllers\KidsFunVenueController;
+use App\Http\Controllers\SupportChildController;
 use App\Http\Controllers\ParentCornerController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\SchoolManagement\ParentGuardianController;
@@ -133,6 +134,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::delete('parent-corner-registrations/{uuid}', [ParentCornerController::class, 'destroyRegistration'])->name('parent-corner-registrations.destroy')->where('uuid', '[a-f0-9\-]+');
     
     Route::resource("programs", ProgramController::class);
+
+    // Support Child management (web)
+    Route::resource('support-children', SupportChildController::class)->except(['show']);
+    Route::get('support-children/{support_child}', [SupportChildController::class, 'show'])->name('support-children.show');
 
     // Admin Management Routes
     Route::prefix('admin')->name('admin.')->group(function () {

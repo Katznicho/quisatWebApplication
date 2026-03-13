@@ -150,6 +150,21 @@
                     </li>
                     @endif
 
+                    <!-- Support Child -->
+                    @if (auth()->user()->business_id != 1 && $business && $business->hasFeatureByName('Support Child'))
+                    <li>
+                        <a href="{{ route('support-children.index') }}"
+                            class="flex items-center pl-4 pr-3 py-2 rounded-md text-gray-700 hover:text-blue-700 hover:bg-blue-50">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                stroke-width="1.5" stroke="currentColor" class="w-5 h-5 shrink-0">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM19.5 8.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0zM4.5 21a7.5 7.5 0 0115 0M4.5 21h15" />
+                            </svg>
+                            <span class="ml-3">Support Child</span>
+                        </a>
+                    </li>
+                    @endif
+
                     <!-- Staff -->
                     @if (auth()->user()->business_id == 1 || ($business && $business->hasFeatureByName('Staff Management')))
                     <li>
