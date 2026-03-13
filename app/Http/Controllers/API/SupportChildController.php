@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\SupportChild;
+use App\Models\SupportChildEnquiry;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -17,7 +18,13 @@ class SupportChildController extends Controller
 
         $query = SupportChild::query()
             ->with('images')
-            ->where('business_id', $businessId)
+            ->where(function (Builder $q) use ($businessId) {
+                // If a business is provided (staff/parent), scope to that business.
+                // For guests (no business_id), show all active children.
+                if ($businessId) {
+                    $q->where('business_id', $businessId);
+                }
+            })
             ->where(function (Builder $q) {
                 $q->whereNull('status')->orWhere('status', 'active');
             })
@@ -48,7 +55,9 @@ class SupportChildController extends Controller
         $businessId = $request->get('business_id');
 
         $child = SupportChild::with('images')
-            ->where('business_id', $businessId)
+            ->when($businessId, function (Builder $q) use ($businessId) {
+                $q->where('business_id', $businessId);
+            })
             ->where(function (Builder $q) use ($id) {
                 $q->where('id', $id)->orWhere('uuid', $id);
             })
@@ -68,6 +77,57 @@ class SupportChildController extends Controller
                 'child' => $this->transformChild($child, true),
             ],
         ]);
+    }
+
+    public function enquire(Request $request, $id)
+    {
+        $businessId = $request->get('business_id');
+
+        $child = SupportChild::when($businessId, function (Builder $q) use ($businessId) {
+                $q->where('business_id', $businessId);
+            })
+            ->where(function (Builder $q) use ($id) {
+                $q->where('id', $id)->orWhere('uuid', $id);
+            })
+            ->first();
+
+        if (! $child) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Support child record not found.',
+            ], 404);
+        }
+
+        $validated = $request->validate([
+            'full_name' => 'required|string|max:255',
+            'email' => 'nullable|email|max:255',
+            'phone' => 'nullable|string|max:50',
+            'preferred_contact_method' => 'nullable|string|in:phone,email,any',
+            'message' => 'nullable|string',
+        ]);
+
+        $source = 'app_guest';
+        if ($request->user()) {
+            $source = $request->user() instanceof \App\Models\ParentGuardian ? 'app_parent' : 'app_staff';
+        }
+
+        $enquiry = SupportChildEnquiry::create([
+            'support_child_id' => $child->id,
+            'full_name' => $validated['full_name'],
+            'email' => $validated['email'] ?? null,
+            'phone' => $validated['phone'] ?? null,
+            'preferred_contact_method' => $validated['preferred_contact_method'] ?? null,
+            'message' => $validated['message'] ?? null,
+            'source' => $source,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Your interest has been recorded. The organisation will contact you for follow up.',
+            'data' => [
+                'enquiry_id' => $enquiry->id,
+            ],
+        ], 201);
     }
 
     protected function transformChild(SupportChild $child, bool $includeDetails = false): array

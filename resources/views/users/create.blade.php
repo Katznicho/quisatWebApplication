@@ -135,9 +135,9 @@
                             </div>
                         </div>
 
-                        <!-- Business & Role Information -->
+                        <!-- Business, Role & Class Information -->
                         <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
-                            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Business & Role Information</h3>
+                            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Business, Role & Class Information</h3>
                             
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 @if($businessId === 1)
@@ -194,6 +194,28 @@
                                         <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                                     @enderror
                                 </div>
+
+                                @if(!empty($classRooms))
+                                <div>
+                                    <label for="class_room_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Class (for teachers)
+                                    </label>
+                                    <select name="class_room_id" 
+                                            id="class_room_id" 
+                                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                                        <option value="">Select class (optional)</option>
+                                        @foreach($classRooms as $id => $name)
+                                            <option value="{{ $id }}" {{ old('class_room_id') == $id ? 'selected' : '' }}>{{ $name }}</option>
+                                        @endforeach
+                                    </select>
+                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                        Assign a primary class to this staff member (only available for school businesses).
+                                    </p>
+                                    @error('class_room_id')
+                                        <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                                    @enderror
+                                </div>
+                                @endif
                             </div>
                         </div>
                     </div>

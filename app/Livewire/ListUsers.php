@@ -4,6 +4,8 @@ namespace App\Livewire;
 
 use App\Models\User;
 use App\Models\ParentGuardian;
+use App\Models\Business;
+use App\Models\ClassRoom;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Tables;
@@ -12,7 +14,6 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Livewire\Component;
 use Illuminate\Contracts\View\View;
-use App\Models\Business;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -119,6 +120,7 @@ class ListUsers extends Component implements HasForms, HasTable
                                 ->default($record->business_id)
                                 ->afterStateUpdated(function (\Filament\Forms\Set $set, $state) {
                                     $set('role_id', null);
+                                    $set('class_room_id', null);
                                 })
                                 ->placeholder('Select a business'),
                             \Filament\Forms\Components\Select::make('role_id')
@@ -141,6 +143,33 @@ class ListUsers extends Component implements HasForms, HasTable
                                 ->options(['active' => 'Active', 'inactive' => 'Inactive', 'suspended' => 'Suspended'])
                                 ->required()
                                 ->placeholder('Select status'),
+                            \Filament\Forms\Components\Select::make('class_room_id')
+                                ->label('Class (for teachers)')
+                                ->options(function (\Filament\Forms\Get $get) use ($record) {
+                                    $businessId = $get('business_id') ?? $record->business_id;
+                                    if (! $businessId) {
+                                        return [];
+                                    }
+
+                                    $business = Business::with('businessCategory')->find($businessId);
+                                    if (! $business || ! $business->businessCategory) {
+                                        return [];
+                                    }
+
+                                    if (! str_contains(strtolower($business->businessCategory->name), 'school')) {
+                                        return [];
+                                    }
+
+                                    return ClassRoom::where('business_id', $businessId)
+                                        ->where(function ($q) {
+                                            $q->whereNull('status')->orWhere('status', 'active');
+                                        })
+                                        ->orderBy('name')
+                                        ->pluck('name', 'id')
+                                        ->toArray();
+                                })
+                                ->searchable()
+                                ->placeholder('Select class (optional)'),
                         ];
                     })
                     ->visible(fn (User $record): bool => Auth::user()->business_id === 1 || $record->business_id === Auth::user()->business_id),

@@ -36,6 +36,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'business_id',
         'branch_id',
         'role_id',
+        'class_room_id',
     ];
 
     /**
@@ -81,6 +82,11 @@ class User extends Authenticatable implements MustVerifyEmail
     public function branch()
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function classRoom()
+    {
+        return $this->belongsTo(ClassRoom::class, 'class_room_id');
     }
 
     public function timetables()

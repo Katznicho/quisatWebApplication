@@ -50,4 +50,9 @@ class SupportChild extends Model
     {
         return $this->hasMany(SupportChildImage::class);
     }
+
+    public function enquiries()
+    {
+        return $this->hasMany(SupportChildEnquiry::class);
+    }
 }

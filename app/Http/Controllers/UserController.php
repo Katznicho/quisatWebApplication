@@ -50,7 +50,8 @@ class UserController extends Controller
      */
     public function create()
     {
-        $businessId = Auth::user()->business_id;
+        $authUser = Auth::user();
+        $businessId = $authUser->business_id;
 
         // Get businesses for dropdown (only if admin)
         $businesses = [];
@@ -75,8 +76,24 @@ class UserController extends Controller
             ->mapWithKeys(function ($branch) {
                 return [$branch->id => $branch->name];
             });
+        // Get classes only if business category is a school
+        $classRooms = [];
+        if ($businessId !== 1 && $authUser->business) {
+            $business = $authUser->business->load('businessCategory');
+            if ($business->businessCategory && str_contains(strtolower($business->businessCategory->name), 'school')) {
+                $classRooms = \App\Models\ClassRoom::where('business_id', $businessId)
+                    ->where(function ($q) {
+                        $q->whereNull('status')->orWhere('status', 'active');
+                    })
+                    ->orderBy('name')
+                    ->get()
+                    ->mapWithKeys(function ($classRoom) {
+                        return [$classRoom->id => $classRoom->name];
+                    });
+            }
+        }
 
-        return view('users.create', compact('businesses', 'roles', 'branches', 'businessId'));
+        return view('users.create', compact('businesses', 'roles', 'branches', 'businessId', 'classRooms'));
     }
 
     /**
@@ -95,6 +112,7 @@ class UserController extends Controller
             'branch_id' => 'nullable|exists:branches,id',
             'role_id' => 'required|exists:roles,id',
             'profile_photo_path' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            'class_room_id' => 'nullable|exists:class_rooms,id',
         ]);
 
         try {
@@ -117,6 +135,7 @@ class UserController extends Controller
                 'business_id' => $validated['business_id'],
                 'branch_id' => $validated['branch_id'] ?? null,
                 'role_id' => $validated['role_id'],
+                'class_room_id' => $validated['class_room_id'] ?? null,
                 'profile_photo_path' => $validated['profile_photo_path'] ?? null,
                 'password' => '', // Empty password
             ]);

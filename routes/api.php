@@ -149,6 +149,11 @@ Route::prefix('v1')->group(function () {
         
         // KidsMart Orders - Allow guest ordering (public)
         Route::post('orders', [OrderController::class, 'store']);
+
+        // Support Child (public list & detail + enquiries)
+        Route::get('support-children', [SupportChildController::class, 'index']);
+        Route::get('support-children/{id}', [SupportChildController::class, 'show']);
+        Route::post('support-children/{id}/enquiries', [SupportChildController::class, 'enquire']);
     });
     
     
@@ -213,12 +218,6 @@ Route::prefix('v1')->group(function () {
             Route::prefix('calendar')->group(function () {
                 Route::get('events', [AcademicCalendarController::class, 'index']);
                 Route::get('events/{event}', [AcademicCalendarController::class, 'show']);
-            });
-
-            // Support Child (child sponsorship) module
-            Route::prefix('support-children')->group(function () {
-                Route::get('/', [SupportChildController::class, 'index']);
-                Route::get('{id}', [SupportChildController::class, 'show']);
             });
 
             Route::prefix('timetable')->group(function () {
