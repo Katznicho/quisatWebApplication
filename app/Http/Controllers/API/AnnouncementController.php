@@ -7,6 +7,7 @@ use App\Models\BroadcastAnnouncement;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class AnnouncementController extends Controller
 {
@@ -205,6 +206,46 @@ class AnnouncementController extends Controller
             'data' => [
                 'announcement' => $this->transformAnnouncement($record, true),
             ],
+        ]);
+    }
+
+    /**
+     * Delete an announcement (staff only).
+     */
+    public function destroy(Request $request, BroadcastAnnouncement $announcement)
+    {
+        $businessId = $request->get('business_id');
+        $user = $request->get('authenticated_user');
+
+        if ($announcement->business_id !== $businessId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Announcement not found in your business.',
+            ], 404);
+        }
+
+        if (! $user instanceof User) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only staff users can delete announcements.',
+            ], 403);
+        }
+
+        // Delete any stored attachment files
+        $attachments = $announcement->attachments ?? [];
+        if (is_array($attachments)) {
+            foreach ($attachments as $attachment) {
+                if (! empty($attachment['path']) && Storage::disk('public')->exists($attachment['path'])) {
+                    Storage::disk('public')->delete($attachment['path']);
+                }
+            }
+        }
+
+        $announcement->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Announcement deleted successfully.',
         ]);
     }
 

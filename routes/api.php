@@ -190,6 +190,7 @@ Route::prefix('v1')->group(function () {
                 Route::post('{student}/academic-entries', [StudentAcademicEntryController::class, 'store']);
                 Route::get('{student}/documents', [StudentDocumentController::class, 'index']);
                 Route::post('{student}/documents', [StudentDocumentController::class, 'store']);
+                Route::delete('{student}/documents/{document}', [StudentDocumentController::class, 'destroy']);
             });
 
             Route::get('subjects', function (Request $request) {
@@ -232,12 +233,14 @@ Route::prefix('v1')->group(function () {
                 Route::get('/', [AnnouncementController::class, 'index']);
                 Route::post('/', [AnnouncementController::class, 'store']);
                 Route::get('{announcement}', [AnnouncementController::class, 'show']);
+                Route::delete('{announcement}', [AnnouncementController::class, 'destroy']);
             });
 
             Route::prefix('assignments')->group(function () {
                 Route::get('/', [ClassAssignmentController::class, 'index']);
                 Route::post('/', [ClassAssignmentController::class, 'store']);
                 Route::get('{assignment}', [ClassAssignmentController::class, 'show']);
+                Route::delete('{assignment}', [ClassAssignmentController::class, 'destroy']);
                 Route::get('{assignment}/submissions', [AssignmentSubmissionController::class, 'show']);
                 Route::post('{assignment}/submissions', [AssignmentSubmissionController::class, 'store']);
                 Route::get('{assignment}/submissions/{submission}', [AssignmentSubmissionController::class, 'show']);

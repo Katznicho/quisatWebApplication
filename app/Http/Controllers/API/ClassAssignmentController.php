@@ -358,4 +358,46 @@ class ClassAssignmentController extends Controller
 
         return $data;
     }
+
+    /**
+     * Delete an assignment created by staff.
+     */
+    public function destroy(Request $request, ClassAssignment $assignment)
+    {
+        $businessId = $request->get('business_id');
+        $user = $request->get('authenticated_user');
+
+        if ($assignment->business_id !== $businessId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Assignment not found in your business.',
+            ], 404);
+        }
+
+        if (! $user instanceof User) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only staff users can delete assignments.',
+            ], 403);
+        }
+
+        // Optionally restrict: teacher who created or any staff; for now, allow any staff in same business.
+
+        // Remove any stored attachment files
+        $attachments = $assignment->attachments ?? [];
+        if (is_array($attachments)) {
+            foreach ($attachments as $attachment) {
+                if (! empty($attachment['path']) && Storage::disk('public')->exists($attachment['path'])) {
+                    Storage::disk('public')->delete($attachment['path']);
+                }
+            }
+        }
+
+        $assignment->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Assignment deleted successfully.',
+        ]);
+    }
 }

@@ -177,5 +177,58 @@ class StudentDocumentController extends Controller
             ],
         ], 201);
     }
+
+    /**
+     * Delete a document for a specific student.
+     * Both staff and parents (for their own children) can delete, and the file is removed from storage.
+     */
+    public function destroy(Request $request, Student $student, StudentDocument $document)
+    {
+        $business = $request->get('business');
+        $user = $request->get('authenticated_user');
+
+        if (! $business || $student->business_id !== $business->id || $document->business_id !== $business->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Student or document not found in your business.',
+            ], 404);
+        }
+
+        if ($document->student_id !== $student->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This document does not belong to the specified student.',
+            ], 403);
+        }
+
+        // Parents can only delete documents for their own children
+        if ($user instanceof ParentGuardian) {
+            $isChild = $user->students()->whereKey($student->id)->exists();
+            if (! $isChild) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You are not authorized to delete documents for this student.',
+                ], 403);
+            }
+        } elseif (! $user instanceof User) {
+            // Only staff User accounts (and parents above) are allowed
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to delete this document.',
+            ], 403);
+        }
+
+        // Delete file from storage if present
+        if ($document->file_path && Storage::disk('public')->exists($document->file_path)) {
+            Storage::disk('public')->delete($document->file_path);
+        }
+
+        $document->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Document deleted successfully.',
+        ]);
+    }
 }
 
