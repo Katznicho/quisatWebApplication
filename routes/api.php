@@ -25,6 +25,7 @@ use App\Http\Controllers\API\PublicParentCornersController;
 use App\Http\Controllers\API\PublicKidsFunVenuesController;
 use App\Http\Controllers\API\PublicAdvertisementsController;
 use App\Http\Controllers\API\PublicProgramsController;
+use App\Http\Controllers\API\SupportChildController;
 use App\Http\Controllers\API\ProgramRegistrationController;
 use App\Http\Controllers\API\ProductController;
 use App\Http\Controllers\API\OrderController;
@@ -212,6 +213,12 @@ Route::prefix('v1')->group(function () {
             Route::prefix('calendar')->group(function () {
                 Route::get('events', [AcademicCalendarController::class, 'index']);
                 Route::get('events/{event}', [AcademicCalendarController::class, 'show']);
+            });
+
+            // Support Child (child sponsorship) module
+            Route::prefix('support-children')->group(function () {
+                Route::get('/', [SupportChildController::class, 'index']);
+                Route::get('{id}', [SupportChildController::class, 'show']);
             });
 
             Route::prefix('timetable')->group(function () {
