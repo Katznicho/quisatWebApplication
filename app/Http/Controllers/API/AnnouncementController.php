@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\BroadcastAnnouncement;
+use App\Models\ParentGuardian;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -21,6 +22,8 @@ class AnnouncementController extends Controller
             ->where('business_id', $businessId)
             ->orderByDesc('sent_at')
             ->orderByDesc('created_at');
+
+        $this->applyAudienceScope($query, $user);
 
         if ($type = $request->query('type')) {
             $query->where('type', $type);
@@ -200,6 +203,13 @@ class AnnouncementController extends Controller
             ], 404);
         }
 
+        if (!$this->canViewAnnouncement($record, $request->get('authenticated_user'))) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Announcement not available for your audience.',
+            ], 403);
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Announcement retrieved successfully.',
@@ -277,5 +287,68 @@ class AnnouncementController extends Controller
         }
 
         return $data;
+    }
+
+    /**
+     * Apply audience visibility filtering to announcement queries.
+     */
+    protected function applyAudienceScope($query, $viewer): void
+    {
+        // Staff/admin users can manage and see all announcements in their business.
+        if ($viewer instanceof User && ! $this->isStudentUser($viewer)) {
+            return;
+        }
+
+        $roles = $this->resolveViewerTargetRoles($viewer);
+
+        $query->where(function ($q) use ($roles) {
+            $q->whereNull('target_roles');
+            foreach ($roles as $role) {
+                $q->orWhereJsonContains('target_roles', $role);
+            }
+        });
+    }
+
+    protected function canViewAnnouncement(BroadcastAnnouncement $announcement, $viewer): bool
+    {
+        // Staff/admin users can view all.
+        if ($viewer instanceof User && ! $this->isStudentUser($viewer)) {
+            return true;
+        }
+
+        $targetRoles = $announcement->target_roles ?? [];
+
+        // Backward compatibility: missing target_roles means general audience.
+        if (!is_array($targetRoles) || empty($targetRoles)) {
+            return true;
+        }
+
+        $viewerRoles = $this->resolveViewerTargetRoles($viewer);
+        foreach ($viewerRoles as $viewerRole) {
+            if (in_array($viewerRole, $targetRoles, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    protected function resolveViewerTargetRoles($viewer): array
+    {
+        if ($viewer instanceof ParentGuardian) {
+            return ['all_users', 'parents'];
+        }
+
+        if ($viewer instanceof User && $this->isStudentUser($viewer)) {
+            return ['all_users', 'students'];
+        }
+
+        return ['all_users', 'staff'];
+    }
+
+    protected function isStudentUser(User $user): bool
+    {
+        $roleName = strtolower((string) optional($user->role)->name);
+        return $roleName === 'student' || str_contains($roleName, 'student');
     }
 }
