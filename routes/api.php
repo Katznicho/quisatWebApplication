@@ -189,6 +189,7 @@ Route::prefix('v1')->group(function () {
                 Route::get('{student}/progress', [StudentProgressController::class, 'show']);
                 Route::get('{student}/character-reports', [StudentCharacterController::class, 'index']);
                 Route::post('{student}/character-reports', [StudentCharacterController::class, 'store']);
+                Route::delete('{student}/character-reports/{report}', [StudentCharacterController::class, 'destroy']);
                 Route::get('{student}/attendance/history', [AttendanceController::class, 'studentHistory']);
                 Route::get('{student}/attendance', [AttendanceController::class, 'studentAttendanceHistory']);
                 Route::post('{student}/attendance', [AttendanceController::class, 'recordForStudent']);

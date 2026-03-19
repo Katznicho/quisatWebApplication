@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\Student;
 use App\Models\StudentCharacterReport;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 class StudentCharacterController extends Controller
@@ -106,6 +107,56 @@ class StudentCharacterController extends Controller
     }
 
     /**
+     * Delete a character report for a specific student (staff only).
+     */
+    public function destroy(Request $request, Student $student, string $report)
+    {
+        $business = $request->get('business');
+        $viewer = $request->get('authenticated_user');
+
+        if ($student->business_id !== $business->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Student not found in your business.',
+            ], 404);
+        }
+
+        if (! $this->canManageReports($viewer)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only staff users can delete character reports.',
+            ], 403);
+        }
+
+        $record = StudentCharacterReport::query()
+            ->where('business_id', $business->id)
+            ->where('student_id', $student->id)
+            ->where(function ($query) use ($report) {
+                $query->where('id', $report)
+                    ->orWhere('uuid', $report);
+            })
+            ->first();
+
+        if (! $record) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Character report not found.',
+            ], 404);
+        }
+
+        if (method_exists($record, 'forceDelete')) {
+            $record->forceDelete();
+        } else {
+            $record->delete();
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Character report deleted successfully.',
+        ]);
+    }
+
+    /**
      * Transform report to a clean API shape.
      */
     protected function transformReport(StudentCharacterReport $report): array
@@ -128,6 +179,19 @@ class StudentCharacterController extends Controller
             ] : null,
             'created_at' => optional($report->created_at)->toIso8601String(),
         ];
+    }
+
+    protected function canManageReports($viewer): bool
+    {
+        if (! $viewer instanceof User) {
+            return false;
+        }
+
+        if (method_exists($viewer, 'hasRole')) {
+            return ! $viewer->hasRole('student');
+        }
+
+        return true;
     }
 }
 
