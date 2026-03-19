@@ -213,7 +213,14 @@ class AdminManagementController extends Controller
     public function destroyUser(User $user)
     {
         try {
-            $user->delete();
+            $user->tokens()->delete();
+
+            if (method_exists($user, 'forceDelete')) {
+                $user->forceDelete();
+            } else {
+                $user->delete();
+            }
+
             return redirect()->route('admin.dashboard')->with('success', 'User deleted successfully.');
         } catch (\Exception $e) {
             Log::error('Error deleting user: ' . $e->getMessage());

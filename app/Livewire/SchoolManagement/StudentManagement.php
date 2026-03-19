@@ -4,6 +4,7 @@ namespace App\Livewire\SchoolManagement;
 
 use App\Models\Student;
 use App\Models\ParentGuardian;
+use App\Models\User;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Components\TextInput;
@@ -17,10 +18,10 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Actions\DeleteAction;
-use Filament\Tables\Filters\TrashedFilter;
 use Livewire\Component;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 
 class StudentManagement extends Component implements HasForms, HasTable
 {
@@ -79,7 +80,6 @@ class StudentManagement extends Component implements HasForms, HasTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                TrashedFilter::make(),
             ])
             ->actions([
                 EditAction::make()
@@ -147,13 +147,44 @@ class StudentManagement extends Component implements HasForms, HasTable
                     ->successNotificationTitle('Student updated successfully.'),
                 DeleteAction::make()
                     ->modalHeading('Delete Student')
-                    ->successNotificationTitle('Student deleted successfully (soft).'),
+                    ->action(function (Student $record): void {
+                        DB::transaction(function () use ($record) {
+                            // Remove any linked login account using same email, then permanently remove student.
+                            if (!empty($record->email)) {
+                                $linkedUsers = User::whereRaw('LOWER(TRIM(email)) = ?', [strtolower(trim((string) $record->email))])->get();
+                                foreach ($linkedUsers as $linkedUser) {
+                                    $linkedUser->tokens()->delete();
+                                    $linkedUser->delete();
+                                }
+                            }
+
+                            $record->forceDelete();
+                        });
+                    })
+                    ->successNotificationTitle('Student deleted permanently.'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                    Tables\Actions\ForceDeleteBulkAction::make(),
-                    Tables\Actions\RestoreBulkAction::make(),
+                    Tables\Actions\BulkAction::make('delete_permanently')
+                        ->label('Delete Permanently')
+                        ->requiresConfirmation()
+                        ->color('danger')
+                        ->icon('heroicon-o-trash')
+                        ->action(function ($records): void {
+                            DB::transaction(function () use ($records) {
+                                foreach ($records as $record) {
+                                    if (!empty($record->email)) {
+                                        $linkedUsers = User::whereRaw('LOWER(TRIM(email)) = ?', [strtolower(trim((string) $record->email))])->get();
+                                        foreach ($linkedUsers as $linkedUser) {
+                                            $linkedUser->tokens()->delete();
+                                            $linkedUser->delete();
+                                        }
+                                    }
+
+                                    $record->forceDelete();
+                                }
+                            });
+                        }),
                 ]),
             ]);
     }

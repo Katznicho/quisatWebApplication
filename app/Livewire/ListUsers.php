@@ -34,7 +34,7 @@ class ListUsers extends Component implements HasForms, HasTable
         // Exclude users who are parents (have matching email in parent_guardians table)
         // Use whereNotExists with a subquery for case-insensitive email matching
         $query->whereNotExists(function ($subquery) {
-            $subquery->select(\DB::raw(1))
+            $subquery->select(DB::raw(1))
                 ->from('parent_guardians')
                 ->whereRaw('LOWER(TRIM(parent_guardians.email)) = LOWER(TRIM(users.email))');
         });
@@ -174,6 +174,10 @@ class ListUsers extends Component implements HasForms, HasTable
                     })
                     ->visible(fn (User $record): bool => Auth::user()->business_id === 1 || $record->business_id === Auth::user()->business_id),
                 Tables\Actions\DeleteAction::make()
+                    ->action(function (User $record): void {
+                        $record->tokens()->delete();
+                        $record->delete();
+                    })
                     ->visible(fn (User $record): bool => Auth::user()->business_id === 1 || $record->business_id === Auth::user()->business_id),
                 Tables\Actions\Action::make('update_status')
                     ->label('Change Status')

@@ -3,6 +3,7 @@
 namespace App\Livewire\SchoolManagement;
 
 use App\Models\ParentGuardian;
+use App\Models\User;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Components\TextInput;
@@ -15,10 +16,10 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Actions\DeleteAction;
-use Filament\Tables\Filters\TrashedFilter;
 use Livewire\Component;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 
 class ParentGuardianManagement extends Component implements HasForms, HasTable
 {
@@ -94,7 +95,6 @@ class ParentGuardianManagement extends Component implements HasForms, HasTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                TrashedFilter::make(),
             ])
             ->actions([
                 EditAction::make()
@@ -142,13 +142,42 @@ class ParentGuardianManagement extends Component implements HasForms, HasTable
                     ->successNotificationTitle('Parent/Guardian updated successfully.'),
                 DeleteAction::make()
                     ->modalHeading('Delete Parent/Guardian')
-                    ->successNotificationTitle('Parent/Guardian deleted successfully (soft).'),
+                    ->action(function (ParentGuardian $record): void {
+                        DB::transaction(function () use ($record) {
+                            // Remove linked login account(s) by email, then permanently remove parent.
+                            $linkedUsers = User::whereRaw('LOWER(TRIM(email)) = ?', [strtolower(trim((string) $record->email))])->get();
+                            foreach ($linkedUsers as $linkedUser) {
+                                $linkedUser->tokens()->delete();
+                                $linkedUser->delete();
+                            }
+
+                            $record->tokens()->delete();
+                            $record->forceDelete();
+                        });
+                    })
+                    ->successNotificationTitle('Parent/Guardian deleted permanently.'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                    Tables\Actions\ForceDeleteBulkAction::make(),
-                    Tables\Actions\RestoreBulkAction::make(),
+                    Tables\Actions\BulkAction::make('delete_permanently')
+                        ->label('Delete Permanently')
+                        ->requiresConfirmation()
+                        ->color('danger')
+                        ->icon('heroicon-o-trash')
+                        ->action(function ($records): void {
+                            DB::transaction(function () use ($records) {
+                                foreach ($records as $record) {
+                                    $linkedUsers = User::whereRaw('LOWER(TRIM(email)) = ?', [strtolower(trim((string) $record->email))])->get();
+                                    foreach ($linkedUsers as $linkedUser) {
+                                        $linkedUser->tokens()->delete();
+                                        $linkedUser->delete();
+                                    }
+
+                                    $record->tokens()->delete();
+                                    $record->forceDelete();
+                                }
+                            });
+                        }),
                 ]),
             ]);
     }
