@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\ParentGuardian;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class ParentGuardianController extends Controller
 {
@@ -114,6 +115,7 @@ class ParentGuardianController extends Controller
                 'full_name' => $student->full_name,
                 'student_id' => $student->student_id,
                 'status' => $student->status,
+                'photo_url' => $this->resolvePhotoUrl($student->photo),
                 'gender' => $student->gender,
                 'class_room' => $student->classRoom ? [
                     'id' => $student->classRoom->id,
@@ -134,6 +136,7 @@ class ParentGuardianController extends Controller
             'phone' => $parent->phone,
             'relationship' => $parent->relationship,
             'status' => $parent->status,
+            'photo_url' => $this->resolvePhotoUrl($parent->photo),
             'students' => $students,
             'avatar_url' => $this->generateAvatarUrl($parent->full_name),
         ];
@@ -158,6 +161,19 @@ class ParentGuardianController extends Controller
         $encoded = urlencode($name ?: 'Parent');
 
         return "https://ui-avatars.com/api/?name={$encoded}&background=6366F1&color=ffffff&size=128";
+    }
+
+    protected function resolvePhotoUrl(?string $path): ?string
+    {
+        if (empty($path)) {
+            return null;
+        }
+
+        if (Str::startsWith($path, ['http://', 'https://'])) {
+            return $path;
+        }
+
+        return asset('storage/' . ltrim($path, '/'));
     }
 }
 

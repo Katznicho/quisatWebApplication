@@ -148,6 +148,11 @@ class StaffDashboardController extends Controller
             'success' => true,
             'message' => 'Dashboard data loaded successfully.',
             'data' => [
+                'staff_profile' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'photo_url' => $user->profile_photo_url,
+                ],
                 'quick_stats' => [
                     'assignments_due' => $assignmentsDue,
                     'announcements_new' => $announcementsNew,
@@ -162,4 +167,5 @@ class StaffDashboardController extends Controller
             ],
         ]);
     }
+
 }

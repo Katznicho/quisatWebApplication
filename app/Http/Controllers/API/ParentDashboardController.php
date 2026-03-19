@@ -10,6 +10,7 @@ use App\Models\ParentGuardian;
 use App\Models\Student;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 class ParentDashboardController extends Controller
 {
@@ -119,6 +120,7 @@ class ParentDashboardController extends Controller
                 'class' => $student->classRoom?->name,
                 'class_room_id' => $student->class_room_id,
                 'student_id' => $student->student_id,
+                'photo_url' => $this->resolvePhotoUrl($student->photo),
                 'avatar_url' => "https://ui-avatars.com/api/?name=" . urlencode($student->full_name) . "&background=4A90E2&color=ffffff",
             ];
         });
@@ -127,11 +129,29 @@ class ParentDashboardController extends Controller
             'success' => true,
             'message' => 'Parent dashboard data loaded successfully.',
             'data' => [
+                'parent_profile' => [
+                    'id' => $user->id,
+                    'full_name' => $user->full_name,
+                    'photo_url' => $this->resolvePhotoUrl($user->photo),
+                ],
                 'children' => $childrenData,
                 'announcements' => $announcements,
                 'upcoming_events' => $events,
                 'upcoming_assignments' => $assignments,
             ],
         ]);
+    }
+
+    private function resolvePhotoUrl(?string $path): ?string
+    {
+        if (empty($path)) {
+            return null;
+        }
+
+        if (Str::startsWith($path, ['http://', 'https://'])) {
+            return $path;
+        }
+
+        return asset('storage/' . ltrim($path, '/'));
     }
 }

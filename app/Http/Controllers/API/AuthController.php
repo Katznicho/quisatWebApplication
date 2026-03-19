@@ -86,6 +86,7 @@ class AuthController extends Controller
                         'phone' => $user->phone,
                         'status' => $user->status,
                         'business_id' => $user->business_id,
+                        'profile_photo_url' => $user->profile_photo_url,
                         'business' => [
                             'id' => $user->business->id,
                             'uuid' => $user->business->uuid,
@@ -177,6 +178,7 @@ class AuthController extends Controller
                         'phone' => $user->phone,
                         'status' => $user->status,
                         'business_id' => $user->business_id,
+                        'profile_photo_url' => $user->profile_photo_url,
                         'business' => [
                             'id' => $user->business->id,
                             'uuid' => $user->business->uuid,
@@ -541,6 +543,7 @@ class AuthController extends Controller
                         'relationship' => $parent->relationship,
                         'status' => $parent->status,
                         'business_id' => $parent->business_id,
+                        'photo_url' => $this->resolvePhotoUrl($parent->photo),
                         'business' => [
                             'id' => $parent->business->id,
                             'uuid' => $parent->business->uuid,
@@ -564,6 +567,7 @@ class AuthController extends Controller
                                 'student_id' => $student->student_id,
                                 'class' => $student->class,
                                 'status' => $student->status,
+                                'photo_url' => $this->resolvePhotoUrl($student->photo),
                             ];
                         }),
                         'user_type' => 'parent_guardian',
@@ -837,5 +841,18 @@ class AuthController extends Controller
         } else {
             return 'user';
         }
+    }
+
+    private function resolvePhotoUrl(?string $path): ?string
+    {
+        if (empty($path)) {
+            return null;
+        }
+
+        if (Str::startsWith($path, ['http://', 'https://'])) {
+            return $path;
+        }
+
+        return asset('storage/' . ltrim($path, '/'));
     }
 }

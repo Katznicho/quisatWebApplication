@@ -7,6 +7,7 @@ use App\Models\ClassRoom;
 use App\Models\Student;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class StudentController extends Controller
 {
@@ -214,6 +215,7 @@ class StudentController extends Controller
             'admission_date' => optional($student->admission_date)->toDateString(),
             'status' => $student->status,
             'avatar_url' => $this->generateAvatarUrl($student),
+            'photo_url' => $this->resolvePhotoUrl($student->photo),
             'class_room' => $classRoom ? [
                 'id' => $classRoom->id,
                 'uuid' => $classRoom->uuid,
@@ -257,6 +259,19 @@ class StudentController extends Controller
         $encodedName = urlencode($name ?: 'Student');
 
         return "https://ui-avatars.com/api/?name={$encodedName}&background=4A90E2&color=ffffff&size=128";
+    }
+
+    protected function resolvePhotoUrl(?string $path): ?string
+    {
+        if (empty($path)) {
+            return null;
+        }
+
+        if (Str::startsWith($path, ['http://', 'https://'])) {
+            return $path;
+        }
+
+        return asset('storage/' . ltrim($path, '/'));
     }
 }
 
