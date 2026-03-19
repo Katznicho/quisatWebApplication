@@ -72,4 +72,9 @@ class ClassAssignment extends Model
     {
         return $this->belongsTo(User::class, 'teacher_id');
     }
+
+    public function parentHiddenStates()
+    {
+        return $this->hasMany(ClassAssignmentParentHidden::class, 'assignment_id');
+    }
 }

@@ -244,9 +244,11 @@ Route::prefix('v1')->group(function () {
 
             Route::prefix('assignments')->group(function () {
                 Route::get('/', [ClassAssignmentController::class, 'index']);
+                Route::get('hidden-for-parent', [ClassAssignmentController::class, 'hiddenForParent']);
                 Route::post('/', [ClassAssignmentController::class, 'store']);
                 Route::get('{assignment}', [ClassAssignmentController::class, 'show']);
                 Route::delete('{assignment}', [ClassAssignmentController::class, 'destroy']);
+                Route::post('{assignment}/restore-for-parent', [ClassAssignmentController::class, 'restoreForParent']);
                 Route::get('{assignment}/submissions', [AssignmentSubmissionController::class, 'show']);
                 Route::post('{assignment}/submissions', [AssignmentSubmissionController::class, 'store']);
                 Route::get('{assignment}/submissions/{submission}', [AssignmentSubmissionController::class, 'show']);

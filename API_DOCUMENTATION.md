@@ -428,6 +428,40 @@ Future<Map<String, dynamic>> login(String email, String password) async {
 }
 ```
 
+```dart
+// Parent hides assignment from own view
+Future<Map<String, dynamic>> hideAssignmentForParent(
+  String token,
+  String assignmentIdOrUuid,
+) async {
+  final response = await http.delete(
+    Uri.parse('https://yourdomain.com/api/v1/assignments/$assignmentIdOrUuid'),
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    },
+  );
+
+  return jsonDecode(response.body);
+}
+
+// Parent restores previously hidden assignment
+Future<Map<String, dynamic>> restoreAssignmentForParent(
+  String token,
+  String assignmentIdOrUuid,
+) async {
+  final response = await http.post(
+    Uri.parse('https://yourdomain.com/api/v1/assignments/$assignmentIdOrUuid/restore-for-parent'),
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    },
+  );
+
+  return jsonDecode(response.body);
+}
+```
+
 ### React Native Example
 ```javascript
 // Login function
@@ -444,6 +478,40 @@ const login = async (email, password) => {
     }),
   });
   
+  return await response.json();
+};
+```
+
+```javascript
+// Parent hides assignment from own view
+const hideAssignmentForParent = async (token, assignmentIdOrUuid) => {
+  const response = await fetch(
+    `https://yourdomain.com/api/v1/assignments/${assignmentIdOrUuid}`,
+    {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  return await response.json();
+};
+
+// Parent restores hidden assignment
+const restoreAssignmentForParent = async (token, assignmentIdOrUuid) => {
+  const response = await fetch(
+    `https://yourdomain.com/api/v1/assignments/${assignmentIdOrUuid}/restore-for-parent`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
   return await response.json();
 };
 ```
@@ -559,6 +627,79 @@ per_page=50
       "teacher": { "id": 6, "name": "Mrs. Jennifer Wilson", "email": "jennifer.wilson@school.com" }
     }
   }
+}
+```
+
+#### Delete Assignment
+**DELETE** `/assignments/{id|uuid}`
+
+**Behavior by user type:**
+- **Staff/User:** permanently deletes the assignment for the whole business.
+- **Parent/Guardian:** hides the assignment only for the authenticated parent.
+
+**Parent Response (hide only):**
+```json
+{
+  "success": true,
+  "message": "Assignment removed from your view."
+}
+```
+
+**Staff Response (global delete):**
+```json
+{
+  "success": true,
+  "message": "Assignment deleted successfully."
+}
+```
+
+#### List Parent Hidden Assignments
+**GET** `/assignments/hidden-for-parent`
+
+Only available for authenticated parents/guardians.
+
+**Query Parameters (optional):**
+```
+per_page=25
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Hidden assignments fetched successfully.",
+  "data": {
+    "assignments": [
+      {
+        "id": 12,
+        "uuid": "4f9f8c23-0b1f-4f7f-9f81-1d52b03f0ea9",
+        "title": "Mathematics Homework",
+        "assignment_type": "homework",
+        "status": "published",
+        "due_date": "2025-11-10"
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "per_page": 25,
+      "total": 1,
+      "last_page": 1,
+      "has_more": false
+    }
+  }
+}
+```
+
+#### Restore Hidden Assignment (Parent)
+**POST** `/assignments/{id|uuid}/restore-for-parent`
+
+Only available for authenticated parents/guardians and only for assignments in their children’s classes.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Assignment restored to your view."
 }
 ```
 

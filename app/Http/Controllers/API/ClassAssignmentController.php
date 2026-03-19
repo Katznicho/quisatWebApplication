@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\ClassAssignment;
+use App\Models\ClassAssignmentParentHidden;
 use App\Models\ParentGuardian;
 use App\Models\Timetable;
 use App\Models\User;
@@ -38,6 +39,11 @@ class ClassAssignmentController extends Controller
             } else {
                 $query->whereIn('class_room_id', $childrenClassRoomIds);
             }
+
+            // Parent-level delete only hides assignments from that parent's view.
+            $query->whereDoesntHave('parentHiddenStates', function ($q) use ($user) {
+                $q->where('parent_guardian_id', $user->id);
+            });
         }
 
         // Teachers: only assignments for classes they are linked to (via Timetable)
@@ -279,6 +285,17 @@ class ClassAssignmentController extends Controller
                     'message' => 'You are not authorized to view this assignment.',
                 ], 403);
             }
+
+            $isHiddenForParent = $record->parentHiddenStates()
+                ->where('parent_guardian_id', $user->id)
+                ->exists();
+
+            if ($isHiddenForParent) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Assignment not found.',
+                ], 404);
+            }
         }
 
         // Teachers: only allow if assignment is for a class they are linked to (or they created it)
@@ -311,6 +328,57 @@ class ClassAssignmentController extends Controller
             'message' => 'Assignment retrieved successfully.',
             'data' => [
                 'assignment' => $this->transformAssignment($record, true),
+            ],
+        ]);
+    }
+
+    /**
+     * List assignments hidden by the authenticated parent.
+     */
+    public function hiddenForParent(Request $request)
+    {
+        $businessId = $request->get('business_id');
+        $user = $request->get('authenticated_user');
+
+        if (! $user instanceof ParentGuardian) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only parents/guardians can access hidden assignments.',
+            ], 403);
+        }
+
+        $query = ClassAssignment::query()
+            ->with([
+                'classRoom:id,name,code',
+                'subject:id,name,code',
+                'teacher:id,name,email',
+                'branch:id,name,code',
+            ])
+            ->where('business_id', $businessId)
+            ->whereHas('parentHiddenStates', function ($q) use ($user) {
+                $q->where('parent_guardian_id', $user->id);
+            })
+            ->orderByDesc('published_at')
+            ->orderByDesc('due_date');
+
+        $perPage = (int) $request->query('per_page', 25);
+        $perPage = $perPage > 0 ? min($perPage, 100) : 25;
+
+        $assignments = $query->paginate($perPage);
+        $assignments->getCollection()->transform(fn ($assignment) => $this->transformAssignment($assignment));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Hidden assignments fetched successfully.',
+            'data' => [
+                'assignments' => $assignments->items(),
+                'pagination' => [
+                    'current_page' => $assignments->currentPage(),
+                    'per_page' => $assignments->perPage(),
+                    'total' => $assignments->total(),
+                    'last_page' => $assignments->lastPage(),
+                    'has_more' => $assignments->hasMorePages(),
+                ],
             ],
         ]);
     }
@@ -360,18 +428,47 @@ class ClassAssignmentController extends Controller
     }
 
     /**
-     * Delete an assignment created by staff.
+     * Delete an assignment.
+     * - Parent: hide from own view only.
+     * - Staff: delete assignment globally.
      */
-    public function destroy(Request $request, ClassAssignment $assignment)
+    public function destroy(Request $request, $assignment)
     {
         $businessId = $request->get('business_id');
         $user = $request->get('authenticated_user');
+        $assignmentRecord = $this->resolveAssignmentForBusiness($assignment, $businessId);
 
-        if ($assignment->business_id !== $businessId) {
+        if (! $assignmentRecord) {
             return response()->json([
                 'success' => false,
                 'message' => 'Assignment not found in your business.',
             ], 404);
+        }
+
+        if ($user instanceof ParentGuardian) {
+            $childrenClassRoomIds = $user->students()
+                ->whereNotNull('class_room_id')
+                ->pluck('class_room_id')
+                ->unique()
+                ->values()
+                ->all();
+
+            if (!in_array($assignmentRecord->class_room_id, $childrenClassRoomIds)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You are not authorized to delete this assignment.',
+                ], 403);
+            }
+
+            ClassAssignmentParentHidden::firstOrCreate([
+                'assignment_id' => $assignmentRecord->id,
+                'parent_guardian_id' => $user->id,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Assignment removed from your view.',
+            ]);
         }
 
         if (! $user instanceof User) {
@@ -384,7 +481,7 @@ class ClassAssignmentController extends Controller
         // Optionally restrict: teacher who created or any staff; for now, allow any staff in same business.
 
         // Remove any stored attachment files
-        $attachments = $assignment->attachments ?? [];
+        $attachments = $assignmentRecord->attachments ?? [];
         if (is_array($attachments)) {
             foreach ($attachments as $attachment) {
                 if (! empty($attachment['path']) && Storage::disk('public')->exists($attachment['path'])) {
@@ -393,11 +490,71 @@ class ClassAssignmentController extends Controller
             }
         }
 
-        $assignment->delete();
+        $assignmentRecord->delete();
 
         return response()->json([
             'success' => true,
             'message' => 'Assignment deleted successfully.',
         ]);
+    }
+
+    /**
+     * Restore a parent-hidden assignment back to parent view.
+     */
+    public function restoreForParent(Request $request, $assignment)
+    {
+        $businessId = $request->get('business_id');
+        $user = $request->get('authenticated_user');
+        $assignmentRecord = $this->resolveAssignmentForBusiness($assignment, $businessId);
+
+        if (! $assignmentRecord) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Assignment not found in your business.',
+            ], 404);
+        }
+
+        if (! $user instanceof ParentGuardian) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only parents/guardians can restore hidden assignments.',
+            ], 403);
+        }
+
+        $childrenClassRoomIds = $user->students()
+            ->whereNotNull('class_room_id')
+            ->pluck('class_room_id')
+            ->unique()
+            ->values()
+            ->all();
+
+        if (!in_array($assignmentRecord->class_room_id, $childrenClassRoomIds)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to restore this assignment.',
+            ], 403);
+        }
+
+        ClassAssignmentParentHidden::where('assignment_id', $assignmentRecord->id)
+            ->where('parent_guardian_id', $user->id)
+            ->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Assignment restored to your view.',
+        ]);
+    }
+
+    protected function resolveAssignmentForBusiness($assignment, int $businessId): ?ClassAssignment
+    {
+        return ClassAssignment::query()
+            ->where('business_id', $businessId)
+            ->where(function ($q) use ($assignment) {
+                $q->where('uuid', $assignment);
+                if (is_numeric($assignment)) {
+                    $q->orWhere('id', $assignment);
+                }
+            })
+            ->first();
     }
 }

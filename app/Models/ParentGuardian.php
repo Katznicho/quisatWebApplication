@@ -56,6 +56,16 @@ class ParentGuardian extends Model
         return $this->hasMany(Student::class);
     }
 
+    public function hiddenAssignments()
+    {
+        return $this->belongsToMany(
+            ClassAssignment::class,
+            'class_assignment_parent_hidden',
+            'parent_guardian_id',
+            'assignment_id'
+        )->withTimestamps();
+    }
+
     public function getFullNameAttribute()
     {
         return $this->first_name . ' ' . $this->last_name;

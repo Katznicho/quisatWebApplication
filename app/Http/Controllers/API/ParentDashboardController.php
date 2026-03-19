@@ -91,6 +91,10 @@ class ParentDashboardController extends Controller
             $assignmentsQuery->whereIn('class_room_id', $classRoomIds);
         }
 
+        $assignmentsQuery->whereDoesntHave('parentHiddenStates', function ($q) use ($user) {
+            $q->where('parent_guardian_id', $user->id);
+        });
+
         $assignments = $assignmentsQuery
             ->limit(6)
             ->get()
