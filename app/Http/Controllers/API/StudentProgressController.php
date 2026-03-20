@@ -10,6 +10,7 @@ use App\Models\StudentAcademicEntry;
 use App\Models\StudentCharacterReport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 class StudentProgressController extends Controller
 {
@@ -92,6 +93,15 @@ class StudentProgressController extends Controller
         $quarterly = $this->buildPerformanceSeries($grades, 'Y-\QQ');
         $annually = $this->buildPerformanceSeries($grades, 'Y');
 
+        $photoUrl = null;
+        if (!empty($student->photo)) {
+            if (Str::startsWith($student->photo, ['http://', 'https://'])) {
+                $photoUrl = $student->photo;
+            } else {
+                $photoUrl = asset('storage/' . ltrim($student->photo, '/'));
+            }
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Student progress loaded successfully.',
@@ -100,7 +110,9 @@ class StudentProgressController extends Controller
                     'id' => $student->id,
                     'full_name' => $student->full_name,
                     'class' => $student->classRoom?->name,
-                    'avatar_url' => "https://ui-avatars.com/api/?name=" . urlencode($student->full_name) . "&background=4A90E2&color=ffffff",
+                    // Keep ui-avatars URL consistent with other API responses (includes size).
+                    'avatar_url' => "https://ui-avatars.com/api/?name=" . urlencode($student->full_name) . "&background=4A90E2&color=ffffff&size=128",
+                    'photo_url' => $photoUrl,
                 ],
                 'overview' => [
                     'overall_progress' => $overallProgress,
