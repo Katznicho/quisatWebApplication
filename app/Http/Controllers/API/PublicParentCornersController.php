@@ -20,38 +20,6 @@ class PublicParentCornersController extends Controller
             $query = ParentCorner::query()
                 ->with('business:id,name,email,phone,address,website_link,social_media_handles');
 
-            // Filters
-            if ($category = $request->query('category')) {
-                $query->where('category', $category);
-            }
-
-            if ($featured = $request->query('featured_only')) {
-                $query->where('is_featured', filter_var($featured, FILTER_VALIDATE_BOOL));
-            }
-
-            if ($search = trim((string) $request->query('search'))) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('title', 'like', "%{$search}%")
-                      ->orWhere('description', 'like', "%{$search}%")
-                      ->orWhere('location', 'like', "%{$search}%");
-                });
-            }
-
-            // Upcoming-only filter (used by app)
-            if (filter_var($request->query('upcoming_only'), FILTER_VALIDATE_BOOL)) {
-                // In-app "upcoming_only" is intended to show *active* events:
-                // published events that have not ended yet (either upcoming or ongoing).
-                $query->where('status', 'published')->where(function ($q) {
-                    // Upcoming: start is in the future
-                    $q->where('start_date', '>=', now())
-                        // Ongoing: start can be in the past, but end_date is still in the future
-                        ->orWhere(function ($q2) {
-                            $q2->where('start_date', '<', now())
-                                ->where('end_date', '>=', now());
-                        });
-                });
-            }
-
             $events = $query->orderBy('start_date', 'asc')->get();
 
             $data = $events->map(function (ParentCorner $event) {
