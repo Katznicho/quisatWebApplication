@@ -7,6 +7,7 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
 use App\Models\ParentGuardian;
+use App\Models\Student;
 use App\Models\BroadcastAnnouncement;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -644,10 +645,16 @@ class ChatController extends Controller
             'content' => 'required|string',
             'type' => 'in:general,urgent,info',
             'target_roles' => 'nullable|array',
+            'target_roles.*' => 'in:staff,parents,students',
             'target_users' => 'nullable|array'
         ]);
 
         $user = Auth::user();
+
+        $targetRoles = $request->input('target_roles');
+        if (!is_array($targetRoles) || count($targetRoles) === 0) {
+            $targetRoles = ['parents']; // default
+        }
 
         $broadcast = BroadcastAnnouncement::create([
             'business_id' => $user->business_id,
@@ -655,41 +662,31 @@ class ChatController extends Controller
             'title' => $request->title,
             'content' => $request->content,
             'type' => $request->type ?? 'general',
-            'target_roles' => $request->target_roles,
+            'target_roles' => $targetRoles,
             'target_users' => $request->target_users,
             'channels' => ['in_app'],
             'status' => 'sent',
             'sent_at' => now()
         ]);
 
-        // Deliver broadcast as a message to every parent's conversation with this sender (school)
         $broadcastMessageContent = '📢 **Broadcast: ' . $broadcast->title . "**\n\n" . $broadcast->content;
-        $parents = ParentGuardian::where('business_id', $user->business_id)
-            ->where('status', 'active')
-            ->get();
 
-        $deliveredCount = 0;
-        foreach ($parents as $parent) {
-            $parentUser = User::where('email', $parent->email)->first();
-            if (!$parentUser) {
-                $parentUser = User::create([
-                    'name' => $parent->full_name,
-                    'email' => $parent->email,
-                    'business_id' => $parent->business_id,
-                    'role_id' => null,
-                    'branch_id' => null,
-                    'password' => '',
-                    'status' => 'active',
-                ]);
-            }
+        $deliveredToParents = 0;
+        $deliveredToStaff = 0;
+        $deliveredToStudents = 0;
 
+        $deliveredStaffUserIds = collect();
+        $deliveredParentUserIds = collect();
+
+        // Helper to deliver broadcast message to a direct conversation (sender <-> recipient user)
+        $deliverToUser = function (User $recipientUser) use ($user, $broadcastMessageContent, &$deliveredParentUserIds, &$deliveredStaffUserIds) {
             $conversation = Conversation::where('type', 'direct')
                 ->where('business_id', $user->business_id)
-                ->whereHas('users', function ($query) use ($user, $parentUser) {
-                    $query->whereIn('users.id', [$user->id, $parentUser->id]);
+                ->whereHas('users', function ($query) use ($user, $recipientUser) {
+                    $query->whereIn('users.id', [$user->id, $recipientUser->id]);
                 })
-                ->withCount(['users' => function ($query) use ($user, $parentUser) {
-                    $query->whereIn('users.id', [$user->id, $parentUser->id]);
+                ->withCount(['users' => function ($query) use ($user, $recipientUser) {
+                    $query->whereIn('users.id', [$user->id, $recipientUser->id]);
                 }])
                 ->having('users_count', 2)
                 ->first();
@@ -702,7 +699,7 @@ class ChatController extends Controller
                     'created_by' => $user->id,
                     'last_message_at' => now(),
                 ]);
-                $conversation->users()->attach([$user->id, $parentUser->id], [
+                $conversation->users()->attach([$user->id, $recipientUser->id], [
                     'joined_at' => now(),
                     'is_active' => true,
                 ]);
@@ -714,13 +711,110 @@ class ChatController extends Controller
                 'type' => 'text',
             ]);
             $conversation->update(['last_message_at' => now()]);
-            $deliveredCount++;
+        };
+
+        // STAFF recipients
+        if (in_array('staff', $targetRoles, true)) {
+            $staffUsers = User::where('business_id', $user->business_id)
+                ->where('status', 'active')
+                ->where('id', '!=', $user->id)
+                ->whereHas('role', function ($q) {
+                    $q->where('name', 'Staff');
+                })
+                ->get();
+
+            foreach ($staffUsers as $staffUser) {
+                if ($deliveredStaffUserIds->contains($staffUser->id)) {
+                    continue;
+                }
+
+                $deliverToUser($staffUser);
+                $deliveredStaffUserIds->push($staffUser->id);
+            }
+
+            $deliveredToStaff = $deliveredStaffUserIds->count();
+        }
+
+        // PARENTS recipients
+        if (in_array('parents', $targetRoles, true)) {
+            $parents = ParentGuardian::where('business_id', $user->business_id)
+                ->where('status', 'active')
+                ->get();
+
+            foreach ($parents as $parent) {
+                $parentUser = User::where('email', $parent->email)->first();
+                if (!$parentUser) {
+                    $parentUser = User::create([
+                        'name' => $parent->full_name,
+                        'email' => $parent->email,
+                        'business_id' => $parent->business_id,
+                        'role_id' => null,
+                        'branch_id' => null,
+                        'password' => '',
+                        'status' => 'active',
+                    ]);
+                }
+
+                if ($deliveredParentUserIds->contains($parentUser->id)) {
+                    continue;
+                }
+
+                $deliverToUser($parentUser);
+                $deliveredParentUserIds->push($parentUser->id);
+            }
+
+            $deliveredToParents = $deliveredParentUserIds->count();
+        }
+
+        // STUDENTS recipients: deliver to parents of selected students
+        if (in_array('students', $targetRoles, true)) {
+            $studentParentIds = Student::where('business_id', $user->business_id)
+                ->whereNotNull('parent_guardian_id')
+                ->where(function ($q) {
+                    $q->whereNull('status')->orWhere('status', 'active');
+                })
+                ->pluck('parent_guardian_id')
+                ->unique()
+                ->values();
+
+            $parents = ParentGuardian::where('business_id', $user->business_id)
+                ->whereIn('id', $studentParentIds)
+                ->where('status', 'active')
+                ->get();
+
+            foreach ($parents as $parent) {
+                $parentUser = User::where('email', $parent->email)->first();
+                if (!$parentUser) {
+                    $parentUser = User::create([
+                        'name' => $parent->full_name,
+                        'email' => $parent->email,
+                        'business_id' => $parent->business_id,
+                        'role_id' => null,
+                        'branch_id' => null,
+                        'password' => '',
+                        'status' => 'active',
+                    ]);
+                }
+
+                if ($deliveredParentUserIds->contains($parentUser->id)) {
+                    continue;
+                }
+
+                $deliverToUser($parentUser);
+                $deliveredParentUserIds->push($parentUser->id);
+            }
+
+            $deliveredToStudents = $studentParentIds->count();
+            // Note: parents count may already include parents above; we keep both fields separate.
+            $deliveredToParents = $deliveredParentUserIds->count();
         }
 
         return response()->json([
             'broadcast' => $broadcast,
             'message' => 'Broadcast sent successfully',
-            'delivered_to_parents' => $deliveredCount,
+            'delivered_to_parents' => $deliveredToParents,
+            'delivered_to_staff' => $deliveredToStaff,
+            'delivered_to_students' => $deliveredToStudents,
         ]);
     }
 

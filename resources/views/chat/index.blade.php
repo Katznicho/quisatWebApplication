@@ -123,7 +123,7 @@
         <!-- Broadcasted Messages Section -->
         <div class="mt-6 bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6">
             <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Broadcasted Messages</h3>
-            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Recent announcements sent to all parents for this school.</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Recent announcements sent to selected recipients for this school.</p>
             <div id="broadcastsList" class="space-y-3 max-h-64 overflow-y-auto">
                 <div id="broadcastsLoading" class="text-center text-gray-500 dark:text-gray-400 py-4">
                     <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
@@ -178,6 +178,26 @@
                             <option value="urgent">Urgent</option>
                             <option value="info">Information</option>
                         </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="md:col-span-1">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Send to</label>
+                        <div class="space-y-2">
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" name="target_roles[]" value="staff" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                <span class="text-sm text-gray-800 dark:text-gray-200">Staff</span>
+                            </label>
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" name="target_roles[]" value="parents" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" checked>
+                                <span class="text-sm text-gray-800 dark:text-gray-200">Parents</span>
+                            </label>
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" name="target_roles[]" value="students" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                <span class="text-sm text-gray-800 dark:text-gray-200">Students</span>
+                            </label>
+                        </div>
                     </div>
                 </div>
                 <div>
@@ -884,10 +904,14 @@
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<span class="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span> Sending...';
 
+            const checkedTargets = Array.from(form.querySelectorAll('input[name="target_roles[]"]:checked'))
+                .map(el => el.value);
+
             const data = {
                 title: document.getElementById('broadcastTitle').value.trim(),
                 content: document.getElementById('broadcastContent').value.trim(),
-                type: document.getElementById('broadcastType').value
+                type: document.getElementById('broadcastType').value,
+                target_roles: checkedTargets
             };
 
             fetch('/chat/broadcast', {
@@ -904,8 +928,17 @@
                     return response.json();
                 })
                 .then(result => {
-                    const count = result.delivered_to_parents != null ? result.delivered_to_parents : 0;
-                    alert('Broadcast sent successfully!' + (count > 0 ? ' Delivered to ' + count + ' parent(s).' : ''));
+                    const parentsCount = result.delivered_to_parents != null ? result.delivered_to_parents : 0;
+                    const staffCount = result.delivered_to_staff != null ? result.delivered_to_staff : 0;
+                    const studentsCount = result.delivered_to_students != null ? result.delivered_to_students : 0;
+
+                    let msg = 'Broadcast sent successfully!';
+                    const parts = [];
+                    if (parentsCount > 0) parts.push(parentsCount + ' parent(s)');
+                    if (staffCount > 0) parts.push(staffCount + ' staff');
+                    if (studentsCount > 0) parts.push(studentsCount + ' student(s)');
+                    if (parts.length > 0) msg += ' Delivered to ' + parts.join(', ') + '.';
+                    alert(msg);
                     form.reset();
                     loadBroadcasts();
                 })

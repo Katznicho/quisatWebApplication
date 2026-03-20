@@ -45,7 +45,8 @@ class ListUsers extends Component implements HasForms, HasTable
                 Tables\Columns\ImageColumn::make('profile_photo_url')
                     ->label('Profile Photo')
                     ->circular()
-                    ->defaultImageUrl(url('path/to/default/image.jpg')),
+                    // Use a real placeholder so the UI never shows an empty/broken avatar.
+                    ->defaultImageUrl('https://ui-avatars.com/api/?name=User&background=007AFF&color=ffffff&size=128'),
                 Tables\Columns\TextColumn::make('name')
                     ->searchable()
                     ->sortable(),
