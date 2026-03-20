@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\ClassAssignment;
+use App\Models\ParentGuardian;
 use App\Models\SchoolDocument;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -22,6 +23,7 @@ class DocumentController extends Controller
             ->get()
             ->map(function (SchoolDocument $doc) {
                 return [
+                    'id' => $doc->id,
                     'assignment_id' => null,
                     'assignment_title' => $doc->title,
                     'class_room' => null,
@@ -43,6 +45,7 @@ class DocumentController extends Controller
             ->flatMap(function (ClassAssignment $assignment) {
                 return collect($assignment->attachments ?? [])->map(function ($attachment) use ($assignment) {
                     return [
+                        'id' => null,
                         'assignment_id' => $assignment->id,
                         'assignment_title' => $assignment->title,
                         'class_room' => $assignment->classRoom?->name,
@@ -141,6 +144,7 @@ class DocumentController extends Controller
         ]);
 
         $documentItem = [
+            'id' => $doc->id,
             'assignment_id' => null,
             'assignment_title' => $doc->title,
             'class_room' => null,
@@ -173,6 +177,42 @@ class DocumentController extends Controller
         $value = $bytes / (1024 ** $power);
 
         return sprintf('%.1f %s', $value, $units[$power]);
+    }
+
+    /**
+     * Delete a school-wide document.
+     * Both staff and parents can delete as requested.
+     */
+    public function destroy(Request $request, SchoolDocument $document)
+    {
+        $business = $request->get('business');
+        $user = $request->get('authenticated_user');
+
+        if (! $business || $document->business_id !== $business->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Document not found in your business.',
+            ], 404);
+        }
+
+        // Only authenticated users inside the same business can delete.
+        if (! ($user instanceof User) && ! ($user instanceof ParentGuardian)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to delete this document.',
+            ], 403);
+        }
+
+        if ($document->file_path && Storage::disk('public')->exists($document->file_path)) {
+            Storage::disk('public')->delete($document->file_path);
+        }
+
+        $document->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Document deleted successfully.',
+        ]);
     }
 }
 
