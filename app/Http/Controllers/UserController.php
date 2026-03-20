@@ -30,19 +30,55 @@ class UserController extends Controller
 
     public function update(Request $request, User $user)
     {
-        $request->validate([
-            'balance' => 'required|numeric',
-            'profit' => 'required|numeric',
-            'total_trades' => 'required|integer',
+        $authUser = Auth::user();
+        $businessId = $authUser->business_id;
+
+        // Staff should only edit users inside their business.
+        if ($businessId !== 1 && (int) $user->business_id !== (int) $businessId) {
+            abort(403, 'Unauthorized');
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $user->id,
+            'phone' => 'nullable|string|max:255',
+            'status' => 'required|in:active,inactive,suspended',
+            'business_id' => $businessId === 1 ? 'required|exists:businesses,id' : 'nullable',
+            'branch_id' => 'nullable|exists:branches,id',
+            'role_id' => 'required|exists:roles,id',
+            'profile_photo_path' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            'class_room_id' => 'nullable|exists:class_rooms,id',
         ]);
 
-        $user->update([
-            'balance' => $request->balance,
-            'profit' => $request->profit,
-            'total_trades' => $request->total_trades,
-        ]);
+        try {
+            $data = [
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'phone' => $validated['phone'] ?? null,
+                'status' => $validated['status'],
+                'role_id' => $validated['role_id'],
+                'branch_id' => $validated['branch_id'] ?? null,
+                'class_room_id' => $validated['class_room_id'] ?? null,
+            ];
 
-        return redirect()->route('users.index')->with('success', 'User updated successfully!');
+            // Set business_id if not admin.
+            if ($businessId !== 1) {
+                $data['business_id'] = $businessId;
+            } else {
+                $data['business_id'] = $validated['business_id'];
+            }
+
+            // Upload profile photo if provided.
+            if ($request->hasFile('profile_photo_path')) {
+                $data['profile_photo_path'] = $request->file('profile_photo_path')->store('profile_photos', 'public');
+            }
+
+            $user->update($data);
+
+            return redirect()->route('users.index')->with('success', 'User updated successfully!');
+        } catch (\Exception $e) {
+            return redirect()->back()->withInput()->with('error', 'Failed to update user: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -330,10 +366,67 @@ class UserController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(string $id)
+    public function edit(User $user)
     {
-        //
-        return view('users.edit');
+        $authUser = Auth::user();
+        $businessId = $authUser->business_id;
+
+        // Staff should only edit users inside their business.
+        if ($businessId !== 1 && (int) $user->business_id !== (int) $businessId) {
+            abort(403, 'Unauthorized');
+        }
+
+        // If admin, show data based on the user's current business.
+        $effectiveBusinessId = $businessId === 1 ? $user->business_id : $businessId;
+
+        // Get businesses for dropdown (only if admin)
+        $businesses = [];
+        if ($businessId === 1) {
+            $businesses = Business::all()->mapWithKeys(function ($business) {
+                return [$business->id => $business->name];
+            });
+        }
+
+        // Get roles/branches for the effective business
+        $roles = \App\Models\Role::where('business_id', $effectiveBusinessId)
+            ->orderBy('name')
+            ->get()
+            ->mapWithKeys(function ($role) {
+                return [$role->id => $role->name];
+            });
+
+        $branches = \App\Models\Branch::where('business_id', $effectiveBusinessId)
+            ->orderBy('name')
+            ->get()
+            ->mapWithKeys(function ($branch) {
+                return [$branch->id => $branch->name];
+            });
+
+        // Get classes only if business category is a school
+        $classRooms = [];
+        if ($effectiveBusinessId !== 1) {
+            $business = $authUser->business?->load('businessCategory');
+            if ($business && $business->businessCategory && str_contains(strtolower($business->businessCategory->name), 'school')) {
+                $classRooms = \App\Models\ClassRoom::where('business_id', $effectiveBusinessId)
+                    ->where(function ($q) {
+                        $q->whereNull('status')->orWhere('status', 'active');
+                    })
+                    ->orderBy('name')
+                    ->get()
+                    ->mapWithKeys(function ($classRoom) {
+                        return [$classRoom->id => $classRoom->name];
+                    });
+            }
+        }
+
+        return view('users.edit', compact(
+            'user',
+            'businesses',
+            'roles',
+            'branches',
+            'businessId',
+            'classRooms'
+        ));
     }
 
     /**
