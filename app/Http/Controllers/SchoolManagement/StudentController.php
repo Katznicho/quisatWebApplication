@@ -80,6 +80,107 @@ class StudentController extends Controller
     }
 
     /**
+     * Show the form for editing the specified student.
+     */
+    public function edit(Student $student)
+    {
+        $business = Auth::user()->business;
+        $businessId = $business->id ?? null;
+
+        if (! $student || ! $student->business_id) {
+            abort(404);
+        }
+
+        // Staff can only edit students in their business (non-admin).
+        if ((int) $businessId !== 1 && (int) $student->business_id !== (int) $businessId) {
+            abort(403, 'Unauthorized');
+        }
+
+        $parentGuardians = ParentGuardian::where('business_id', $student->business_id)
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get()
+            ->mapWithKeys(function ($parent) {
+                return [$parent->id => $parent->full_name];
+            });
+
+        $classRooms = ClassRoom::where('business_id', $student->business_id)
+            ->orderBy('name')
+            ->get()
+            ->mapWithKeys(function ($classRoom) {
+                return [$classRoom->id => $classRoom->name];
+            });
+
+        return view('school-management.students.edit', compact('student', 'parentGuardians', 'classRooms'));
+    }
+
+    /**
+     * Update the specified student in storage.
+     */
+    public function update(Request $request, Student $student)
+    {
+        $business = Auth::user()->business;
+        $businessId = $business->id ?? null;
+
+        if ((int) $businessId !== 1 && (int) $student->business_id !== (int) $businessId) {
+            abort(403, 'Unauthorized');
+        }
+
+        $validated = $request->validate([
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'email' => 'required|email|unique:students,email,' . $student->id . '|max:255',
+            'phone' => 'nullable|string|max:255',
+            'date_of_birth' => 'required|date',
+            'gender' => 'required|in:male,female,other',
+            'student_id' => 'required|string|unique:students,student_id,' . $student->id . '|max:255',
+            'admission_date' => 'required|date',
+            'parent_guardian_id' => 'required|exists:parent_guardians,id',
+            'class_room_id' => 'nullable|exists:class_rooms,id',
+            'address' => 'nullable|string',
+            'city' => 'nullable|string|max:255',
+            'country' => 'nullable|string|max:255',
+            'status' => 'required|in:active,inactive,graduated,transferred',
+            'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+        ]);
+
+        // Handle photo upload (replace existing file if a new one is provided).
+        $photoPath = $student->photo;
+        if ($request->hasFile('photo')) {
+            if (!empty($photoPath) && Storage::disk('public')->exists($photoPath)) {
+                Storage::disk('public')->delete($photoPath);
+            }
+            $photoPath = $request->file('photo')->store('students', 'public');
+        }
+
+        $data = [
+            'first_name' => $validated['first_name'],
+            'last_name' => $validated['last_name'],
+            'email' => $validated['email'],
+            'phone' => $validated['phone'] ?? null,
+            'date_of_birth' => $validated['date_of_birth'],
+            'gender' => $validated['gender'],
+            'student_id' => $validated['student_id'],
+            'admission_date' => $validated['admission_date'],
+            'parent_guardian_id' => $validated['parent_guardian_id'],
+            'class_room_id' => $validated['class_room_id'] ?? null,
+            'address' => $validated['address'] ?? null,
+            'city' => $validated['city'] ?? null,
+            'country' => $validated['country'] ?? null,
+            'status' => $validated['status'],
+            'photo' => $photoPath,
+        ];
+
+        // Keep student's original business unless admin changed it (we don't expose business_id in UI).
+        $data['business_id'] = $student->business_id;
+
+        $student->update($data);
+
+        return redirect()->route('school-management.students')
+            ->with('success', 'Student updated successfully!');
+    }
+
+    /**
      * Show the bulk upload page.
      */
     public function bulkUploadPage()

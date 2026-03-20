@@ -16,8 +16,9 @@ use Filament\Tables;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
-use Filament\Tables\Actions\EditAction;
+use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\DeleteAction;
+use Filament\Tables\Columns\ImageColumn;
 use Livewire\Component;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -40,6 +41,17 @@ class StudentManagement extends Component implements HasForms, HasTable
         return $table
             ->query($query)
             ->columns([
+                ImageColumn::make('photo')
+                    ->label('Profile Photo')
+                    ->circular()
+                    ->getStateUsing(function (Student $record): ?string {
+                        if (empty($record->photo)) {
+                            return null;
+                        }
+
+                        return asset('storage/' . ltrim($record->photo, '/'));
+                    })
+                    ->defaultImageUrl('https://ui-avatars.com/api/?name=Student&background=007AFF&color=ffffff&size=128'),
                 // Tables\Columns\TextColumn::make('uuid')
                 //     ->label('Student ID')
                 //     ->searchable(),
@@ -82,69 +94,12 @@ class StudentManagement extends Component implements HasForms, HasTable
             ->filters([
             ])
             ->actions([
-                EditAction::make()
-                    ->modalHeading('Edit Student')
-                    ->form([
-                        Hidden::make('business_id')
-                            ->default(auth()->user()->business_id),
-                        TextInput::make('first_name')
-                            ->required()
-                            ->placeholder('Enter first name'),
-                        TextInput::make('last_name')
-                            ->required()
-                            ->placeholder('Enter last name'),
-                        TextInput::make('email')
-                            ->email()
-                            ->required()
-                            ->placeholder('Enter email address'),
-                        TextInput::make('phone')
-                            ->tel()
-                            ->placeholder('Enter phone number'),
-                        TextInput::make('student_id')
-                            ->required()
-                            ->placeholder('Enter student ID'),
-                        DatePicker::make('date_of_birth')
-                            ->label('Date of Birth')
-                            ->required(),
-                        Select::make('gender')
-                            ->options([
-                                'male' => 'Male',
-                                'female' => 'Female',
-                                'other' => 'Other',
-                            ])
-                            ->required(),
-                        DatePicker::make('admission_date')
-                            ->label('Admission Date')
-                            ->required(),
-                        Select::make('class_room_id')
-                            ->relationship('classRoom', 'name')
-                            ->label('Class')
-                            ->placeholder('Select class (optional)'),
-                        Select::make('parent_guardian_id')
-                            ->options(function () {
-                                $query = ParentGuardian::query();
-                                if (auth()->user()->business_id !== 1) {
-                                    $query->where('business_id', auth()->user()->business_id);
-                                }
-                                return $query->get()->pluck('full_name', 'id');
-                            })
-                            ->label('Parent/Guardian')
-                            ->required()
-                            ->searchable(),
-                        Select::make('status')
-                            ->options([
-                                'active' => 'Active',
-                                'inactive' => 'Inactive',
-                                'graduated' => 'Graduated',
-                                'transferred' => 'Transferred',
-                            ])
-                            ->default('active')
-                            ->required(),
-                        Textarea::make('address')
-                            ->placeholder('Enter address')
-                            ->rows(3),
-                    ])
-                    ->successNotificationTitle('Student updated successfully.'),
+                Action::make('edit')
+                    ->label('Edit')
+                    ->icon('heroicon-o-pencil')
+                    ->color('primary')
+                    ->url(fn (Student $record): string => route('school-management.students.edit', $record))
+                    ->visible(fn (Student $record): bool => auth()->user()->business_id === 1 || $record->business_id === auth()->user()->business_id),
                 DeleteAction::make()
                     ->modalHeading('Delete Student')
                     ->action(function (Student $record): void {

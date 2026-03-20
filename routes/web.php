@@ -196,6 +196,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
         
         Route::get('/students/create', [StudentController::class, 'create'])->name('students.create');
         Route::post('/students', [StudentController::class, 'store'])->name('students.store');
+        Route::get('/students/{student}/edit', [StudentController::class, 'edit'])->name('students.edit');
+        Route::put('/students/{student}', [StudentController::class, 'update'])->name('students.update');
         Route::get('/students/bulk-upload', [StudentController::class, 'bulkUploadPage'])->name('students.bulk-upload-page');
         Route::get('/students/download-template', [StudentController::class, 'downloadTemplate'])->name('students.download-template');
         Route::post('/students/bulk-upload', [StudentController::class, 'bulkUpload'])->name('students.bulk-upload');
@@ -238,6 +240,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
         
         Route::get('/parents/create', [ParentGuardianController::class, 'create'])->name('parents.create');
         Route::post('/parents', [ParentGuardianController::class, 'store'])->name('parents.store');
+        Route::get('/parents/{parent}/edit', [ParentGuardianController::class, 'edit'])->name('parents.edit');
+        Route::put('/parents/{parent}', [ParentGuardianController::class, 'update'])->name('parents.update');
         Route::get('/parents/bulk-upload', [ParentGuardianController::class, 'bulkUploadPage'])->name('parents.bulk-upload-page');
         Route::get('/parents/download-template', [ParentGuardianController::class, 'downloadTemplate'])->name('parents.download-template');
         Route::post('/parents/bulk-upload', [ParentGuardianController::class, 'bulkUpload'])->name('parents.bulk-upload');

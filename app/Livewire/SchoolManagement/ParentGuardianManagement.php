@@ -14,7 +14,8 @@ use Filament\Tables;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
-use Filament\Tables\Actions\EditAction;
+use Filament\Tables\Columns\ImageColumn;
+use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\DeleteAction;
 use Livewire\Component;
 use Illuminate\Contracts\View\View;
@@ -40,6 +41,17 @@ class ParentGuardianManagement extends Component implements HasForms, HasTable
             ->query($query)
             ->searchable()
             ->columns([
+                ImageColumn::make('photo')
+                    ->label('Profile Photo')
+                    ->circular()
+                    ->getStateUsing(function (ParentGuardian $record): ?string {
+                        if (empty($record->photo)) {
+                            return null;
+                        }
+
+                        return asset('storage/' . ltrim($record->photo, '/'));
+                    })
+                    ->defaultImageUrl('https://ui-avatars.com/api/?name=Parent&background=007AFF&color=ffffff&size=128'),
                 Tables\Columns\TextColumn::make('first_name')
                     ->searchable()
                     ->sortable(),
@@ -97,49 +109,12 @@ class ParentGuardianManagement extends Component implements HasForms, HasTable
             ->filters([
             ])
             ->actions([
-                EditAction::make()
-                    ->modalHeading('Edit Parent/Guardian')
-                    ->form([
-                        Hidden::make('business_id')
-                            ->default(auth()->user()->business_id),
-                        TextInput::make('first_name')
-                            ->required()
-                            ->placeholder('Enter first name'),
-                        TextInput::make('last_name')
-                            ->required()
-                            ->placeholder('Enter last name'),
-                        TextInput::make('email')
-                            ->email()
-                            ->required()
-                            ->placeholder('Enter email address'),
-                        TextInput::make('phone')
-                            ->tel()
-                            ->required()
-                            ->placeholder('Enter phone number'),
-                        Select::make('relationship')
-                            ->options([
-                                'father' => 'Father',
-                                'mother' => 'Mother',
-                                'guardian' => 'Guardian',
-                                'other' => 'Other',
-                            ])
-                            ->required(),
-                        TextInput::make('occupation')
-                            ->placeholder('Enter occupation'),
-                        TextInput::make('emergency_contact')
-                            ->placeholder('Enter emergency contact'),
-                        Textarea::make('address')
-                            ->placeholder('Enter address')
-                            ->rows(3),
-                        Select::make('status')
-                            ->options([
-                                'active' => 'Active',
-                                'inactive' => 'Inactive',
-                            ])
-                            ->default('active')
-                            ->required(),
-                    ])
-                    ->successNotificationTitle('Parent/Guardian updated successfully.'),
+                Action::make('edit')
+                    ->label('Edit')
+                    ->icon('heroicon-o-pencil')
+                    ->color('primary')
+                    ->url(fn (ParentGuardian $record): string => route('school-management.parents.edit', $record))
+                    ->visible(fn (ParentGuardian $record): bool => auth()->user()->business_id === 1 || $record->business_id === auth()->user()->business_id),
                 DeleteAction::make()
                     ->modalHeading('Delete Parent/Guardian')
                     ->action(function (ParentGuardian $record): void {

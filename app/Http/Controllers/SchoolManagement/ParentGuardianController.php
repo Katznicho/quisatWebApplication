@@ -64,6 +64,84 @@ class ParentGuardianController extends Controller
     }
 
     /**
+     * Show the form for editing the specified parent/guardian.
+     */
+    public function edit(ParentGuardian $parent)
+    {
+        $business = Auth::user()->business;
+        $businessId = $business->id ?? null;
+
+        if (! $parent || ! $parent->business_id) {
+            abort(404);
+        }
+
+        // Staff can only edit parents inside their business (unless admin).
+        if ((int) $businessId !== 1 && (int) $parent->business_id !== (int) $businessId) {
+            abort(403, 'Unauthorized');
+        }
+
+        return view('school-management.parents.edit', compact('parent'));
+    }
+
+    /**
+     * Update the specified parent/guardian in storage.
+     */
+    public function update(Request $request, ParentGuardian $parent)
+    {
+        $business = Auth::user()->business;
+        $businessId = $business->id ?? null;
+
+        if ((int) $businessId !== 1 && (int) $parent->business_id !== (int) $businessId) {
+            abort(403, 'Unauthorized');
+        }
+
+        $validated = $request->validate([
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'email' => 'required|email|unique:parent_guardians,email,' . $parent->id . '|max:255',
+            'phone' => 'required|string|max:255',
+            'address' => 'nullable|string',
+            'city' => 'nullable|string|max:255',
+            'country' => 'nullable|string|max:255',
+            'relationship' => 'required|in:father,mother,guardian,other',
+            'occupation' => 'nullable|string|max:255',
+            'emergency_contact' => 'nullable|string|max:255',
+            'status' => 'required|in:active,inactive',
+            'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+        ]);
+
+        $photoPath = $parent->photo;
+        if ($request->hasFile('photo')) {
+            if (!empty($photoPath) && Storage::disk('public')->exists($photoPath)) {
+                Storage::disk('public')->delete($photoPath);
+            }
+            $photoPath = $request->file('photo')->store('parent-guardians', 'public');
+        }
+
+        $data = [
+            'first_name' => $validated['first_name'],
+            'last_name' => $validated['last_name'],
+            'email' => $validated['email'],
+            'phone' => $validated['phone'],
+            'address' => $validated['address'] ?? null,
+            'city' => $validated['city'] ?? null,
+            'country' => $validated['country'] ?? null,
+            'relationship' => $validated['relationship'],
+            'occupation' => $validated['occupation'] ?? null,
+            'emergency_contact' => $validated['emergency_contact'] ?? null,
+            'status' => $validated['status'],
+            'photo' => $photoPath,
+            // Keep business_id unchanged; it is not exposed on the form.
+            'business_id' => $parent->business_id,
+        ];
+
+        $parent->update($data);
+
+        return redirect()->route('school-management.parents')
+            ->with('success', 'Parent/Guardian updated successfully!');
+    }
+
+    /**
      * Download CSV template for bulk upload.
      */
     public function downloadTemplate()
