@@ -47,7 +47,7 @@ class TimetableManagement extends Component implements HasForms, HasTable
                 Tables\Columns\TextColumn::make('subject.name')
                     ->label('Subject')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('class_room.name')
+                Tables\Columns\TextColumn::make('classRoom.name')
                     ->label('Classroom')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('teacher.name')

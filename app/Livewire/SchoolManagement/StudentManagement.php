@@ -71,9 +71,16 @@ class StudentManagement extends Component implements HasForms, HasTable
                 Tables\Columns\TextColumn::make('classRoom.name')
                     ->label('Class')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('parentGuardian.full_name')
+                Tables\Columns\TextColumn::make('parentGuardian.first_name')
                     ->label('Parent/Guardian')
-                    ->sortable(),
+                    ->formatStateUsing(fn ($state, Student $record) => $record->parentGuardian?->full_name ?? 'N/A')
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        return $query->whereHas('parentGuardian', function (Builder $parentQuery) use ($search) {
+                            $parentQuery
+                                ->where('first_name', 'like', "%{$search}%")
+                                ->orWhere('last_name', 'like', "%{$search}%");
+                        });
+                    }),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
                     ->colors([
