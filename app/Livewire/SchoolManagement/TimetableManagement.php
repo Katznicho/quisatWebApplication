@@ -99,11 +99,19 @@ class TimetableManagement extends Component implements HasForms, HasTable
                             ])
                             ->required(),
                         Select::make('subject_id')
-                            ->relationship('subject', 'name')
+                            ->relationship(
+                                'subject',
+                                'name',
+                                modifyQueryUsing: fn (Builder $query) => $query->where('business_id', auth()->user()->business_id)
+                            )
                             ->label('Subject')
                             ->required(),
                         Select::make('class_room_id')
-                            ->relationship('classRoom', 'name')
+                            ->relationship(
+                                'classRoom',
+                                'name',
+                                modifyQueryUsing: fn (Builder $query) => $query->where('business_id', auth()->user()->business_id)
+                            )
                             ->label('Classroom')
                             ->required(),
                         Select::make('teacher_id')
@@ -170,11 +178,19 @@ class TimetableManagement extends Component implements HasForms, HasTable
                             ])
                             ->required(),
                         Select::make('subject_id')
-                            ->relationship('subject', 'name')
+                            ->relationship(
+                                'subject',
+                                'name',
+                                modifyQueryUsing: fn (Builder $query) => $query->where('business_id', auth()->user()->business_id)
+                            )
                             ->label('Subject')
                             ->required(),
                         Select::make('class_room_id')
-                            ->relationship('classRoom', 'name')
+                            ->relationship(
+                                'classRoom',
+                                'name',
+                                modifyQueryUsing: fn (Builder $query) => $query->where('business_id', auth()->user()->business_id)
+                            )
                             ->label('Classroom')
                             ->required(),
                         Select::make('teacher_id')

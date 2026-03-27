@@ -240,6 +240,9 @@
                     contactsPanel?.classList.add('hidden');
                     chatPanel?.classList.remove('hidden');
                     chatPanel?.classList.add('flex');
+                    if (chatPanel) {
+                        chatPanel.style.display = 'flex';
+                    }
                 }
             }
 
@@ -248,19 +251,35 @@
                     chatPanel?.classList.add('hidden');
                     contactsPanel?.classList.remove('hidden');
                     contactsPanel?.classList.add('flex');
+                    if (chatPanel) {
+                        chatPanel.style.display = 'none';
+                    }
+                }
+            }
+
+            function syncDesktopPanels() {
+                if (window.innerWidth >= 768) {
+                    contactsPanel?.classList.remove('hidden');
+                    chatPanel?.classList.remove('hidden');
+                    chatPanel?.classList.add('flex');
+                    if (contactsPanel) {
+                        contactsPanel.style.display = 'flex';
+                    }
+                    if (chatPanel) {
+                        chatPanel.style.display = 'flex';
+                    }
                 }
             }
 
             backToContactsBtn?.addEventListener('click', showContactsPanelOnMobile);
             window.addEventListener('resize', function() {
                 if (window.innerWidth >= 768) {
-                    contactsPanel?.classList.remove('hidden');
-                    chatPanel?.classList.remove('hidden');
-                    chatPanel?.classList.add('flex');
+                    syncDesktopPanels();
                 } else if (!currentContactId) {
                     showContactsPanelOnMobile();
                 }
             });
+            syncDesktopPanels();
             
             const isMobileView = window.innerWidth < 768;
 

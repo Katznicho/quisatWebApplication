@@ -108,11 +108,19 @@ class ExamManagement extends Component implements HasForms, HasTable
                             ->placeholder('Enter exam description')
                             ->rows(3),
                         Select::make('subject_id')
-                            ->relationship('subject', 'name')
+                            ->relationship(
+                                'subject',
+                                'name',
+                                modifyQueryUsing: fn (Builder $query) => $query->where('business_id', auth()->user()->business_id)
+                            )
                             ->label('Subject')
                             ->required(),
                         Select::make('class_room_id')
-                            ->relationship('classRoom', 'name')
+                            ->relationship(
+                                'classRoom',
+                                'name',
+                                modifyQueryUsing: fn (Builder $query) => $query->where('business_id', auth()->user()->business_id)
+                            )
                             ->label('Class')
                             ->required(),
                         DatePicker::make('exam_date')
@@ -174,11 +182,19 @@ class ExamManagement extends Component implements HasForms, HasTable
                             ->placeholder('Enter exam description')
                             ->rows(3),
                         Select::make('subject_id')
-                            ->relationship('subject', 'name')
+                            ->relationship(
+                                'subject',
+                                'name',
+                                modifyQueryUsing: fn (Builder $query) => $query->where('business_id', auth()->user()->business_id)
+                            )
                             ->label('Subject')
                             ->required(),
                         Select::make('class_room_id')
-                            ->relationship('classRoom', 'name')
+                            ->relationship(
+                                'classRoom',
+                                'name',
+                                modifyQueryUsing: fn (Builder $query) => $query->where('business_id', auth()->user()->business_id)
+                            )
                             ->label('Class')
                             ->required(),
                         DatePicker::make('exam_date')
