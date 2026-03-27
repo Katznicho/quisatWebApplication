@@ -134,14 +134,20 @@
                         </div>
 
                         <div>
-                            <label for="business_country" class="block text-sm font-semibold text-gray-700 mb-2">
+                            <label for="business_country_id" class="block text-sm font-semibold text-gray-700 mb-2">
                                 Country <span class="text-red-500">*</span>
                             </label>
-                            <input id="business_country" name="business_country" type="text" required 
-                                placeholder="United States"
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
-                                value="{{ old('business_country') }}">
-                            @error('business_country')
+                            <select id="business_country_id" name="business_country_id" required
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200">
+                                <option value="">Select country</option>
+                                @foreach(($countries ?? []) as $country)
+                                    <option value="{{ $country->id }}"
+                                        {{ old('business_country_id', $country->is_default ? $country->id : null) == $country->id ? 'selected' : '' }}>
+                                        {{ $country->name }} ({{ $country->currency_code }})
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('business_country_id')
                                 <p class="mt-2 text-sm text-red-600 flex items-center">
                                     <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                                         <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Business;
+use App\Models\Country;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -44,7 +45,7 @@ class BusinessController extends Controller
             'email' => 'required|email|unique:businesses,email',
             'phone' => 'required|string|max:20',
             'address' => 'required|string|max:255',
-            'country' => 'required|string|max:255',
+            'country_id' => 'required|exists:countries,id',
             'city' => 'required|string|max:255',
             'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
 
@@ -61,6 +62,13 @@ class BusinessController extends Controller
 
             // Generate time-based account number with prefix '25' and random 2-digit suffix
             $validated['account_number'] = 'KS' . time();
+
+            $country = Country::find((int) $validated['country_id']);
+            if ($country) {
+                $validated['country'] = $country->name;
+                $validated['currency_code'] = $country->currency_code;
+                $validated['exchange_rate'] = $country->exchange_rate;
+            }
 
             //dd($validated); // For debugging purposes, remove in production
 

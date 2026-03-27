@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Business;
 use App\Models\User;
+use App\Models\Country;
 use App\Models\BusinessCategory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -27,13 +28,20 @@ class BusinessRegistrationTest extends TestCase
 
         // Create a business category first
         $category = BusinessCategory::factory()->create();
+        $country = Country::create([
+            'name' => 'Test Country',
+            'currency_code' => 'TST',
+            'currency_name' => 'Test Currency',
+            'exchange_rate' => 1,
+            'is_default' => true,
+        ]);
 
         $businessData = [
             'business_name' => 'Test Business',
             'business_email' => 'business@test.com',
             'business_phone' => '+1234567890',
             'business_address' => '123 Test Street',
-            'business_country' => 'Test Country',
+            'business_country_id' => $country->id,
             'business_city' => 'Test City',
             'business_category_id' => $category->id,
             
@@ -78,7 +86,7 @@ class BusinessRegistrationTest extends TestCase
             'business_email',
             'business_phone',
             'business_address',
-            'business_country',
+            'business_country_id',
             'business_city',
             'business_category_id',
             'admin_name',
@@ -95,13 +103,20 @@ class BusinessRegistrationTest extends TestCase
         User::factory()->create(['email' => 'existing@user.com']);
 
         $category = BusinessCategory::factory()->create();
+        $country = Country::create([
+            'name' => 'Test Country',
+            'currency_code' => 'TST',
+            'currency_name' => 'Test Currency',
+            'exchange_rate' => 1,
+            'is_default' => true,
+        ]);
 
         $response = $this->post('/business/register', [
             'business_name' => 'Test Business',
             'business_email' => 'existing@business.com', // Duplicate
             'business_phone' => '+1234567890',
             'business_address' => '123 Test Street',
-            'business_country' => 'Test Country',
+            'business_country_id' => $country->id,
             'business_city' => 'Test City',
             'business_category_id' => $category->id,
             

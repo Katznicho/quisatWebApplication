@@ -11,6 +11,7 @@ use App\Models\BusinessCategory;
 use App\Models\Program;
 use App\Models\ProgramEvent;
 use App\Models\Currency;
+use App\Models\Country;
 
 class QuisatSeeder extends Seeder
 {
@@ -26,12 +27,25 @@ class QuisatSeeder extends Seeder
         ]);
 
         // Step 1: Create the Quisat business
+        $uganda = Country::firstOrCreate(
+            ['name' => 'Uganda'],
+            [
+                'currency_code' => 'UGX',
+                'currency_name' => 'Ugandan Shilling',
+                'exchange_rate' => 1,
+                'is_default' => true,
+            ]
+        );
+
         $business = Business::create([
             'name' => 'Quisat School',
             'email' => 'katznicho@gmail.com',
             'phone' => '256700000001',
             'address' => 'Kampala, Uganda',
+            'country_id' => $uganda->id,
             'country' => 'Uganda',
+            'currency_code' => 'UGX',
+            'exchange_rate' => 1,
             'city' => 'Kampala',
             'logo' => 'logos/quisat.png',
             'account_number' => 'KS12345678',
@@ -58,9 +72,9 @@ class QuisatSeeder extends Seeder
 
         // Step 4: Create a default currency
         $currency = Currency::create([
-            'name' => 'US Dollar',
-            'code' => 'USD',
-            'symbol' => '$',
+            'name' => 'Ugandan Shilling',
+            'code' => 'UGX',
+            'symbol' => 'UGX',
             'exchange_rate' => 1.0,
         ]);
 

@@ -10,6 +10,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\FeatureController;
 use App\Http\Controllers\CurrencyController;
+use App\Http\Controllers\CountryController;
 use App\Http\Controllers\BusinessCategoryController;
 use App\Http\Controllers\ProgramController;
 use App\Http\Controllers\PaymentController;
@@ -111,6 +112,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::resource("roles", RoleController::class);
     Route::resource("features", FeatureController::class);
     Route::resource("currency", CurrencyController::class);
+    Route::resource("countries", CountryController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::resource("business-categories", BusinessCategoryController::class);
     
     // Advertisement routes

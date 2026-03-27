@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Role;
 use App\Models\Branch;
 use App\Models\BusinessCategory;
+use App\Models\Country;
 use App\Mail\BusinessWelcomeEmail;
 use App\Mail\BusinessAdminWelcomeEmail;
 use Illuminate\Http\Request;
@@ -23,7 +24,12 @@ class BusinessRegistrationController extends Controller
     public function showRegistrationForm()
     {
         $businessCategories = BusinessCategory::all();
-        return view('businesses.register', compact('businessCategories'));
+        $countries = Country::query()
+            ->orderByDesc('is_default')
+            ->orderBy('name')
+            ->get();
+
+        return view('businesses.register', compact('businessCategories', 'countries'));
     }
 
     public function register(Request $request)
@@ -33,7 +39,7 @@ class BusinessRegistrationController extends Controller
             'business_email' => 'required|email|unique:businesses,email',
             'business_phone' => 'required|string|max:20',
             'business_address' => 'required|string|max:255',
-            'business_country' => 'required|string|max:255',
+            'business_country_id' => 'required|exists:countries,id',
             'business_city' => 'required|string|max:255',
             'business_category_id' => 'required|exists:business_categories,id',
             'business_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
@@ -81,12 +87,17 @@ class BusinessRegistrationController extends Controller
             }
 
             // Create business
+            $country = Country::findOrFail((int) $request->business_country_id);
+
             $business = Business::create([
                 'name' => $request->business_name,
                 'email' => $request->business_email,
                 'phone' => $request->business_phone,
                 'address' => $request->business_address,
-                'country' => $request->business_country,
+                'country_id' => $country->id,
+                'country' => $country->name,
+                'currency_code' => $country->currency_code,
+                'exchange_rate' => $country->exchange_rate,
                 'city' => $request->business_city,
                 'business_category_id' => $request->business_category_id,
                 'logo' => $logoPath,

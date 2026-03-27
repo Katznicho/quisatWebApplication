@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\Business;
+use App\Models\Country;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Tables;
@@ -58,6 +59,10 @@ class ListBusiness extends Component implements HasForms, HasTable
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('country')
+                    ->searchable()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('currency_code')
+                    ->label('Currency')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('city')
@@ -177,10 +182,6 @@ class ListBusiness extends Component implements HasForms, HasTable
             ->headerActions([
                 Tables\Actions\CreateAction::make()
                     ->visible(fn (): bool => Auth::user()->business_id === 1)
-                    ->mutateFormDataUsing(function (array $data): array {
-                        $data['account_number'] = (string) rand(1000000000, 9999999999);
-                        return $data;
-                    })
                     ->form([
                         \Filament\Forms\Components\TextInput::make('name')
                             ->required()
@@ -195,9 +196,12 @@ class ListBusiness extends Component implements HasForms, HasTable
                         \Filament\Forms\Components\TextInput::make('address')
                             ->required()
                             ->placeholder('Enter address'),
-                        \Filament\Forms\Components\TextInput::make('country')
-                            ->required()
-                            ->placeholder('Enter country'),
+                        \Filament\Forms\Components\Select::make('country_id')
+                            ->label('Country')
+                            ->options(fn () => Country::query()->orderByDesc('is_default')->orderBy('name')->pluck('name', 'id')->toArray())
+                            ->searchable()
+                            ->preload()
+                            ->required(fn (?Business $record) => (int) ($record?->id ?? 0) !== 1),
                         \Filament\Forms\Components\TextInput::make('city')
                             ->required()
                             ->placeholder('Enter city/district/state'),
@@ -238,6 +242,17 @@ class ListBusiness extends Component implements HasForms, HasTable
                             ->reactive(),
                     ])
                     ->mutateFormDataUsing(function (array $data): array {
+                        $data['account_number'] = (string) ('KS' . time());
+
+                        if (!empty($data['country_id'])) {
+                            $country = Country::find((int) $data['country_id']);
+                            if ($country) {
+                                $data['country'] = $country->name;
+                                $data['currency_code'] = $country->currency_code;
+                                $data['exchange_rate'] = $country->exchange_rate;
+                            }
+                        }
+
                         // Convert individual social media fields to JSON
                         $socialMediaHandles = [];
                         if (!empty($data['social_facebook'])) {
@@ -298,6 +313,7 @@ class ListBusiness extends Component implements HasForms, HasTable
                             'email' => $record->email ?? '',
                             'phone' => $record->phone ?? '',
                             'address' => $record->address ?? '',
+                            'country_id' => $record->country_id,
                             'country' => $record->country ?? '',
                             'city' => $record->city ?? '',
                             'shop_number' => $record->shop_number ?? '',
@@ -324,9 +340,12 @@ class ListBusiness extends Component implements HasForms, HasTable
                         \Filament\Forms\Components\TextInput::make('address')
                             ->required()
                             ->placeholder('Enter address'),
-                        \Filament\Forms\Components\TextInput::make('country')
-                            ->required()
-                            ->placeholder('Enter country'),
+                        \Filament\Forms\Components\Select::make('country_id')
+                            ->label('Country')
+                            ->options(fn () => Country::query()->orderByDesc('is_default')->orderBy('name')->pluck('name', 'id')->toArray())
+                            ->searchable()
+                            ->preload()
+                            ->required(),
                         \Filament\Forms\Components\TextInput::make('city')
                             ->required()
                             ->placeholder('Enter city/district/state'),
@@ -367,6 +386,15 @@ class ListBusiness extends Component implements HasForms, HasTable
                             ->reactive(),
                     ])
                     ->mutateFormDataUsing(function (array $data): array {
+                        if (!empty($data['country_id'])) {
+                            $country = Country::find((int) $data['country_id']);
+                            if ($country) {
+                                $data['country'] = $country->name;
+                                $data['currency_code'] = $country->currency_code;
+                                $data['exchange_rate'] = $country->exchange_rate;
+                            }
+                        }
+
                         // Convert individual social media fields to JSON
                         $socialMediaHandles = [];
                         if (!empty($data['social_facebook'])) {

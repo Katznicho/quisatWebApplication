@@ -548,6 +548,10 @@
                                         class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage
                                         Currencies</a>
                                 </li>
+                                <li><a href="{{ route('countries.index') }}"
+                                        class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage
+                                        Countries</a>
+                                </li>
                                 <li><a href="{{ route('roles.index') }}"
                                         class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Roles</a>
                                 </li>

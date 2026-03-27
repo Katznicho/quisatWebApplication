@@ -29,6 +29,9 @@ class Business extends Model
         'country',
         'city',
         'business_category_id',
+        'country_id',
+        'currency_code',
+        'exchange_rate',
         'enabled_feature_ids',
         'shop_number',
         'social_media_handles',
@@ -39,6 +42,7 @@ class Business extends Model
     protected $casts = [
         'enabled_feature_ids' => 'array',
         'social_media_handles' => 'array',
+        'exchange_rate' => 'float',
     ];
 
     /**
@@ -72,6 +76,11 @@ class Business extends Model
     public function businessCategory()
     {
         return $this->belongsTo(BusinessCategory::class);
+    }
+
+    public function countryRef()
+    {
+        return $this->belongsTo(Country::class, 'country_id');
     }
 
     

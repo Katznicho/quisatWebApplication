@@ -108,6 +108,10 @@
                             <p class="text-gray-900">{{ $business->country }}</p>
                         </div>
                         <div>
+                            <label class="text-sm font-medium text-gray-500">Currency</label>
+                            <p class="text-gray-900">{{ $business->currency_code ?? 'UGX' }}</p>
+                        </div>
+                        <div>
                             <label class="text-sm font-medium text-gray-500">Business Category</label>
                             <p class="text-gray-900">{{ $business->businessCategory->name ?? 'N/A' }}</p>
                         </div>
