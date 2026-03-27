@@ -46,7 +46,8 @@
                 <!-- Price -->
                 <div>
                     <label for="price" class="block text-sm font-medium text-gray-700 mb-2">
-                        Price (UGX) <span class="text-red-500">*</span>
+                        @php $currencyCode = auth()->user()->business->currency_code ?? 'UGX'; @endphp
+                        Price ({{ $currencyCode }}) <span class="text-red-500">*</span>
                     </label>
                     <input type="number" 
                            name="price" 

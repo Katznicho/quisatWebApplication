@@ -91,7 +91,8 @@ class KidsEvent extends Model
 
     public function getFormattedPriceAttribute(): string
     {
-        return $this->price > 0 ? '$' . number_format($this->price, 2) : 'Free';
+        $currency = $this->business?->currency_code ?? 'UGX';
+        return $this->price > 0 ? $currency . ' ' . number_format($this->price, 2) : 'Free';
     }
 
     public function getStatusBadgeColorAttribute(): string

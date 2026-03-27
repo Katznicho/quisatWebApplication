@@ -3,6 +3,7 @@
 namespace App\Livewire\SchoolManagement;
 
 use App\Models\Timetable;
+use App\Models\User;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Components\TextInput;
@@ -106,8 +107,20 @@ class TimetableManagement extends Component implements HasForms, HasTable
                             ->label('Classroom')
                             ->required(),
                         Select::make('teacher_id')
-                            ->relationship('teacher', 'name')
+                            ->options(function () {
+                                $businessId = auth()->user()->business_id;
+                                return User::query()
+                                    ->where('business_id', $businessId)
+                                    ->whereHas('role', function (Builder $query) {
+                                        $query->whereIn('name', ['Staff', 'Teacher']);
+                                    })
+                                    ->orderBy('name')
+                                    ->pluck('name', 'id')
+                                    ->toArray();
+                            })
                             ->label('Teacher')
+                            ->searchable()
+                            ->preload()
                             ->required(),
                         TimePicker::make('start_time')
                             ->required(),
@@ -165,8 +178,20 @@ class TimetableManagement extends Component implements HasForms, HasTable
                             ->label('Classroom')
                             ->required(),
                         Select::make('teacher_id')
-                            ->relationship('teacher', 'name')
+                            ->options(function () {
+                                $businessId = auth()->user()->business_id;
+                                return User::query()
+                                    ->where('business_id', $businessId)
+                                    ->whereHas('role', function (Builder $query) {
+                                        $query->whereIn('name', ['Staff', 'Teacher']);
+                                    })
+                                    ->orderBy('name')
+                                    ->pluck('name', 'id')
+                                    ->toArray();
+                            })
                             ->label('Teacher')
+                            ->searchable()
+                            ->preload()
                             ->required(),
                         TimePicker::make('start_time')
                             ->required(),

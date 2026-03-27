@@ -7,10 +7,10 @@
         </div>
 
         <!-- Chat Interface -->
-        <div class="bg-white dark:bg-gray-800 shadow-xl rounded-lg overflow-hidden" style="height: calc(100vh - 200px);">
-            <div class="flex h-full">
+        <div class="bg-white dark:bg-gray-800 shadow-xl rounded-lg overflow-hidden h-[calc(100vh-200px)] min-h-[560px]">
+            <div class="flex h-full flex-col md:flex-row">
                 <!-- Left Sidebar - Contacts -->
-                <div class="w-1/3 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+                <div id="contactsPanel" class="w-full md:w-1/3 border-r border-gray-200 dark:border-gray-700 flex flex-col min-w-0">
                     <!-- Contacts Header -->
                     <div class="p-4 border-b border-gray-200 dark:border-gray-700">
                         <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Contacts</h2>
@@ -64,15 +64,20 @@
                 </div>
 
                 <!-- Main Chat Area -->
-                <div class="flex-1 flex flex-col">
+                <div id="chatPanel" class="hidden md:flex flex-1 flex-col min-w-0">
                     <!-- Chat Header -->
                     <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                         <div id="chatHeader" class="flex items-center">
+                            <button id="backToContactsBtn" type="button" class="mr-2 p-2 text-gray-500 hover:text-gray-700 rounded-lg md:hidden" aria-label="Back to contacts">
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                                </svg>
+                            </button>
                             <div class="flex-shrink-0">
                                 <img class="h-10 w-10 rounded-full bg-gray-300" src="" alt="" id="chatAvatar">
                             </div>
                             <div class="ml-3">
-                                <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100" id="chatTitle">Select a contact to start chatting</h3>
+                                <h3 class="text-base md:text-lg font-medium text-gray-900 dark:text-gray-100" id="chatTitle">Select a contact to start chatting</h3>
                                 <p class="text-sm text-gray-500 dark:text-gray-400" id="chatSubtitle"></p>
                             </div>
                         </div>
@@ -226,10 +231,42 @@
         document.addEventListener('DOMContentLoaded', function() {
             const contactInfoBtn = document.getElementById('contactInfoBtn');
             const callBtn = document.getElementById('callBtn');
+            const contactsPanel = document.getElementById('contactsPanel');
+            const chatPanel = document.getElementById('chatPanel');
+            const backToContactsBtn = document.getElementById('backToContactsBtn');
+
+            function showChatPanelOnMobile() {
+                if (window.innerWidth < 768) {
+                    contactsPanel?.classList.add('hidden');
+                    chatPanel?.classList.remove('hidden');
+                    chatPanel?.classList.add('flex');
+                }
+            }
+
+            function showContactsPanelOnMobile() {
+                if (window.innerWidth < 768) {
+                    chatPanel?.classList.add('hidden');
+                    contactsPanel?.classList.remove('hidden');
+                    contactsPanel?.classList.add('flex');
+                }
+            }
+
+            backToContactsBtn?.addEventListener('click', showContactsPanelOnMobile);
+            window.addEventListener('resize', function() {
+                if (window.innerWidth >= 768) {
+                    contactsPanel?.classList.remove('hidden');
+                    chatPanel?.classList.remove('hidden');
+                    chatPanel?.classList.add('flex');
+                } else if (!currentContactId) {
+                    showContactsPanelOnMobile();
+                }
+            });
             
+            const isMobileView = window.innerWidth < 768;
+
             // Check if there's a last selected contact in localStorage
             const lastSelectedContact = localStorage.getItem('lastSelectedContact');
-            if (lastSelectedContact) {
+            if (!isMobileView && lastSelectedContact) {
                 const contactData = JSON.parse(lastSelectedContact);
                 
                 // Function to try restoring the contact
@@ -266,7 +303,7 @@
                         }
                     }, 500);
                 }
-            } else {
+            } else if (!isMobileView) {
                 // No localStorage data, select the first contact after a delay
                 setTimeout(() => {
                     const firstContact = document.querySelector('.contact-item');
@@ -403,6 +440,8 @@
                 const chatTitle = document.getElementById('chatTitle');
                 const chatSubtitle = document.getElementById('chatSubtitle');
                 const messageInputContainer = document.getElementById('messageInputContainer');
+
+                showChatPanelOnMobile();
                 
                 if (chatTitle) {
                     chatTitle.textContent = `Chat with ${contactName}`;

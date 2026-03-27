@@ -82,7 +82,8 @@ class ParentCorner extends Model
 
     public function getFormattedPriceAttribute(): string
     {
-        return $this->price > 0 ? 'UGX ' . number_format($this->price, 0) : 'Free';
+        $currency = $this->business?->currency_code ?? 'UGX';
+        return $this->price > 0 ? $currency . ' ' . number_format($this->price, 0) : 'Free';
     }
 
     public function getStatusBadgeColorAttribute(): string

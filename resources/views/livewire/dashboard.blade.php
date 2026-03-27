@@ -39,16 +39,18 @@
                 </select>
             </div>
 
-            <!-- Country Filter -->
-            <div class="flex-1 min-w-[200px]">
-                <label for="country" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Country</label>
-                <select wire:model="selectedCountry" id="country" class="w-full rounded-lg border-blue-300 dark:border-blue-600 dark:bg-gray-700 dark:text-white focus:border-blue-500 focus:ring-blue-500 bg-blue-50 dark:bg-blue-900/20">
-                    <option value="">All Countries</option>
-                    @foreach($countries as $country)
-                        <option value="{{ $country }}">{{ $country }}</option>
-                    @endforeach
-                </select>
-            </div>
+            <!-- Country Filter (superadmin only) -->
+            @if(auth()->user()->business_id == 1)
+                <div class="flex-1 min-w-[200px]">
+                    <label for="country" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Country</label>
+                    <select wire:model="selectedCountry" id="country" class="w-full rounded-lg border-blue-300 dark:border-blue-600 dark:bg-gray-700 dark:text-white focus:border-blue-500 focus:ring-blue-500 bg-blue-50 dark:bg-blue-900/20">
+                        <option value="">All Countries</option>
+                        @foreach($countries as $country)
+                            <option value="{{ $country }}">{{ $country }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
 
             <!-- District/State Filter -->
             <div class="flex-1 min-w-[200px]">

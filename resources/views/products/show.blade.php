@@ -57,7 +57,7 @@
 
                     <div>
                         <label class="text-sm font-medium text-gray-500">Price</label>
-                        <p class="text-2xl font-bold text-blue-600">UGX {{ number_format($product->price, 0) }}</p>
+                        <p class="text-2xl font-bold text-blue-600">{{ $product->business->currency_code ?? 'UGX' }} {{ number_format($product->price, 0) }}</p>
                     </div>
 
                     @if($product->category)

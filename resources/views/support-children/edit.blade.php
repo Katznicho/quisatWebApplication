@@ -67,7 +67,7 @@
                     <input type="text"
                            name="currency"
                            id="currency"
-                           value="{{ old('currency', $child->currency ?? 'UGX') }}"
+                           value="{{ old('currency', $child->currency ?? (auth()->user()->business->currency_code ?? 'UGX')) }}"
                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                     @error('currency')
                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>

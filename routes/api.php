@@ -202,10 +202,16 @@ Route::prefix('v1')->group(function () {
 
             Route::get('subjects', function (Request $request) {
                 $businessId = $request->get('business_id');
-                $subjects = \App\Models\Subject::where('business_id', $businessId)
-                    ->where(function ($q) {
+                $query = \App\Models\Subject::where('business_id', $businessId);
+
+                // For forms like assignment creation, callers can request all subjects.
+                if ($request->boolean('only_active', true)) {
+                    $query->where(function ($q) {
                         $q->whereNull('status')->orWhere('status', 'active');
-                    })
+                    });
+                }
+
+                $subjects = $query
                     ->orderBy('name')
                     ->get(['id', 'name', 'code']);
                 

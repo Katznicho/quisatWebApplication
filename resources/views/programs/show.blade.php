@@ -283,10 +283,12 @@
                                             </span>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                            ${{ number_format($attendee->total_paid, 2) }}
+                                            {{ $attendee->programEvent->currency->symbol ?? ($attendee->programEvent->business->currency_code ?? 'UGX') }}
+                                            {{ number_format($attendee->total_paid, 2) }}
                                         </td>
                                         <td class="balance-cell px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                            ${{ number_format($attendee->balance, 2) }}
+                                            {{ $attendee->programEvent->currency->symbol ?? ($attendee->programEvent->business->currency_code ?? 'UGX') }}
+                                            {{ number_format($attendee->balance, 2) }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             @if($attendee->payment_status === 'paid')
@@ -388,10 +390,15 @@
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700">Currency</label>
+                                    @php
+                                        $businessCurrencyCode = auth()->user()->business->currency_code ?? 'UGX';
+                                    @endphp
                                     <select name="currency_id" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                                         <option value="">Select Currency</option>
                                         @foreach(\App\Models\Currency::all() as $currency)
-                                            <option value="{{ $currency->id }}">{{ $currency->name }} ({{ $currency->symbol }})</option>
+                                            <option value="{{ $currency->id }}" {{ $currency->code === $businessCurrencyCode ? 'selected' : '' }}>
+                                                {{ $currency->name }} ({{ $currency->symbol }})
+                                            </option>
                                         @endforeach
                                     </select>
                                 </div>

@@ -68,10 +68,10 @@ class StudentManagement extends Component implements HasForms, HasTable
                 Tables\Columns\TextColumn::make('student_id')
                     ->label('Student ID')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('class_room.name')
+                Tables\Columns\TextColumn::make('classRoom.name')
                     ->label('Class')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('parent_guardian.full_name')
+                Tables\Columns\TextColumn::make('parentGuardian.full_name')
                     ->label('Parent/Guardian')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')

@@ -13,7 +13,7 @@
                             </div>
                             <div class="ml-4">
                                 <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Payments</p>
-                                <p class="text-2xl font-semibold text-gray-900 dark:text-white">${{ number_format($totalPayments, 2) }}</p>
+                                <p class="text-2xl font-semibold text-gray-900 dark:text-white">{{ auth()->user()->business->currency_code ?? 'UGX' }} {{ number_format($totalPayments, 2) }}</p>
                             </div>
                         </div>
                     </div>
@@ -83,7 +83,7 @@
                                             </span>
                                         </div>
                                         <div class="text-right">
-                                            <p class="text-sm font-medium text-gray-900 dark:text-white">${{ number_format($method->total, 2) }}</p>
+                                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ auth()->user()->business->currency_code ?? 'UGX' }} {{ number_format($method->total, 2) }}</p>
                                             <p class="text-xs text-gray-500">{{ $method->count }} payments</p>
                                         </div>
                                     </div>
@@ -113,7 +113,8 @@
                                         </div>
                                         <div class="text-right">
                                             <p class="text-sm font-medium text-gray-900 dark:text-white">
-                                                ${{ number_format($payment->amount, 2) }}
+                                                {{ $payment->eventAttendee->programEvent->currency->symbol ?? ($payment->eventAttendee->programEvent->business->currency_code ?? (auth()->user()->business->currency_code ?? 'UGX')) }}
+                                                {{ number_format($payment->amount, 2) }}
                                             </p>
                                             <p class="text-xs text-gray-500 dark:text-gray-400">
                                                 {{ $payment->formatted_payment_date }}

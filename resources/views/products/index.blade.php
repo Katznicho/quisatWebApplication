@@ -56,7 +56,7 @@
                             {{ $product->category ?? 'N/A' }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            UGX {{ number_format($product->price, 0) }}
+                            {{ $product->business->currency_code ?? 'UGX' }} {{ number_format($product->price, 0) }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="text-sm text-gray-900">{{ $product->stock_quantity }}</span>

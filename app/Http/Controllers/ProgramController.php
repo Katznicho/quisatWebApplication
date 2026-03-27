@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Program;
 use App\Models\ProgramEvent;
+use App\Models\Currency;
 use App\Models\EventAttendee;
 use App\Models\Payment;
 use Illuminate\Http\Request;
@@ -230,10 +231,23 @@ class ProgramController extends Controller
             'end_date' => 'required|date|after_or_equal:start_date',
             'price' => 'required|numeric|min:0',
             'location' => 'required|string|max:255',
-            'currency_id' => 'required|exists:currencies,id',
+            'currency_id' => 'nullable|exists:currencies,id',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'video' => 'nullable|mimes:mp4,mov,avi|max:10240',
         ]);
+
+        $business = Auth::user()->business;
+        $selectedCurrencyId = $request->currency_id;
+        if (empty($selectedCurrencyId)) {
+            $selectedCurrencyId = Currency::query()
+                ->where('code', $business->currency_code ?? 'UGX')
+                ->value('id');
+        }
+
+        // Safety fallback to first available currency if mapping does not exist.
+        if (empty($selectedCurrencyId)) {
+            $selectedCurrencyId = Currency::query()->value('id');
+        }
 
         $eventData = [
             'program_ids' => [$program->id],
@@ -244,7 +258,7 @@ class ProgramController extends Controller
             'price' => $request->price,
             'status' => 'upcoming',
             'location' => $request->location,
-            'currency_id' => $request->currency_id,
+            'currency_id' => $selectedCurrencyId,
             'business_id' => Auth::user()->business_id,
             'user_id' => Auth::id(),
         ];
