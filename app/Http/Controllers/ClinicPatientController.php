@@ -2,9 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ClinicAppointment;
+use App\Models\ClinicAppointmentType;
+use App\Models\ClinicDoctor;
 use App\Models\ClinicFamily;
 use App\Models\ClinicFamilyMember;
 use App\Models\ClinicPatient;
+use App\Models\ClinicPatientVisit;
 use App\Models\ParentGuardian;
 use App\Models\Student;
 use App\Services\ClinicPatientImportService;
@@ -22,23 +26,19 @@ class ClinicPatientController extends Controller
     public function index(Request $request)
     {
         $business = Auth::user()->business;
-        $search = strtoupper(trim((string) $request->query('q', '')));
+        $businessId = $business->id ?? 0;
 
-        $patients = ClinicPatient::where('business_id', $business->id ?? 0)
-            ->with(['family', 'parentGuardian', 'student'])
-            ->when($search !== '', function ($q) use ($search) {
-                $q->where(function ($inner) use ($search) {
-                    $inner->where('school_access_code', $search)
-                        ->orWhere('patient_number', 'like', "%{$search}%")
-                        ->orWhere('first_name', 'like', "%{$search}%")
-                        ->orWhere('last_name', 'like', "%{$search}%")
-                        ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);
-                });
-            })
-            ->orderByDesc('created_at')
-            ->get();
+        $stats = [
+            'patients' => ClinicPatient::where('business_id', $businessId)->count(),
+            'doctors' => ClinicDoctor::where('business_id', $businessId)->count(),
+            'consultations' => ClinicPatientVisit::where('business_id', $businessId)->count(),
+            'scheduled_appointments' => ClinicAppointment::where('business_id', $businessId)
+                ->where('status', 'scheduled')
+                ->count(),
+            'appointment_types' => ClinicAppointmentType::where('business_id', $businessId)->count(),
+        ];
 
-        return view('clinic-patients.index', compact('patients', 'search'));
+        return view('clinic-patients.index', compact('stats'));
     }
 
     public function create(Request $request)
@@ -135,9 +135,9 @@ class ClinicPatientController extends Controller
                 ->with('success', 'Patient registered successfully.');
         }
 
-        $validated = $request->validate([
+        $validated = $request->validate(array_merge([
             'child_access_code' => 'required|string|max:20',
-        ]);
+        ], $this->importClinicDetailsRules()));
 
         $code = strtoupper(trim($validated['child_access_code']));
 
@@ -152,6 +152,20 @@ class ClinicPatientController extends Controller
         try {
             $patient = $this->importService->attachStudentToClinic($student, $business);
             $wasNew = $patient->wasRecentlyCreated;
+
+            $photoPath = $patient->photo;
+            if ($request->hasFile('photo')) {
+                $photoPath = $request->file('photo')->store('clinic-patients', 'public');
+            }
+
+            $patient->update([
+                'blood_group' => $validated['blood_group'] ?? $patient->blood_group,
+                'allergies' => $this->normalizeAllergies($request),
+                'emergency_contacts' => $this->normalizeEmergencyContacts($request),
+                'insurance_info' => $this->buildInsuranceInfo($validated),
+                'status' => $validated['status'] ?? $patient->status,
+                'photo' => $photoPath,
+            ]);
 
             return redirect()
                 ->route('clinic-patients.show', $patient)
@@ -397,6 +411,23 @@ class ClinicPatientController extends Controller
         }
 
         return $rules;
+    }
+
+    protected function importClinicDetailsRules(): array
+    {
+        return [
+            'blood_group' => 'nullable|string|max:10',
+            'allergies' => 'nullable|array',
+            'allergies.*' => 'nullable|string|max:255',
+            'emergency_contacts' => 'nullable|array',
+            'emergency_contacts.*.name' => 'nullable|string|max:255',
+            'emergency_contacts.*.phone' => 'nullable|string|max:50',
+            'emergency_contacts.*.relationship' => 'nullable|string|max:50',
+            'insurance_provider' => 'nullable|string|max:255',
+            'insurance_policy_number' => 'nullable|string|max:255',
+            'status' => 'nullable|in:active,inactive',
+            'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+        ];
     }
 
     protected function normalizeAllergies(Request $request): ?array

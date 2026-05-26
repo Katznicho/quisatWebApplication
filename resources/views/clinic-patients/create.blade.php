@@ -136,10 +136,21 @@
                                 </p>
                             </div>
                         @else
-                            <form action="{{ route('clinic-patients.store') }}" method="POST" class="mt-6">
+                            <form action="{{ route('clinic-patients.store') }}" method="POST" enctype="multipart/form-data" class="mt-6 space-y-6">
                                 @csrf
                                 <input type="hidden" name="entry_mode" value="import">
                                 <input type="hidden" name="child_access_code" value="{{ $previewStudent->access_code }}">
+                                <div class="border-t pt-6">
+                                    <h4 class="text-base font-semibold text-gray-900 mb-2">Complete clinic details</h4>
+                                    <p class="text-sm text-gray-600 mb-4">
+                                        School identity details stay locked from the school record. Fill any clinic-specific details below before importing.
+                                    </p>
+                                    @include('clinic-patients._form-fields', [
+                                        'useRepeaters' => true,
+                                        'importedFromSchool' => true,
+                                        'patient' => $previewStudent,
+                                    ])
+                                </div>
                                 <button type="submit"
                                         class="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">
                                     <i class="fas fa-file-import mr-2"></i>Import patient to clinic

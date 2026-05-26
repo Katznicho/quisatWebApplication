@@ -2,13 +2,14 @@
 
 namespace App\Livewire\ClinicPatients;
 
+use App\Models\ClinicAppointmentType;
+use App\Models\ClinicDoctor;
 use App\Models\ClinicPatient;
 use App\Models\ClinicPatientVisit;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Tables\Actions\Action;
@@ -117,19 +118,16 @@ class PatientVisitsTable extends Component implements HasForms, HasTable
                 ->placeholder('Select visit date and time')
                 ->required()
                 ->seconds(false),
-            TextInput::make('doctor_name')
-                ->placeholder('e.g. Dr. James Okot')
-                ->maxLength(255),
+            Select::make('doctor_name')
+                ->label('Doctor')
+                ->options($this->doctorOptions())
+                ->placeholder('Select doctor from Doctors tab')
+                ->searchable()
+                ->preload(),
             Select::make('visit_type')
-                ->options([
-                    'consultation' => 'Consultation',
-                    'review' => 'Review',
-                    'emergency' => 'Emergency',
-                    'vaccination' => 'Vaccination',
-                    'follow_up' => 'Follow-up',
-                ])
+                ->options($this->appointmentTypeOptions(['visits', 'both']))
                 ->placeholder('Select visit type')
-                ->default('consultation')
+                ->default(fn () => array_key_first($this->appointmentTypeOptions(['visits', 'both'])))
                 ->required(),
             Select::make('status')
                 ->options([
@@ -164,6 +162,37 @@ class PatientVisitsTable extends Component implements HasForms, HasTable
             DatePicker::make('follow_up_date')
                 ->placeholder('Select follow-up date'),
         ];
+    }
+
+    protected function doctorOptions(): array
+    {
+        return ClinicDoctor::query()
+            ->where('business_id', $this->patient->business_id)
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->pluck('name', 'name')
+            ->all();
+    }
+
+    protected function appointmentTypeOptions(array $appliesTo): array
+    {
+        $options = ClinicAppointmentType::query()
+            ->where('business_id', $this->patient->business_id)
+            ->where('status', 'active')
+            ->whereIn('applies_to', $appliesTo)
+            ->orderBy('name')
+            ->pluck('name', 'name')
+            ->all();
+
+        return ! empty($options)
+            ? $options
+            : [
+                'consultation' => 'Consultation',
+                'review' => 'Review',
+                'emergency' => 'Emergency',
+                'vaccination' => 'Vaccination',
+                'follow_up' => 'Follow-up',
+            ];
     }
 
     protected function authorizePatient(): void
