@@ -6,6 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Business;
 use App\Models\ClinicAppointment;
 use App\Models\ClinicPatient;
+use App\Models\ClinicPatientDocument;
+use App\Models\ClinicPatientGrowthRecord;
+use App\Models\ClinicPatientVaccination;
+use App\Models\ClinicPatientVisit;
 use App\Models\Feature;
 use App\Models\ParentGuardian;
 use App\Models\Student;
@@ -192,6 +196,57 @@ class ClinicController extends Controller
                 'clinic' => $this->transformClinic($clinic, true),
                 'linked_children' => $linkedChildren,
                 'children' => $children,
+            ],
+        ]);
+    }
+
+    /**
+     * Parent: full linked patient profile at a specific clinic.
+     */
+    public function patientProfile(Request $request, $id, ClinicPatient $clinic_patient)
+    {
+        $user = $request->user();
+
+        if (! $user instanceof ParentGuardian) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only parents can view patient details.',
+            ], 403);
+        }
+
+        $clinic = $this->findClinicBusiness($id);
+
+        if (! $clinic) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Clinic not found.',
+            ], 404);
+        }
+
+        if ($clinic_patient->business_id !== $clinic->id || $clinic_patient->parent_guardian_id !== $user->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Patient record not found.',
+            ], 404);
+        }
+
+        $clinic_patient->load([
+            'parentGuardian:id,first_name,last_name,phone,email,relationship',
+            'student:id,first_name,last_name,access_code,student_id,class_room_id',
+            'student.classRoom:id,name',
+            'family.members.parentGuardian:id,first_name,last_name,phone,email,relationship',
+            'appointments' => fn ($q) => $q->orderByDesc('scheduled_at'),
+            'visits' => fn ($q) => $q->orderByDesc('visited_at'),
+            'vaccinations' => fn ($q) => $q->orderByDesc('scheduled_date')->orderByDesc('administered_date'),
+            'growthRecords' => fn ($q) => $q->orderByDesc('recorded_on'),
+            'documents' => fn ($q) => $q->orderByDesc('created_at'),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'clinic' => $this->transformClinic($clinic, true),
+                'patient' => $this->transformPatientProfile($clinic_patient),
             ],
         ]);
     }
@@ -384,6 +439,119 @@ class ClinicController extends Controller
             'appointment_type' => $appointment->appointment_type,
             'status' => $appointment->status,
             'notes' => $appointment->notes,
+        ];
+    }
+
+    protected function transformPatientProfile(ClinicPatient $patient): array
+    {
+        $photoUrl = $patient->photo
+            ? (str_starts_with($patient->photo, 'http') ? $patient->photo : asset('storage/'.$patient->photo))
+            : null;
+
+        return [
+            'id' => $patient->id,
+            'uuid' => $patient->uuid,
+            'full_name' => $patient->full_name,
+            'patient_number' => $patient->patient_number,
+            'status' => $patient->status,
+            'date_of_birth' => optional($patient->date_of_birth)->toDateString(),
+            'age_years' => $patient->date_of_birth?->age,
+            'gender' => $patient->gender,
+            'blood_group' => $patient->blood_group,
+            'school_access_code' => $patient->school_access_code,
+            'photo_url' => $photoUrl,
+            'allergies' => $patient->allergies ?? [],
+            'emergency_contacts' => $patient->emergency_contacts ?? [],
+            'insurance_info' => $patient->insurance_info,
+            'parent_guardian' => $patient->parentGuardian ? [
+                'id' => $patient->parentGuardian->id,
+                'full_name' => $patient->parentGuardian->full_name,
+                'phone' => $patient->parentGuardian->phone,
+                'email' => $patient->parentGuardian->email,
+                'relationship' => $patient->parentGuardian->relationship,
+            ] : null,
+            'linked_school_student' => $patient->student ? [
+                'id' => $patient->student->id,
+                'full_name' => trim($patient->student->first_name.' '.$patient->student->last_name),
+                'student_id' => $patient->student->student_id,
+                'class' => $patient->student->classRoom?->name,
+                'access_code' => $patient->student->access_code,
+            ] : null,
+            'family_members' => $patient->family?->members?->map(function ($member) {
+                return [
+                    'id' => $member->id,
+                    'full_name' => $member->parentGuardian?->full_name ?? 'Parent / Guardian',
+                    'phone' => $member->parentGuardian?->phone,
+                    'email' => $member->parentGuardian?->email,
+                    'relationship' => $member->relationship,
+                    'permissions' => $member->permissions ?? [],
+                    'is_primary' => (bool) $member->is_primary,
+                ];
+            })->values() ?? [],
+            'appointments' => $patient->appointments->map(fn (ClinicAppointment $appointment) => $this->transformAppointment($appointment))->values(),
+            'visits' => $patient->visits->map(fn (ClinicPatientVisit $visit) => $this->transformVisit($visit))->values(),
+            'vaccinations' => $patient->vaccinations->map(fn (ClinicPatientVaccination $vaccination) => $this->transformVaccination($vaccination))->values(),
+            'growth_records' => $patient->growthRecords->map(fn (ClinicPatientGrowthRecord $record) => $this->transformGrowthRecord($record))->values(),
+            'documents' => $patient->documents->map(fn (ClinicPatientDocument $document) => $this->transformPatientDocument($document))->values(),
+        ];
+    }
+
+    protected function transformVisit(ClinicPatientVisit $visit): array
+    {
+        return [
+            'id' => $visit->id,
+            'visited_at' => $visit->visited_at->toIso8601String(),
+            'doctor_name' => $visit->doctor_name,
+            'visit_type' => $visit->visit_type,
+            'status' => $visit->status,
+            'chief_complaint' => $visit->chief_complaint,
+            'consultation_notes' => $visit->consultation_notes,
+            'treatment_plan' => $visit->treatment_plan,
+            'prescriptions' => $visit->prescriptions,
+            'lab_results' => $visit->lab_results,
+            'follow_up_date' => optional($visit->follow_up_date)->toDateString(),
+        ];
+    }
+
+    protected function transformVaccination(ClinicPatientVaccination $vaccination): array
+    {
+        return [
+            'id' => $vaccination->id,
+            'vaccine_name' => $vaccination->vaccine_name,
+            'dose_label' => $vaccination->dose_label,
+            'status' => $vaccination->status,
+            'scheduled_date' => optional($vaccination->scheduled_date)->toDateString(),
+            'administered_date' => optional($vaccination->administered_date)->toDateString(),
+            'next_due_date' => optional($vaccination->next_due_date)->toDateString(),
+            'batch_number' => $vaccination->batch_number,
+            'notes' => $vaccination->notes,
+        ];
+    }
+
+    protected function transformGrowthRecord(ClinicPatientGrowthRecord $record): array
+    {
+        return [
+            'id' => $record->id,
+            'recorded_on' => $record->recorded_on->toDateString(),
+            'height_cm' => $record->height_cm ? (float) $record->height_cm : null,
+            'weight_kg' => $record->weight_kg ? (float) $record->weight_kg : null,
+            'head_circumference_cm' => $record->head_circumference_cm ? (float) $record->head_circumference_cm : null,
+            'bmi' => $record->bmi,
+            'notes' => $record->notes,
+        ];
+    }
+
+    protected function transformPatientDocument(ClinicPatientDocument $document): array
+    {
+        return [
+            'id' => $document->id,
+            'title' => $document->title,
+            'description' => $document->description,
+            'type' => $document->type,
+            'file_url' => $document->file_url,
+            'mime_type' => $document->mime_type,
+            'size' => $document->size,
+            'created_at' => $document->created_at?->toIso8601String(),
         ];
     }
 }

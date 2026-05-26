@@ -282,6 +282,7 @@ Route::prefix('v1')->group(function () {
                 Route::get('child-access-codes', [ClinicController::class, 'childAccessCodes']);
                 Route::get('my-links', [ClinicController::class, 'myLinks']);
                 Route::get('{id}/overview', [ClinicController::class, 'overview']);
+                Route::get('{id}/patients/{clinic_patient}', [ClinicController::class, 'patientProfile']);
                 Route::post('{id}/attach', [ClinicController::class, 'attach']);
             });
             Route::get('attendance/history', [AttendanceController::class, 'studentHistory']);
