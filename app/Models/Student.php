@@ -22,6 +22,7 @@ class Student extends Model
         'city',
         'country',
         'student_id',
+        'access_code',
         'admission_date',
         'business_id',
         'branch_id',
@@ -89,6 +90,29 @@ class Student extends Model
     public function getFullNameAttribute()
     {
         return $this->first_name . ' ' . $this->last_name;
+    }
+
+    /**
+     * Each child has a unique access code for linking to a Kids Clinic.
+     */
+    public function ensureAccessCode(): string
+    {
+        if (! empty($this->access_code)) {
+            return $this->access_code;
+        }
+
+        do {
+            $code = 'CHD-'.strtoupper(Str::random(8));
+        } while (static::where('access_code', $code)->exists());
+
+        $this->forceFill(['access_code' => $code])->save();
+
+        return $code;
+    }
+
+    public function clinicPatients()
+    {
+        return $this->hasMany(ClinicPatient::class);
     }
 
     public function getAgeAttribute()

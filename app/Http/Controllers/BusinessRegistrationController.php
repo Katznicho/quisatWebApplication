@@ -23,7 +23,7 @@ class BusinessRegistrationController extends Controller
 {
     public function showRegistrationForm()
     {
-        $businessCategories = BusinessCategory::all();
+        $businessCategories = BusinessCategory::orderBy('name')->get();
         $countries = Country::query()
             ->orderByDesc('is_default')
             ->orderBy('name')

@@ -61,7 +61,7 @@
                                 Business Name <span class="text-red-500">*</span>
                             </label>
                             <input id="business_name" name="business_name" type="text" required 
-                                placeholder="Enter your business name (e.g., Tech Solutions Inc.)"
+                                placeholder="e.g. Little Angels Nursery School"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
                                 value="{{ old('business_name') }}">
                             @error('business_name')
@@ -79,7 +79,7 @@
                                 Business Email <span class="text-red-500">*</span>
                             </label>
                             <input id="business_email" name="business_email" type="email" required 
-                                placeholder="contact@yourbusiness.com"
+                                placeholder="info@yourbusiness.co.ug"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
                                 value="{{ old('business_email') }}">
                             @error('business_email')
@@ -97,7 +97,7 @@
                                 Business Phone <span class="text-red-500">*</span>
                             </label>
                             <input id="business_phone" name="business_phone" type="text" required 
-                                placeholder="+1 (555) 123-4567"
+                                placeholder="+256 774 528 017"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
                                 value="{{ old('business_phone') }}">
                             @error('business_phone')
@@ -114,8 +114,8 @@
                             <label for="business_category_id" class="block text-sm font-semibold text-gray-700 mb-2">
                                 Business Category <span class="text-red-500">*</span>
                             </label>
-                            <select id="business_category_id" name="business_category_id" required 
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200">
+                            <select id="business_category_id" name="business_category_id" required
+                                class="searchable-select w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200">
                                 <option value="">Select your business category</option>
                                 @foreach($businessCategories as $category)
                                     <option value="{{ $category->id }}" {{ old('business_category_id') == $category->id ? 'selected' : '' }}>
@@ -138,7 +138,7 @@
                                 Country <span class="text-red-500">*</span>
                             </label>
                             <select id="business_country_id" name="business_country_id" required
-                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200">
+                                class="searchable-select w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200">
                                 <option value="">Select country</option>
                                 @foreach(($countries ?? []) as $country)
                                     <option value="{{ $country->id }}"
@@ -162,7 +162,7 @@
                                 City <span class="text-red-500">*</span>
                             </label>
                             <input id="business_city" name="business_city" type="text" required 
-                                placeholder="New York"
+                                placeholder="Kampala"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
                                 value="{{ old('business_city') }}">
                             @error('business_city')
@@ -180,7 +180,7 @@
                                 Business Address <span class="text-red-500">*</span>
                             </label>
                             <textarea id="business_address" name="business_address" rows="3" required 
-                                placeholder="123 Business Street, Suite 100, New York, NY 10001"
+                                placeholder="Plot 10, Kampala Road, Kampala, Uganda"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200 resize-none">{{ old('business_address') }}</textarea>
                             @error('business_address')
                                 <p class="mt-2 text-sm text-red-600 flex items-center">
@@ -293,7 +293,7 @@
                                 WhatsApp Number/URL <span class="text-gray-400">(Optional)</span>
                             </label>
                             <input id="social_whatsapp" name="social_whatsapp" type="text" 
-                                placeholder="+1234567890 or https://wa.me/1234567890"
+                                placeholder="+256 700 000 000 or https://wa.me/256700000000"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
                                 value="{{ old('social_whatsapp') }}">
                         </div>
@@ -322,7 +322,7 @@
                                 Full Name <span class="text-red-500">*</span>
                             </label>
                             <input id="admin_name" name="admin_name" type="text" required 
-                                placeholder="John Doe"
+                                placeholder="e.g. Sarah Nakato"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
                                 value="{{ old('admin_name') }}">
                             @error('admin_name')
@@ -340,7 +340,7 @@
                                 Email Address <span class="text-red-500">*</span>
                             </label>
                             <input id="admin_email" name="admin_email" type="email" required 
-                                placeholder="john.doe@yourbusiness.com"
+                                placeholder="sarah@yourbusiness.co.ug"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
                                 value="{{ old('admin_email') }}">
                             @error('admin_email')
@@ -358,7 +358,7 @@
                                 Phone Number <span class="text-red-500">*</span>
                             </label>
                             <input id="admin_phone" name="admin_phone" type="text" required 
-                                placeholder="+1 (555) 123-4567"
+                                placeholder="+256 700 000 000"
                                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
                                 value="{{ old('admin_phone') }}">
                             @error('admin_phone')
@@ -464,7 +464,45 @@
         </div>
     </div>
 
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.4.1/dist/css/tom-select.default.min.css">
+    <style>
+        .ts-wrapper.searchable-select { width: 100%; }
+        .ts-wrapper.searchable-select .ts-control {
+            border-radius: 0.5rem;
+            border-color: #d1d5db;
+            padding: 0.75rem 1rem;
+            min-height: 48px;
+        }
+        .ts-wrapper.searchable-select.focus .ts-control {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+        }
+    </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.4.1/dist/js/tom-select.complete.min.js"></script>
     <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const selectConfig = {
+                create: false,
+                sortField: { field: 'text', direction: 'asc' },
+                maxOptions: 500,
+            };
+
+            if (document.getElementById('business_category_id')) {
+                new TomSelect('#business_category_id', {
+                    ...selectConfig,
+                    placeholder: 'Search business category...',
+                });
+            }
+
+            if (document.getElementById('business_country_id')) {
+                new TomSelect('#business_country_id', {
+                    ...selectConfig,
+                    placeholder: 'Search country...',
+                });
+            }
+        });
+
         function togglePassword(fieldId) {
             const passwordField = document.getElementById(fieldId);
             const eyeIcon = document.getElementById(fieldId + '_eye');

@@ -26,6 +26,7 @@ use App\Http\Controllers\API\PublicKidsFunVenuesController;
 use App\Http\Controllers\API\PublicAdvertisementsController;
 use App\Http\Controllers\API\PublicProgramsController;
 use App\Http\Controllers\API\SupportChildController;
+use App\Http\Controllers\API\ClinicController;
 use App\Http\Controllers\API\ProgramRegistrationController;
 use App\Http\Controllers\API\ProductController;
 use App\Http\Controllers\API\OrderController;
@@ -154,6 +155,9 @@ Route::prefix('v1')->group(function () {
         Route::get('support-children', [SupportChildController::class, 'index']);
         Route::get('support-children/{id}', [SupportChildController::class, 'show']);
         Route::post('support-children/{id}/enquiries', [SupportChildController::class, 'enquire']);
+
+        Route::get('clinics', [ClinicController::class, 'index']);
+        Route::get('clinics/{id}', [ClinicController::class, 'show']);
     });
     
     
@@ -273,6 +277,13 @@ Route::prefix('v1')->group(function () {
 
             Route::get('staff/dashboard', [StaffDashboardController::class, 'index']);
             Route::get('parent/dashboard', [ParentDashboardController::class, 'index']);
+
+            Route::prefix('parent/clinics')->group(function () {
+                Route::get('child-access-codes', [ClinicController::class, 'childAccessCodes']);
+                Route::get('my-links', [ClinicController::class, 'myLinks']);
+                Route::get('{id}/overview', [ClinicController::class, 'overview']);
+                Route::post('{id}/attach', [ClinicController::class, 'attach']);
+            });
             Route::get('attendance/history', [AttendanceController::class, 'studentHistory']);
             Route::post('attendance/check-in', [AttendanceController::class, 'checkIn']);
             Route::post('attendance/check-out', [AttendanceController::class, 'checkOut']);

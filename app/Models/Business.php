@@ -85,10 +85,36 @@ class Business extends Model
 
     
 
+    /**
+     * Default enabled features from the business category (when none selected explicitly).
+     */
+    public static function defaultEnabledFeatureIdsFromCategory(?int $categoryId): array
+    {
+        if (! $categoryId) {
+            return [];
+        }
+
+        $category = BusinessCategory::find($categoryId);
+
+        if (! $category || empty($category->feature_ids)) {
+            return [];
+        }
+
+        return array_values(array_map('intval', $category->feature_ids));
+    }
+
     protected static function booted()
     {
-        static::creating(function ($user) {
-            $user->uuid = (string) Str::uuid();
+        static::creating(function ($business) {
+            $business->uuid = (string) Str::uuid();
+        });
+
+        static::saving(function (Business $business) {
+            if (empty($business->enabled_feature_ids) && $business->business_category_id) {
+                $business->enabled_feature_ids = static::defaultEnabledFeatureIdsFromCategory(
+                    (int) $business->business_category_id
+                );
+            }
         });
     }
 

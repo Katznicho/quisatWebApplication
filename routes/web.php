@@ -22,6 +22,7 @@ use App\Http\Controllers\AdvertisementController;
 use App\Http\Controllers\KidsEventController;
 use App\Http\Controllers\KidsFunVenueController;
 use App\Http\Controllers\SupportChildController;
+use App\Http\Controllers\ClinicPatientController;
 use App\Http\Controllers\ParentCornerController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\SchoolManagement\ParentGuardianController;
@@ -140,6 +141,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // Support Child management (web)
     Route::resource('support-children', SupportChildController::class)->except(['show']);
     Route::get('support-children/{support_child}', [SupportChildController::class, 'show'])->name('support-children.show');
+
+    // Kids Clinics — patient management (web)
+    Route::resource('clinic-patients', ClinicPatientController::class);
+    Route::post('clinic-patients/{clinic_patient}/appointments', [\App\Http\Controllers\ClinicAppointmentController::class, 'store'])
+        ->name('clinic-patients.appointments.store');
 
     // Admin Management Routes
     Route::prefix('admin')->name('admin.')->group(function () {

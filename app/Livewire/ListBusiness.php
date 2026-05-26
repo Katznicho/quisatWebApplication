@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\Business;
+use App\Models\BusinessCategory;
 use App\Models\Country;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -230,18 +231,20 @@ class ListBusiness extends Component implements HasForms, HasTable
                             ->relationship('businessCategory', 'name')
                             ->reactive()
                             ->afterStateUpdated(function (\Filament\Forms\Set $set, $state) {
-                                $set('enabled_feature_ids', []);
+                                $category = BusinessCategory::find($state);
+                                $set('enabled_feature_ids', array_map('intval', $category?->feature_ids ?? []));
                             })
                             ->placeholder('Select category'),
                         \Filament\Forms\Components\CheckboxList::make('enabled_feature_ids')
                             ->label('Enabled Features')
                             ->options(function (\Filament\Forms\Get $get) {
-                                $category = \App\Models\BusinessCategory::find($get('business_category_id'));
+                                $category = BusinessCategory::find($get('business_category_id'));
                                 return \App\Models\Feature::whereIn('id', $category?->feature_ids ?? [])->pluck('name', 'id');
                             })
                             ->reactive(),
                     ])
                     ->mutateFormDataUsing(function (array $data): array {
+                        $data = self::ensureEnabledFeaturesInFormData($data);
                         $data['account_number'] = (string) ('KS' . time());
 
                         if (!empty($data['country_id'])) {
@@ -374,18 +377,21 @@ class ListBusiness extends Component implements HasForms, HasTable
                             ->relationship('businessCategory', 'name')
                             ->reactive()
                             ->afterStateUpdated(function (\Filament\Forms\Set $set, $state) {
-                                $set('enabled_feature_ids', []);
+                                $category = BusinessCategory::find($state);
+                                $set('enabled_feature_ids', array_map('intval', $category?->feature_ids ?? []));
                             })
                             ->placeholder('Select category'),
                         \Filament\Forms\Components\CheckboxList::make('enabled_feature_ids')
                             ->label('Enabled Features')
                             ->options(function (\Filament\Forms\Get $get) {
-                                $category = \App\Models\BusinessCategory::find($get('business_category_id'));
+                                $category = BusinessCategory::find($get('business_category_id'));
                                 return \App\Models\Feature::whereIn('id', $category?->feature_ids ?? [])->pluck('name', 'id');
                             })
                             ->reactive(),
                     ])
                     ->mutateFormDataUsing(function (array $data): array {
+                        $data = self::ensureEnabledFeaturesInFormData($data);
+
                         if (!empty($data['country_id'])) {
                             $country = Country::find((int) $data['country_id']);
                             if ($country) {
@@ -470,5 +476,25 @@ class ListBusiness extends Component implements HasForms, HasTable
     public function render(): View
     {
         return view('livewire.list-business');
+    }
+
+    /**
+     * When no features are ticked, default to all features allowed by the category.
+     */
+    protected static function ensureEnabledFeaturesInFormData(array $data): array
+    {
+        if (! empty($data['enabled_feature_ids'])) {
+            $data['enabled_feature_ids'] = array_values(array_map('intval', $data['enabled_feature_ids']));
+
+            return $data;
+        }
+
+        if (! empty($data['business_category_id'])) {
+            $data['enabled_feature_ids'] = Business::defaultEnabledFeatureIdsFromCategory(
+                (int) $data['business_category_id']
+            );
+        }
+
+        return $data;
     }
 }

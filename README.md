@@ -2,3 +2,6 @@
 
 
 ALTER TABLE `bot_configurations` ADD `image` VARCHAR(200) NULL DEFAULT NULL AFTER `login`;
+
+php artisan db:seed --class=KidsClinicsFeatureSeeder
+php artisan db:seed --class=KidsClinicsDemoSeeder   # optional sample data

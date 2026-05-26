@@ -120,6 +120,7 @@ class ParentDashboardController extends Controller
                 'class' => $student->classRoom?->name,
                 'class_room_id' => $student->class_room_id,
                 'student_id' => $student->student_id,
+                'access_code' => $student->ensureAccessCode(),
                 'photo_url' => $this->resolvePhotoUrl($student->photo),
                 'avatar_url' => "https://ui-avatars.com/api/?name=" . urlencode($student->full_name) . "&background=4A90E2&color=ffffff",
             ];
