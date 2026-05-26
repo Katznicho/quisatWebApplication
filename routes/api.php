@@ -122,6 +122,7 @@ Route::prefix('v1')->group(function () {
         Route::get('kids-fun-venues', [PublicKidsFunVenuesController::class, 'index']);
         Route::get('kids-fun-venues/{id}', [PublicKidsFunVenuesController::class, 'show']);
         
+        
         // Business Advertisements
         Route::get('advertisements', [PublicAdvertisementsController::class, 'index']);
         Route::get('advertisements/{id}', [PublicAdvertisementsController::class, 'show']);
