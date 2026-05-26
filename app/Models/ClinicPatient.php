@@ -83,4 +83,24 @@ class ClinicPatient extends Model
     {
         return $this->hasMany(ClinicAppointment::class);
     }
+
+    public function documents()
+    {
+        return $this->hasMany(ClinicPatientDocument::class);
+    }
+
+    public function visits()
+    {
+        return $this->hasMany(ClinicPatientVisit::class);
+    }
+
+    public function vaccinations()
+    {
+        return $this->hasMany(ClinicPatientVaccination::class);
+    }
+
+    public function growthRecords()
+    {
+        return $this->hasMany(ClinicPatientGrowthRecord::class);
+    }
 }

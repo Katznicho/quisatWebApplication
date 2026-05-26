@@ -1,6 +1,8 @@
 @php
+    $patient = $patient ?? null;
     $useRepeaters = $useRepeaters ?? false;
     $importedFromSchool = $importedFromSchool ?? false;
+    $manualGuardianEntry = $manualGuardianEntry ?? false;
     $insuranceProvider = old('insurance_provider', data_get($patient ?? null, 'insurance_info.provider', ''));
     $insurancePolicy = old('insurance_policy_number', data_get($patient ?? null, 'insurance_info.policy_number', ''));
 
@@ -226,31 +228,89 @@
     </div>
 
     @if(!$importedFromSchool)
-        <div>
-            <label for="parent_guardian_id" class="block text-sm font-medium text-gray-700 mb-2">Primary parent / guardian</label>
-            <select name="parent_guardian_id" id="parent_guardian_id"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                <option value="">No parent linked yet</option>
-                @foreach($parents ?? [] as $parent)
-                    <option value="{{ $parent->id }}" @selected(old('parent_guardian_id', optional($patient)->parent_guardian_id) == $parent->id)>
-                        {{ $parent->full_name }} @if($parent->email) ({{ $parent->email }}) @endif
-                    </option>
-                @endforeach
-            </select>
-        </div>
+        @if($manualGuardianEntry)
+            <div class="md:col-span-2">
+                <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                    <h3 class="text-sm font-semibold text-gray-900 mb-4">Parent / guardian details</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="guardian_first_name" class="block text-sm font-medium text-gray-700 mb-2">First name <span class="text-red-500">*</span></label>
+                            <input type="text" name="guardian_first_name" id="guardian_first_name"
+                                   value="{{ old('guardian_first_name') }}"
+                                   placeholder="e.g. Grace"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                            @error('guardian_first_name')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                        </div>
 
-        <div>
-            <label for="student_id" class="block text-sm font-medium text-gray-700 mb-2">Link to school student (optional)</label>
-            <select name="student_id" id="student_id"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                <option value="">Not linked to a school record</option>
-                @foreach($students ?? [] as $student)
-                    <option value="{{ $student->id }}" @selected(old('student_id', optional($patient)->student_id) == $student->id)>
-                        {{ $student->first_name }} {{ $student->last_name }}
-                    </option>
-                @endforeach
-            </select>
-        </div>
+                        <div>
+                            <label for="guardian_last_name" class="block text-sm font-medium text-gray-700 mb-2">Last name <span class="text-red-500">*</span></label>
+                            <input type="text" name="guardian_last_name" id="guardian_last_name"
+                                   value="{{ old('guardian_last_name') }}"
+                                   placeholder="e.g. Nakato"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                            @error('guardian_last_name')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                        </div>
+
+                        <div>
+                            <label for="guardian_phone" class="block text-sm font-medium text-gray-700 mb-2">Phone <span class="text-red-500">*</span></label>
+                            <input type="text" name="guardian_phone" id="guardian_phone"
+                                   value="{{ old('guardian_phone') }}"
+                                   placeholder="+256 700 000 000"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                            @error('guardian_phone')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                        </div>
+
+                        <div>
+                            <label for="guardian_email" class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <input type="email" name="guardian_email" id="guardian_email"
+                                   value="{{ old('guardian_email') }}"
+                                   placeholder="guardian@example.com"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                            <p class="mt-1 text-xs text-gray-500">Optional. Leave blank if the guardian does not have email.</p>
+                            @error('guardian_email')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                        </div>
+
+                        <div>
+                            <label for="guardian_relationship" class="block text-sm font-medium text-gray-700 mb-2">Relationship <span class="text-red-500">*</span></label>
+                            <select name="guardian_relationship" id="guardian_relationship"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">Select relationship</option>
+                                @foreach(['father', 'mother', 'guardian', 'other'] as $relationship)
+                                    <option value="{{ $relationship }}" @selected(old('guardian_relationship') === $relationship)>{{ ucfirst($relationship) }}</option>
+                                @endforeach
+                            </select>
+                            @error('guardian_relationship')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @else
+            <div>
+                <label for="parent_guardian_id" class="block text-sm font-medium text-gray-700 mb-2">Primary parent / guardian</label>
+                <select name="parent_guardian_id" id="parent_guardian_id"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">No parent linked yet</option>
+                    @foreach($parents ?? [] as $parent)
+                        <option value="{{ $parent->id }}" @selected(old('parent_guardian_id', optional($patient)->parent_guardian_id) == $parent->id)>
+                            {{ $parent->full_name }} @if($parent->email) ({{ $parent->email }}) @endif
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div>
+                <label for="student_id" class="block text-sm font-medium text-gray-700 mb-2">Link to school student (optional)</label>
+                <select name="student_id" id="student_id"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">Not linked to a school record</option>
+                    @foreach($students ?? [] as $student)
+                        <option value="{{ $student->id }}" @selected(old('student_id', optional($patient)->student_id) == $student->id)>
+                            {{ $student->first_name }} {{ $student->last_name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+        @endif
     @else
         <input type="hidden" name="parent_guardian_id" value="{{ optional($patient)->parent_guardian_id }}">
         <input type="hidden" name="student_id" value="{{ optional($patient)->student_id }}">

@@ -1,253 +1,365 @@
 @extends('layouts.app')
 
 @section('content')
+@php
+    $activeTab = request('tab', 'overview');
+    if (! in_array($activeTab, ['overview', 'appointments', 'visits', 'vaccinations', 'growth', 'documents'], true)) {
+        $activeTab = 'overview';
+    }
+    $statusClasses = $patient->status === 'active'
+        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+        : 'bg-rose-100 text-rose-800 border border-rose-200';
+    $appointmentCount = $patient->appointments->count();
+    $nextAppointment = $patient->appointments
+        ->where('status', 'scheduled')
+        ->sortBy('scheduled_at')
+        ->first();
+    $documentCount = $patient->documents()->count();
+    $ageText = 'Not recorded';
+    if ($patient->date_of_birth) {
+        $years = $patient->date_of_birth->age;
+        if ($years >= 1) {
+            $ageText = $years.' '.\Illuminate\Support\Str::plural('year', $years);
+        } else {
+            $months = max(1, $patient->date_of_birth->diffInMonths(now()));
+            $ageText = $months.' '.\Illuminate\Support\Str::plural('month', $months);
+        }
+    }
+@endphp
+
 <div class="container mx-auto px-4 py-8">
-    <div class="mb-6 flex justify-between items-center">
+    <div class="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{{ $patient->full_name }}</h1>
-            <p class="mt-2 text-gray-600 dark:text-gray-400">Clinic patient · {{ $patient->patient_number }}</p>
-        </div>
-        <div class="flex space-x-2">
-            <a href="{{ route('clinic-patients.edit', $patient) }}"
-               class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
-                <i class="fas fa-edit mr-2"></i>Edit
+            <a href="{{ route('clinic-patients.index') }}" class="inline-flex items-center text-sm text-blue-600 hover:text-blue-800">
+                <i class="fas fa-arrow-left mr-2"></i>Back to patients
             </a>
-            <a href="{{ route('clinic-patients.index') }}"
-               class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
-                <i class="fas fa-arrow-left mr-2"></i>Back
+            <h1 class="mt-3 text-3xl font-bold text-gray-900 dark:text-white">{{ $patient->full_name }}</h1>
+            <p class="mt-2 text-gray-600 dark:text-gray-400">Patient profile · {{ $patient->patient_number }}</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            <a href="{{ route('clinic-patients.edit', $patient) }}"
+               class="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">
+                <i class="fas fa-edit mr-2"></i>Edit patient
             </a>
         </div>
     </div>
 
     @if(session('success'))
-        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+        <div class="mb-6 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-emerald-800">
             {{ session('success') }}
         </div>
     @endif
 
-    @if($patient->school_access_code)
-        <div class="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p class="text-sm text-blue-800 font-medium">School child access code</p>
-            <p class="text-2xl font-mono font-bold text-blue-900 mt-1">{{ $patient->school_access_code }}</p>
-            <p class="text-xs text-blue-700 mt-2">Parents use this code in the app to link this child to your clinic.</p>
-        </div>
-    @endif
+    <div class="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-blue-900 px-6 py-8 text-white">
+            <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                <div class="flex items-center gap-5">
+                    @if($patient->photo)
+                        <img src="{{ Storage::url($patient->photo) }}"
+                             alt="{{ $patient->full_name }}"
+                             class="h-24 w-24 rounded-2xl border-4 border-white/20 object-cover shadow-lg">
+                    @else
+                        <div class="flex h-24 w-24 items-center justify-center rounded-2xl bg-white/10 text-3xl text-white shadow-lg">
+                            <i class="fas fa-user-injured"></i>
+                        </div>
+                    @endif
 
-    @if($patient->student && $patient->student->business)
-        <div class="mb-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <p class="text-sm font-medium text-gray-700">Imported from school</p>
-            <p class="text-gray-900 font-semibold">{{ $patient->student->business->name }}</p>
-            @if($patient->student->student_id)
-                <p class="text-sm text-gray-500">School ID: {{ $patient->student->student_id }}</p>
-            @endif
-        </div>
-    @endif
+                    <div>
+                        <div class="mb-3 flex flex-wrap items-center gap-2">
+                            <span class="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white">
+                                Clinic patient
+                            </span>
+                            <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold {{ $statusClasses }}">
+                                {{ ucfirst($patient->status) }}
+                            </span>
+                            <span class="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white">
+                                Age: {{ $ageText }}
+                            </span>
+                            @if($patient->school_access_code)
+                                <span class="inline-flex items-center rounded-full bg-fuchsia-100 px-3 py-1 text-xs font-semibold text-fuchsia-800">
+                                    Linked by code
+                                </span>
+                            @endif
+                        </div>
 
-    @if($patient->school_access_code)
-        <div class="mb-4 p-3 bg-pink-50 border border-pink-200 rounded-lg">
-            <p class="text-xs font-medium text-pink-800 uppercase tracking-wide">School access code</p>
-            <p class="text-lg font-mono font-bold text-pink-900">{{ $patient->school_access_code }}</p>
-            <p class="text-xs text-pink-700 mt-1">Parents use this code in the app to link; staff can re-import with the same code.</p>
-        </div>
-    @endif
+                        <h2 class="text-2xl font-bold">{{ $patient->full_name }}</h2>
+                        <p class="mt-1 text-sm text-slate-200">Patient no. {{ $patient->patient_number }} · Age {{ $ageText }}</p>
 
-    <div class="mb-6 bg-white rounded-lg shadow overflow-hidden">
-        <div class="px-6 py-4 border-b flex justify-between items-center">
-            <h2 class="text-lg font-semibold text-gray-900">Appointments</h2>
+                        @if($patient->parentGuardian)
+                            <p class="mt-3 text-sm text-slate-100">
+                                Primary guardian: <span class="font-semibold">{{ $patient->parentGuardian->full_name }}</span>
+                            </p>
+                        @endif
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 lg:min-w-[360px]">
+                    <div class="rounded-xl bg-white/10 p-4 backdrop-blur-sm">
+                        <p class="text-xs uppercase tracking-wide text-slate-300">Date of birth</p>
+                        <p class="mt-1 text-sm font-semibold">{{ $patient->date_of_birth?->format('d M Y') ?? 'Not recorded' }}</p>
+                    </div>
+                    <div class="rounded-xl bg-white/10 p-4 backdrop-blur-sm">
+                        <p class="text-xs uppercase tracking-wide text-slate-300">Age</p>
+                        <p class="mt-1 text-sm font-semibold">{{ $ageText }}</p>
+                    </div>
+                    <div class="rounded-xl bg-white/10 p-4 backdrop-blur-sm">
+                        <p class="text-xs uppercase tracking-wide text-slate-300">Gender</p>
+                        <p class="mt-1 text-sm font-semibold">{{ $patient->gender ? ucfirst($patient->gender) : 'Not recorded' }}</p>
+                    </div>
+                    <div class="rounded-xl bg-white/10 p-4 backdrop-blur-sm">
+                        <p class="text-xs uppercase tracking-wide text-slate-300">Blood group</p>
+                        <p class="mt-1 text-sm font-semibold">{{ $patient->blood_group ?? 'Not recorded' }}</p>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="p-6">
-            @if($patient->appointments->isEmpty())
-                <p class="text-sm text-gray-500 mb-4">No appointments yet. Schedule one below — parents will see it in the app.</p>
-            @else
-                <div class="overflow-x-auto mb-6">
-                    <table class="min-w-full divide-y divide-gray-200 text-sm">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">When</th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Doctor</th>
-                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-200">
-                            @foreach($patient->appointments as $appointment)
-                                <tr>
-                                    <td class="px-4 py-2">{{ $appointment->scheduled_at->format('d M Y, H:i') }}</td>
-                                    <td class="px-4 py-2 capitalize">{{ str_replace('_', ' ', $appointment->appointment_type) }}</td>
-                                    <td class="px-4 py-2">{{ $appointment->doctor_name ?? '—' }}</td>
-                                    <td class="px-4 py-2">
-                                        <span class="inline-flex px-2 text-xs font-semibold rounded-full
-                                            @if($appointment->status === 'scheduled') bg-blue-100 text-blue-800
-                                            @elseif($appointment->status === 'completed') bg-green-100 text-green-800
-                                            @else bg-gray-100 text-gray-800 @endif">
-                                            {{ ucfirst($appointment->status) }}
+
+        <div class="grid grid-cols-1 gap-4 bg-slate-50 px-6 py-5 md:grid-cols-4">
+            <div class="rounded-xl border border-slate-200 bg-white p-4">
+                <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Next appointment</p>
+                <p class="mt-2 text-sm font-semibold text-slate-900">
+                    {{ $nextAppointment ? $nextAppointment->scheduled_at->format('d M Y, H:i') : 'None scheduled' }}
+                </p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-white p-4">
+                <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Appointments</p>
+                <p class="mt-2 text-sm font-semibold text-slate-900">{{ $appointmentCount }} recorded</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-white p-4">
+                <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Documents</p>
+                <p class="mt-2 text-sm font-semibold text-slate-900">{{ $documentCount }} uploaded</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-white p-4">
+                <p class="text-xs font-medium uppercase tracking-wide text-slate-500">School access code</p>
+                <p class="mt-2 text-sm font-semibold text-slate-900">{{ $patient->school_access_code ?? 'Not linked' }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="mb-6 border-b border-slate-200">
+        <nav class="-mb-px flex flex-wrap gap-2">
+            <a href="{{ route('clinic-patients.show', ['clinic_patient' => $patient->id, 'tab' => 'overview']) }}"
+               class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'overview' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
+                Overview
+            </a>
+            <a href="{{ route('clinic-patients.show', ['clinic_patient' => $patient->id, 'tab' => 'appointments']) }}"
+               class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'appointments' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
+                Appointments
+            </a>
+            <a href="{{ route('clinic-patients.show', ['clinic_patient' => $patient->id, 'tab' => 'visits']) }}"
+               class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'visits' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
+                Visits / EMR
+            </a>
+            <a href="{{ route('clinic-patients.show', ['clinic_patient' => $patient->id, 'tab' => 'vaccinations']) }}"
+               class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'vaccinations' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
+                Vaccinations
+            </a>
+            <a href="{{ route('clinic-patients.show', ['clinic_patient' => $patient->id, 'tab' => 'growth']) }}"
+               class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'growth' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
+                Growth
+            </a>
+            <a href="{{ route('clinic-patients.show', ['clinic_patient' => $patient->id, 'tab' => 'documents']) }}"
+               class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'documents' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
+                Documents
+            </a>
+        </nav>
+    </div>
+
+    @if($activeTab === 'overview')
+        <div class="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
+            <div class="space-y-6 xl:col-span-2">
+                <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <div class="border-b border-slate-200 px-6 py-4">
+                        <h2 class="text-lg font-semibold text-slate-900">Clinical overview</h2>
+                        <p class="mt-1 text-sm text-slate-500">Core patient details, guardian contact, and record source.</p>
+                    </div>
+                    <div class="grid grid-cols-1 gap-5 px-6 py-6 md:grid-cols-2">
+                        <div>
+                            <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Full name</p>
+                            <p class="mt-1 text-sm font-semibold text-slate-900">{{ $patient->full_name }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Patient number</p>
+                            <p class="mt-1 text-sm font-semibold text-slate-900">{{ $patient->patient_number }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Date of birth</p>
+                            <p class="mt-1 text-sm text-slate-900">{{ $patient->date_of_birth?->format('d M Y') ?? 'Not recorded' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Age</p>
+                            <p class="mt-1 text-sm text-slate-900">{{ $ageText }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Gender</p>
+                            <p class="mt-1 text-sm text-slate-900">{{ $patient->gender ? ucfirst($patient->gender) : 'Not recorded' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Blood group</p>
+                            <p class="mt-1 text-sm text-slate-900">{{ $patient->blood_group ?? 'Not recorded' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Primary guardian</p>
+                            <p class="mt-1 text-sm text-slate-900">{{ $patient->parentGuardian?->full_name ?? 'Not linked' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Guardian contact</p>
+                            <p class="mt-1 text-sm text-slate-900">{{ $patient->parentGuardian?->phone ?? 'Not recorded' }}</p>
+                            @if($patient->parentGuardian?->email)
+                                <p class="mt-1 text-xs text-slate-500">{{ $patient->parentGuardian->email }}</p>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+                        <div class="border-b border-slate-200 px-6 py-4">
+                            <h3 class="text-base font-semibold text-slate-900">Allergies</h3>
+                        </div>
+                        <div class="px-6 py-5">
+                            @if(!empty($patient->allergies))
+                                <div class="flex flex-wrap gap-2">
+                                    @foreach($patient->allergies as $allergy)
+                                        <span class="inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-800">
+                                            {{ $allergy }}
                                         </span>
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            @endif
+                                    @endforeach
+                                </div>
+                            @else
+                                <p class="text-sm text-slate-500">No allergies recorded.</p>
+                            @endif
+                        </div>
+                    </div>
 
-            <form action="{{ route('clinic-patients.appointments.store', $patient) }}" method="POST" class="border-t pt-4 space-y-4">
-                @csrf
-                <p class="text-sm font-medium text-gray-700">Schedule appointment</p>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm text-gray-600 mb-1">Date & time</label>
-                        <input type="datetime-local" name="scheduled_at" required
-                               class="w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500">
-                    </div>
-                    <div>
-                        <label class="block text-sm text-gray-600 mb-1">Doctor name</label>
-                        <input type="text" name="doctor_name" placeholder="Dr. Smith"
-                               class="w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500">
-                    </div>
-                    <div>
-                        <label class="block text-sm text-gray-600 mb-1">Type</label>
-                        <select name="appointment_type" class="w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500">
-                            <option value="consultation">Consultation</option>
-                            <option value="follow_up">Follow-up</option>
-                            <option value="vaccination">Vaccination</option>
-                            <option value="checkup">Check-up</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm text-gray-600 mb-1">Status</label>
-                        <select name="status" class="w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500">
-                            <option value="scheduled">Scheduled</option>
-                            <option value="completed">Completed</option>
-                            <option value="cancelled">Cancelled</option>
-                        </select>
+                    <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+                        <div class="border-b border-slate-200 px-6 py-4">
+                            <h3 class="text-base font-semibold text-slate-900">Insurance</h3>
+                        </div>
+                        <div class="px-6 py-5">
+                            @if(!empty($patient->insurance_info))
+                                <p class="text-sm font-semibold text-slate-900">{{ $patient->insurance_info['provider'] ?? 'Not recorded' }}</p>
+                                <p class="mt-1 text-sm text-slate-600">
+                                    Policy: {{ $patient->insurance_info['policy_number'] ?? 'Not recorded' }}
+                                </p>
+                            @else
+                                <p class="text-sm text-slate-500">No insurance details recorded.</p>
+                            @endif
+                        </div>
                     </div>
                 </div>
-                <div>
-                    <label class="block text-sm text-gray-600 mb-1">Notes (optional)</label>
-                    <textarea name="notes" rows="2" class="w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"></textarea>
+
+                <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <div class="border-b border-slate-200 px-6 py-4">
+                        <h3 class="text-base font-semibold text-slate-900">Emergency contacts</h3>
+                    </div>
+                    <div class="px-6 py-5">
+                        @if(!empty($patient->emergency_contacts))
+                            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                @foreach($patient->emergency_contacts as $contact)
+                                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                        <p class="text-sm font-semibold text-slate-900">{{ $contact['name'] ?? 'Contact' }}</p>
+                                        <p class="mt-1 text-sm text-slate-600">{{ $contact['relationship'] ?? 'Relationship not recorded' }}</p>
+                                        <p class="mt-2 text-sm text-slate-900">{{ $contact['phone'] ?? 'No phone recorded' }}</p>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <p class="text-sm text-slate-500">No emergency contacts recorded.</p>
+                        @endif
+                    </div>
                 </div>
-                <button type="submit" class="inline-flex items-center px-4 py-2 bg-pink-600 text-white text-sm font-medium rounded-md hover:bg-pink-700">
-                    Save appointment
-                </button>
-            </form>
+            </div>
+
+            <div class="space-y-6">
+                <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <div class="border-b border-slate-200 px-6 py-4">
+                        <h3 class="text-base font-semibold text-slate-900">Record source</h3>
+                    </div>
+                    <div class="space-y-4 px-6 py-5">
+                        <div>
+                            <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Registration type</p>
+                            <p class="mt-1 text-sm text-slate-900">{{ $patient->student ? 'Imported from school' : 'Registered directly at clinic' }}</p>
+                        </div>
+
+                        @if($patient->student && $patient->student->business)
+                            <div>
+                                <p class="text-xs font-medium uppercase tracking-wide text-slate-500">School</p>
+                                <p class="mt-1 text-sm font-semibold text-slate-900">{{ $patient->student->business->name }}</p>
+                                @if($patient->student->student_id)
+                                    <p class="mt-1 text-xs text-slate-500">School ID: {{ $patient->student->student_id }}</p>
+                                @endif
+                            </div>
+                        @endif
+
+                        <div>
+                            <p class="text-xs font-medium uppercase tracking-wide text-slate-500">School access code</p>
+                            @if($patient->school_access_code)
+                                <div class="mt-2 rounded-xl border border-fuchsia-200 bg-fuchsia-50 p-3">
+                                    <p class="font-mono text-sm font-bold text-fuchsia-900">{{ $patient->school_access_code }}</p>
+                                    <p class="mt-1 text-xs text-fuchsia-700">Parents use this code in the Quisat app to link this child.</p>
+                                </div>
+                            @else
+                                <p class="mt-1 text-sm text-slate-500">No school access code linked.</p>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <div class="border-b border-slate-200 px-6 py-4">
+                        <h3 class="text-base font-semibold text-slate-900">Family and guardians</h3>
+                    </div>
+                    <div class="space-y-4 px-6 py-5">
+                        <div>
+                            <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Family</p>
+                            <p class="mt-1 text-sm text-slate-900">{{ $patient->family?->family_name ?: 'Auto-created clinic family' }}</p>
+                        </div>
+
+                        @if($patient->family && $patient->family->members->count())
+                            <div class="space-y-3">
+                                @foreach($patient->family->members as $member)
+                                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                        <p class="text-sm font-semibold text-slate-900">{{ $member->parentGuardian?->full_name ?? 'Parent / Guardian' }}</p>
+                                        <p class="mt-1 text-xs uppercase tracking-wide text-slate-500">{{ $member->relationship }}</p>
+                                        @if($member->parentGuardian?->phone)
+                                            <p class="mt-2 text-sm text-slate-700">{{ $member->parentGuardian->phone }}</p>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <p class="text-sm text-slate-500">No additional guardians linked.</p>
+                        @endif
+                    </div>
+                </div>
+
+                <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5">
+                    <h3 class="text-base font-semibold text-slate-900">More clinical modules</h3>
+                    <p class="mt-2 text-sm text-slate-500">Vaccinations, growth charts, visit notes, and other care workflows can be added as additional patient tabs next.</p>
+                </div>
+            </div>
         </div>
-    </div>
-
-    <div class="mb-6 p-4 border border-dashed border-gray-300 rounded-lg bg-gray-50">
-        <p class="text-sm font-medium text-gray-700">More clinical modules</p>
-        <p class="text-sm text-gray-500 mt-1">Vaccination schedules, growth charts, and visit notes — coming soon.</p>
-    </div>
-
-    <div class="bg-white rounded-lg shadow overflow-hidden">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
-            <div>
-                @if($patient->photo)
-                    <img src="{{ Storage::url($patient->photo) }}"
-                         alt="{{ $patient->full_name }}"
-                         class="w-full max-h-64 object-cover rounded-lg mb-4">
-                @else
-                    <div class="w-full h-48 bg-gray-100 rounded-lg flex items-center justify-center mb-4">
-                        <i class="fas fa-child text-4xl text-gray-300"></i>
-                    </div>
-                @endif
-            </div>
-
-            <div class="space-y-4">
-                <div>
-                    <h3 class="text-sm font-medium text-gray-500">Status</h3>
-                    <span class="mt-1 inline-flex px-2 text-xs font-semibold rounded-full
-                        {{ $patient->status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
-                        {{ ucfirst($patient->status) }}
-                    </span>
-                </div>
-
-                <div>
-                    <h3 class="text-sm font-medium text-gray-500">Date of birth</h3>
-                    <p class="mt-1 text-gray-900">{{ $patient->date_of_birth?->format('d M Y') ?? '—' }}</p>
-                </div>
-
-                <div>
-                    <h3 class="text-sm font-medium text-gray-500">Gender</h3>
-                    <p class="mt-1 text-gray-900">{{ $patient->gender ? ucfirst($patient->gender) : '—' }}</p>
-                </div>
-
-                <div>
-                    <h3 class="text-sm font-medium text-gray-500">Blood group</h3>
-                    <p class="mt-1 text-gray-900">{{ $patient->blood_group ?? '—' }}</p>
-                </div>
-
-                <div>
-                    <h3 class="text-sm font-medium text-gray-500">Primary parent</h3>
-                    <p class="mt-1 text-gray-900">{{ $patient->parentGuardian?->full_name ?? '—' }}</p>
-                    @if($patient->parentGuardian?->phone)
-                        <p class="text-sm text-gray-500">{{ $patient->parentGuardian->phone }}</p>
-                    @endif
-                </div>
-
-                @if($patient->student)
-                    <div>
-                        <h3 class="text-sm font-medium text-gray-500">Linked school student</h3>
-                        <p class="mt-1 text-gray-900">{{ $patient->student->first_name }} {{ $patient->student->last_name }}</p>
-                    </div>
-                @endif
-            </div>
+    @elseif($activeTab === 'appointments')
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <livewire:clinic-patients.patient-appointments-table :patient="$patient" :wire:key="'patient-appointments-'.$patient->id" />
         </div>
-
-        <div class="border-t px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-                <h3 class="text-sm font-medium text-gray-500 mb-2">Allergies</h3>
-                @if(!empty($patient->allergies))
-                    <ul class="list-disc list-inside text-gray-900">
-                        @foreach($patient->allergies as $allergy)
-                            <li>{{ $allergy }}</li>
-                        @endforeach
-                    </ul>
-                @else
-                    <p class="text-gray-500">None recorded</p>
-                @endif
-            </div>
-
-            <div>
-                <h3 class="text-sm font-medium text-gray-500 mb-2">Emergency contacts</h3>
-                @if(!empty($patient->emergency_contacts))
-                    @foreach($patient->emergency_contacts as $contact)
-                        <p class="text-gray-900">
-                            {{ $contact['name'] ?? 'Contact' }}
-                            @if(!empty($contact['relationship'])) ({{ $contact['relationship'] }}) @endif
-                            @if(!empty($contact['phone'])) — {{ $contact['phone'] }} @endif
-                        </p>
-                    @endforeach
-                @else
-                    <p class="text-gray-500">None recorded</p>
-                @endif
-            </div>
-
-            <div>
-                <h3 class="text-sm font-medium text-gray-500 mb-2">Insurance</h3>
-                @if(!empty($patient->insurance_info))
-                    <p class="text-gray-900">{{ $patient->insurance_info['provider'] ?? '—' }}</p>
-                    @if(!empty($patient->insurance_info['policy_number']))
-                        <p class="text-sm text-gray-500">Policy: {{ $patient->insurance_info['policy_number'] }}</p>
-                    @endif
-                @else
-                    <p class="text-gray-500">None recorded</p>
-                @endif
-            </div>
-
-            @if($patient->family && $patient->family->members->count())
-                <div>
-                    <h3 class="text-sm font-medium text-gray-500 mb-2">Family members (linked parents)</h3>
-                    <ul class="space-y-1">
-                        @foreach($patient->family->members as $member)
-                            <li class="text-gray-900">
-                                {{ $member->parentGuardian?->full_name ?? 'Parent' }}
-                                <span class="text-xs text-gray-500">({{ $member->relationship }})</span>
-                            </li>
-                        @endforeach
-                    </ul>
-                </div>
-            @endif
+    @elseif($activeTab === 'visits')
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <livewire:clinic-patients.patient-visits-table :patient="$patient" :wire:key="'patient-visits-'.$patient->id" />
         </div>
-    </div>
+    @elseif($activeTab === 'vaccinations')
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <livewire:clinic-patients.patient-vaccinations-table :patient="$patient" :wire:key="'patient-vaccinations-'.$patient->id" />
+        </div>
+    @elseif($activeTab === 'growth')
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <livewire:clinic-patients.patient-growth-table :patient="$patient" :wire:key="'patient-growth-'.$patient->id" />
+        </div>
+    @elseif($activeTab === 'documents')
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <livewire:clinic-patients.patient-documents-table :patient="$patient" :wire:key="'patient-documents-'.$patient->id" />
+        </div>
+    @endif
 </div>
 @endsection

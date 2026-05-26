@@ -11,6 +11,7 @@ use App\Services\ClinicPatientImportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class ClinicPatientController extends Controller
 {
@@ -42,6 +43,8 @@ class ClinicPatientController extends Controller
 
     public function create(Request $request)
     {
+        $business = Auth::user()->business;
+        $businessId = $business->id ?? 0;
         $accessCode = strtoupper(trim((string) $request->query('access_code', '')));
         $previewStudent = null;
         $lookupError = null;
@@ -56,8 +59,7 @@ class ClinicPatientController extends Controller
             if (! $previewStudent) {
                 $lookupError = 'No child found with that access code. Ask the parent to open the Quisat app → Kids Clinics and share the code for this child.';
             } else {
-                $business = Auth::user()->business;
-                $existingPatient = ClinicPatient::where('business_id', $business->id ?? 0)
+                $existingPatient = ClinicPatient::where('business_id', $businessId)
                     ->where('student_id', $previewStudent->id)
                     ->first();
                 $alreadyRegistered = (bool) $existingPatient;
@@ -79,6 +81,58 @@ class ClinicPatientController extends Controller
 
         if (! $business) {
             abort(403);
+        }
+
+        if ($request->input('entry_mode') === 'manual') {
+            $businessId = $business->id;
+            $validated = $request->validate(array_merge(
+                $this->patientFormRules(forCreate: true),
+                [
+                    'guardian_first_name' => 'required|string|max:255',
+                    'guardian_last_name' => 'required|string|max:255',
+                    'guardian_email' => 'nullable|email|max:255|unique:parent_guardians,email',
+                    'guardian_phone' => 'required|string|max:50',
+                    'guardian_relationship' => 'required|in:father,mother,guardian,other',
+                ]
+            ));
+
+            $parentGuardian = $this->createManualParentGuardian($validated, $businessId);
+            $family = $this->resolveFamily($request, $businessId, $parentGuardian?->id);
+
+            $photoPath = null;
+            if ($request->hasFile('photo')) {
+                $photoPath = $request->file('photo')->store('clinic-patients', 'public');
+            }
+
+            $patient = ClinicPatient::create([
+                'business_id' => $businessId,
+                'clinic_family_id' => $family->id,
+                'parent_guardian_id' => $parentGuardian?->id,
+                'student_id' => null,
+                'school_access_code' => null,
+                'first_name' => $validated['first_name'],
+                'last_name' => $validated['last_name'],
+                'date_of_birth' => $validated['date_of_birth'] ?? null,
+                'gender' => $validated['gender'] ?? null,
+                'blood_group' => $validated['blood_group'] ?? null,
+                'allergies' => $this->normalizeAllergies($request),
+                'emergency_contacts' => $this->normalizeEmergencyContacts($request),
+                'insurance_info' => $this->buildInsuranceInfo($validated),
+                'status' => $validated['status'] ?? 'active',
+                'photo' => $photoPath,
+            ]);
+
+            if ($parentGuardian) {
+                $this->ensureFamilyMember(
+                    $family,
+                    (int) $parentGuardian->id,
+                    (int) $family->primary_parent_guardian_id === (int) $parentGuardian->id
+                );
+            }
+
+            return redirect()
+                ->route('clinic-patients.show', $patient)
+                ->with('success', 'Patient registered successfully.');
         }
 
         $validated = $request->validate([
@@ -235,8 +289,28 @@ class ClinicPatientController extends Controller
 
         return ClinicFamily::create([
             'business_id' => $businessId,
-            'family_name' => $request->input('family_name') ?: null,
+            'access_code' => ClinicFamily::generateUniqueAccessCode($businessId),
+            'family_name' => $request->input('family_name') ?: trim(($request->input('last_name') ?: 'Clinic').' Family'),
             'primary_parent_guardian_id' => $parentId,
+            'status' => 'active',
+        ]);
+    }
+
+    protected function createManualParentGuardian(array $validated, int $businessId): ParentGuardian
+    {
+        $email = $validated['guardian_email'] ?? null;
+
+        if (! $email) {
+            $email = 'clinic-guardian-'.Str::uuid().'@placeholder.local';
+        }
+
+        return ParentGuardian::create([
+            'first_name' => $validated['guardian_first_name'],
+            'last_name' => $validated['guardian_last_name'],
+            'email' => $email,
+            'phone' => $validated['guardian_phone'],
+            'relationship' => $validated['guardian_relationship'],
+            'business_id' => $businessId,
             'status' => 'active',
         ]);
     }
@@ -317,7 +391,6 @@ class ClinicPatientController extends Controller
         ];
 
         if ($forCreate) {
-            $rules['clinic_family_id'] = 'nullable|exists:clinic_families,id';
             $rules['family_name'] = 'nullable|string|max:255';
         } else {
             $rules['clinic_family_id'] = 'required|exists:clinic_families,id';

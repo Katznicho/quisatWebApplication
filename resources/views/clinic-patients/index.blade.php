@@ -6,12 +6,12 @@
         <div>
             <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Kids Clinics — Patients</h1>
             <p class="mt-2 text-gray-600 dark:text-gray-400">
-                Import children from school using each child&apos;s access code (from the parent app).
+                Import children from school using an access code, or register a child directly at the clinic.
             </p>
         </div>
         <a href="{{ route('clinic-patients.create') }}"
            class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
-            <i class="fas fa-file-import mr-2"></i>Import by access code
+            <i class="fas fa-user-plus mr-2"></i>Add patient
         </a>
     </div>
 
