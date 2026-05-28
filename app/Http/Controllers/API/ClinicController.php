@@ -5,6 +5,8 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\Business;
 use App\Models\ClinicAppointment;
+use App\Models\ClinicAppointmentType;
+use App\Models\ClinicDoctor;
 use App\Models\ClinicPatient;
 use App\Models\ClinicPatientDocument;
 use App\Models\ClinicPatientGrowthRecord;
@@ -17,6 +19,7 @@ use App\Services\ClinicPatientImportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class ClinicController extends Controller
 {
@@ -190,12 +193,63 @@ class ClinicController extends Controller
             ];
         });
 
+        $doctorSchedules = ClinicAppointment::query()
+            ->where('business_id', $clinic->id)
+            ->where('status', 'scheduled')
+            ->whereNotNull('doctor_name')
+            ->where('scheduled_at', '>=', now())
+            ->orderBy('scheduled_at')
+            ->get()
+            ->groupBy(fn (ClinicAppointment $appointment) => trim((string) $appointment->doctor_name))
+            ->map(function ($appointments, string $doctorName) {
+                $nextSlot = $appointments->first();
+
+                return [
+                    'doctor_name' => $doctorName,
+                    'next_slot_at' => $nextSlot?->scheduled_at?->toIso8601String(),
+                    'upcoming_slots_count' => $appointments->count(),
+                ];
+            })
+            ->values()
+            ->take(8);
+
+        $doctorProfiles = ClinicDoctor::query()
+            ->where('business_id', $clinic->id)
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get(['name', 'specialization'])
+            ->keyBy('name');
+
+        $doctorSchedules = $doctorSchedules->map(function (array $schedule) use ($doctorProfiles) {
+            $profile = $doctorProfiles->get($schedule['doctor_name']);
+            $schedule['specialization'] = $profile?->specialization;
+
+            return $schedule;
+        })->values();
+
+        $services = ClinicAppointmentType::query()
+            ->where('business_id', $clinic->id)
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get()
+            ->map(function (ClinicAppointmentType $type) {
+                return [
+                    'id' => $type->id,
+                    'name' => $type->name,
+                    'applies_to' => $type->applies_to,
+                    'description' => $type->description,
+                ];
+            })
+            ->values();
+
         return response()->json([
             'success' => true,
             'data' => [
                 'clinic' => $this->transformClinic($clinic, true),
                 'linked_children' => $linkedChildren,
                 'children' => $children,
+                'doctor_schedules' => $doctorSchedules,
+                'services' => $services,
             ],
         ]);
     }
@@ -247,8 +301,148 @@ class ClinicController extends Controller
             'data' => [
                 'clinic' => $this->transformClinic($clinic, true),
                 'patient' => $this->transformPatientProfile($clinic_patient),
+                'booking_options' => [
+                    'doctors' => $this->getClinicDoctors($clinic->id),
+                    'services' => $this->getClinicServices($clinic->id),
+                ],
             ],
         ]);
+    }
+
+    /**
+     * Parent: book a new appointment for linked child.
+     */
+    public function bookPatientAppointment(Request $request, $id, ClinicPatient $clinic_patient)
+    {
+        $user = $request->user();
+
+        if (! $user instanceof ParentGuardian) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only parents can book clinic appointments.',
+            ], 403);
+        }
+
+        $clinic = $this->findClinicBusiness($id);
+
+        if (! $clinic) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Clinic not found.',
+            ], 404);
+        }
+
+        if ($clinic_patient->business_id !== $clinic->id || $clinic_patient->parent_guardian_id !== $user->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Patient record not found.',
+            ], 404);
+        }
+
+        $validated = $request->validate([
+            'doctor_name' => [
+                'required',
+                'string',
+                'max:120',
+                Rule::exists('clinic_doctors', 'name')->where(function ($query) use ($clinic) {
+                    $query->where('business_id', $clinic->id)->where('status', 'active');
+                }),
+            ],
+            'appointment_type' => [
+                'required',
+                'string',
+                'max:120',
+                Rule::exists('clinic_appointment_types', 'name')->where(function ($query) use ($clinic) {
+                    $query->where('business_id', $clinic->id)->where('status', 'active');
+                }),
+            ],
+            'scheduled_at' => 'required|date',
+            'notes' => 'nullable|string|max:2000',
+        ], [
+            'doctor_name.exists' => 'Please choose a doctor from this clinic.',
+            'appointment_type.exists' => 'Please choose a valid clinic service.',
+        ]);
+
+        $appointment = ClinicAppointment::create([
+            'business_id' => $clinic->id,
+            'clinic_patient_id' => $clinic_patient->id,
+            'scheduled_at' => $validated['scheduled_at'],
+            'doctor_name' => $validated['doctor_name'],
+            'appointment_type' => $validated['appointment_type'],
+            'status' => 'scheduled',
+            'notes' => $validated['notes'] ?? null,
+            'created_by' => null,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Appointment request booked successfully.',
+            'data' => [
+                'appointment' => $this->transformAppointment($appointment),
+            ],
+        ]);
+    }
+
+    /**
+     * Parent: delete a document for a linked child record.
+     */
+    public function deletePatientDocument(
+        Request $request,
+        $id,
+        ClinicPatient $clinic_patient,
+        ClinicPatientDocument $document
+    ) {
+        $user = $request->user();
+
+        if (! $user instanceof ParentGuardian) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only parents can delete clinic documents.',
+            ], 403);
+        }
+
+        $clinic = $this->findClinicBusiness($id);
+
+        if (! $clinic) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Clinic not found.',
+            ], 404);
+        }
+
+        if ($clinic_patient->business_id !== $clinic->id || $clinic_patient->parent_guardian_id !== $user->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Patient record not found.',
+            ], 404);
+        }
+
+        if ($document->clinic_patient_id !== $clinic_patient->id || $document->business_id !== $clinic->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Document not found for this child.',
+            ], 404);
+        }
+
+        try {
+            if ($document->file_path && Storage::disk('public')->exists($document->file_path)) {
+                Storage::disk('public')->delete($document->file_path);
+            }
+
+            $document->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Document deleted successfully.',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('ClinicController::deletePatientDocument - '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not delete document right now.',
+            ], 500);
+        }
     }
 
     /**
@@ -420,6 +614,8 @@ class ClinicController extends Controller
             'phone' => $business->phone,
             'email' => $business->email,
             'logo_url' => $logo,
+            'rating' => $business->rating !== null ? (float) $business->rating : null,
+            'reviews_count' => $business->reviews_count !== null ? (int) $business->reviews_count : null,
         ];
 
         if ($detailed) {
@@ -553,5 +749,40 @@ class ClinicController extends Controller
             'size' => $document->size,
             'created_at' => $document->created_at?->toIso8601String(),
         ];
+    }
+
+    protected function getClinicDoctors(int $businessId)
+    {
+        return ClinicDoctor::query()
+            ->where('business_id', $businessId)
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get()
+            ->map(function (ClinicDoctor $doctor) {
+                return [
+                    'id' => $doctor->id,
+                    'name' => $doctor->name,
+                    'specialization' => $doctor->specialization,
+                ];
+            })
+            ->values();
+    }
+
+    protected function getClinicServices(int $businessId)
+    {
+        return ClinicAppointmentType::query()
+            ->where('business_id', $businessId)
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get()
+            ->map(function (ClinicAppointmentType $type) {
+                return [
+                    'id' => $type->id,
+                    'name' => $type->name,
+                    'applies_to' => $type->applies_to,
+                    'description' => $type->description,
+                ];
+            })
+            ->values();
     }
 }

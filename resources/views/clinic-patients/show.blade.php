@@ -76,7 +76,7 @@
                                 Age: {{ $ageText }}
                             </span>
                             @if($patient->school_access_code)
-                                <span class="inline-flex items-center rounded-full bg-fuchsia-100 px-3 py-1 text-xs font-semibold text-fuchsia-800">
+                                <span class="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
                                     Linked by code
                                 </span>
                             @endif
@@ -139,27 +139,27 @@
     <div class="mb-6 border-b border-slate-200">
         <nav class="-mb-px flex flex-wrap gap-2">
             <a href="{{ route('clinic-patients.show', ['clinic_patient' => $patient->id, 'tab' => 'overview']) }}"
-               class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'overview' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
+               class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'overview' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
                 Overview
             </a>
             <a href="{{ route('clinic-patients.show', ['clinic_patient' => $patient->id, 'tab' => 'appointments']) }}"
-               class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'appointments' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
+               class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'appointments' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
                 Appointments
             </a>
             <a href="{{ route('clinic-patients.show', ['clinic_patient' => $patient->id, 'tab' => 'visits']) }}"
-               class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'visits' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
+               class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'visits' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
                 Visits / EMR
             </a>
             <a href="{{ route('clinic-patients.show', ['clinic_patient' => $patient->id, 'tab' => 'vaccinations']) }}"
-               class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'vaccinations' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
+               class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'vaccinations' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
                 Vaccinations
             </a>
             <a href="{{ route('clinic-patients.show', ['clinic_patient' => $patient->id, 'tab' => 'growth']) }}"
-               class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'growth' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
+               class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'growth' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
                 Growth
             </a>
             <a href="{{ route('clinic-patients.show', ['clinic_patient' => $patient->id, 'tab' => 'documents']) }}"
-               class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'documents' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
+               class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'documents' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
                 Documents
             </a>
         </nav>
@@ -295,9 +295,9 @@
                         <div>
                             <p class="text-xs font-medium uppercase tracking-wide text-slate-500">School access code</p>
                             @if($patient->school_access_code)
-                                <div class="mt-2 rounded-xl border border-fuchsia-200 bg-fuchsia-50 p-3">
-                                    <p class="font-mono text-sm font-bold text-fuchsia-900">{{ $patient->school_access_code }}</p>
-                                    <p class="mt-1 text-xs text-fuchsia-700">Parents use this code in the Quisat app to link this child.</p>
+                                <div class="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                                    <p class="font-mono text-sm font-bold text-emerald-900">{{ $patient->school_access_code }}</p>
+                                    <p class="mt-1 text-xs text-emerald-700">Parents use this code in the Quisat app to link this child.</p>
                                 </div>
                             @else
                                 <p class="mt-1 text-sm text-slate-500">No school access code linked.</p>
