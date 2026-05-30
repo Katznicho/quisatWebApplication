@@ -3,7 +3,7 @@
 @section('content')
 @php
     $activeTab = request('tab', 'patients');
-    if (! in_array($activeTab, ['overview', 'patients', 'doctors', 'consultations', 'appointment-types'], true)) {
+    if (! in_array($activeTab, ['overview', 'patients', 'doctors', 'consultations', 'appointment-types', 'services'], true)) {
         $activeTab = 'patients';
     }
 @endphp
@@ -42,8 +42,8 @@
                     </span>
                     <h2 class="mt-4 text-2xl font-bold">Manage care delivery from one module</h2>
                     <p class="mt-2 max-w-2xl text-sm text-slate-200">
-                        Configure doctors and appointment types once, then use them everywhere across patient appointments,
-                        consultations, and records.
+                        Configure doctors, appointment types, and parent-facing services once, then use them across
+                        appointments, consultations, and the mobile app.
                     </p>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
@@ -67,10 +67,14 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 gap-4 bg-slate-50 px-6 py-5 md:grid-cols-4">
+        <div class="grid grid-cols-1 gap-4 bg-slate-50 px-6 py-5 md:grid-cols-2 lg:grid-cols-5">
             <div class="rounded-xl border border-slate-200 bg-white p-4">
                 <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Appointment types</p>
                 <p class="mt-2 text-sm font-semibold text-slate-900">{{ $stats['appointment_types'] ?? 0 }} configured</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-white p-4">
+                <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Services (app)</p>
+                <p class="mt-2 text-sm font-semibold text-slate-900">{{ $stats['services'] ?? 0 }} listed for parents</p>
             </div>
             <div class="rounded-xl border border-slate-200 bg-white p-4">
                 <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Quick action</p>
@@ -109,6 +113,10 @@
                class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'appointment-types' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
                 Appointment Types
             </a>
+            <a href="{{ route('clinic-patients.index', ['tab' => 'services']) }}"
+               class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'services' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
+                Services
+            </a>
         </nav>
     </div>
 
@@ -130,11 +138,15 @@
                         <p class="mt-1 text-sm text-slate-600">Control the list of consultation, review, vaccination, and follow-up types used by staff.</p>
                     </div>
                     <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                        <p class="text-sm font-semibold text-slate-900">3. Register or import patients</p>
+                        <p class="text-sm font-semibold text-slate-900">3. Add clinic services</p>
+                        <p class="mt-1 text-sm text-slate-600">List services parents see in the app (check-ups, vaccinations, reviews).</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                        <p class="text-sm font-semibold text-slate-900">4. Register or import patients</p>
                         <p class="mt-1 text-sm text-slate-600">Add children manually or import them from school using their access code.</p>
                     </div>
                     <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                        <p class="text-sm font-semibold text-slate-900">4. Record care</p>
+                        <p class="text-sm font-semibold text-slate-900">5. Record care</p>
                         <p class="mt-1 text-sm text-slate-600">Open each patient to manage appointments, consultations, vaccinations, growth, and documents.</p>
                     </div>
                 </div>
@@ -144,7 +156,8 @@
                 <h3 class="text-lg font-semibold text-slate-900">Recommended setup</h3>
                 <ul class="mt-4 space-y-3 text-sm text-slate-600">
                     <li>Start with <strong>Doctors</strong> so booking forms are standardized.</li>
-                    <li>Add <strong>Appointment Types</strong> for consultation, follow-up, review, vaccination, and check-up flows.</li>
+                    <li>Add <strong>Appointment Types</strong> for staff booking and consultation forms.</li>
+                    <li>Add <strong>Services</strong> so parents see your offerings in the mobile app.</li>
                     <li>Use the <strong>Patients</strong> tab to navigate directly into each child record.</li>
                     <li>Review all clinic activity under <strong>Consultations</strong>.</li>
                 </ul>
@@ -165,6 +178,10 @@
     @elseif($activeTab === 'appointment-types')
         <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <livewire:clinic-patients.clinic-appointment-types-table />
+        </div>
+    @elseif($activeTab === 'services')
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <livewire:clinic-patients.clinic-services-table />
         </div>
     @endif
 </div>

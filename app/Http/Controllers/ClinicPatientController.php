@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ClinicAppointment;
 use App\Models\ClinicAppointmentType;
 use App\Models\ClinicDoctor;
+use App\Models\ClinicService;
 use App\Models\ClinicFamily;
 use App\Models\ClinicFamilyMember;
 use App\Models\ClinicPatient;
@@ -14,6 +15,7 @@ use App\Models\Student;
 use App\Services\ClinicPatientImportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -36,6 +38,9 @@ class ClinicPatientController extends Controller
                 ->where('status', 'scheduled')
                 ->count(),
             'appointment_types' => ClinicAppointmentType::where('business_id', $businessId)->count(),
+            'services' => Schema::hasTable('clinic_services')
+                ? ClinicService::where('business_id', $businessId)->count()
+                : 0,
         ];
 
         return view('clinic-patients.index', compact('stats'));

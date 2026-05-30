@@ -7,6 +7,7 @@ use App\Models\Business;
 use App\Models\ClinicAppointment;
 use App\Models\ClinicAppointmentType;
 use App\Models\ClinicDoctor;
+use App\Models\ClinicService;
 use App\Models\ClinicPatient;
 use App\Models\ClinicPatientDocument;
 use App\Models\ClinicPatientGrowthRecord;
@@ -227,21 +228,6 @@ class ClinicController extends Controller
             return $schedule;
         })->values();
 
-        $services = ClinicAppointmentType::query()
-            ->where('business_id', $clinic->id)
-            ->where('status', 'active')
-            ->orderBy('name')
-            ->get()
-            ->map(function (ClinicAppointmentType $type) {
-                return [
-                    'id' => $type->id,
-                    'name' => $type->name,
-                    'applies_to' => $type->applies_to,
-                    'description' => $type->description,
-                ];
-            })
-            ->values();
-
         return response()->json([
             'success' => true,
             'data' => [
@@ -249,7 +235,7 @@ class ClinicController extends Controller
                 'linked_children' => $linkedChildren,
                 'children' => $children,
                 'doctor_schedules' => $doctorSchedules,
-                'services' => $services,
+                'services' => $this->getClinicServices($clinic->id),
             ],
         ]);
     }
@@ -303,7 +289,7 @@ class ClinicController extends Controller
                 'patient' => $this->transformPatientProfile($clinic_patient),
                 'booking_options' => [
                     'doctors' => $this->getClinicDoctors($clinic->id),
-                    'services' => $this->getClinicServices($clinic->id),
+                    'appointment_types' => $this->getClinicAppointmentTypesForBooking($clinic->id),
                 ],
             ],
         ]);
@@ -768,19 +754,42 @@ class ClinicController extends Controller
             ->values();
     }
 
-    protected function getClinicServices(int $businessId)
+    protected function getClinicAppointmentTypesForBooking(int $businessId)
     {
         return ClinicAppointmentType::query()
             ->where('business_id', $businessId)
             ->where('status', 'active')
+            ->whereIn('applies_to', ['appointments', 'both'])
             ->orderBy('name')
             ->get()
             ->map(function (ClinicAppointmentType $type) {
                 return [
                     'id' => $type->id,
                     'name' => $type->name,
-                    'applies_to' => $type->applies_to,
                     'description' => $type->description,
+                ];
+            })
+            ->values();
+    }
+
+    protected function getClinicServices(int $businessId)
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('clinic_services')) {
+            return collect();
+        }
+
+        return ClinicService::query()
+            ->where('business_id', $businessId)
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get()
+            ->map(function (ClinicService $service) {
+                return [
+                    'id' => $service->id,
+                    'name' => $service->name,
+                    'description' => $service->description,
+                    'duration_minutes' => $service->duration_minutes,
+                    'price' => $service->price !== null ? (float) $service->price : null,
                 ];
             })
             ->values();
