@@ -19,6 +19,7 @@ use App\Models\Student;
 use App\Services\ClinicPatientImportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -289,7 +290,7 @@ class ClinicController extends Controller
                 'patient' => $this->transformPatientProfile($clinic_patient),
                 'booking_options' => [
                     'doctors' => $this->getClinicDoctors($clinic->id),
-                    'appointment_types' => $this->getClinicAppointmentTypesForBooking($clinic->id),
+                    'appointment_types' => $this->getClinicBookingOptions($clinic->id),
                 ],
             ],
         ]);
@@ -338,9 +339,11 @@ class ClinicController extends Controller
                 'required',
                 'string',
                 'max:120',
-                Rule::exists('clinic_appointment_types', 'name')->where(function ($query) use ($clinic) {
-                    $query->where('business_id', $clinic->id)->where('status', 'active');
-                }),
+                function ($attribute, $value, $fail) use ($clinic) {
+                    if (! $this->isValidClinicBookingType($clinic->id, (string) $value)) {
+                        $fail('Please choose a valid service from this clinic.');
+                    }
+                },
             ],
             'scheduled_at' => 'required|date',
             'notes' => 'nullable|string|max:2000',
@@ -754,27 +757,78 @@ class ClinicController extends Controller
             ->values();
     }
 
-    protected function getClinicAppointmentTypesForBooking(int $businessId)
+    /**
+     * Options parents can pick when booking: appointment types (if any), plus clinic services.
+     */
+    protected function getClinicBookingOptions(int $businessId)
     {
-        return ClinicAppointmentType::query()
+        $options = collect();
+        $seen = [];
+
+        $types = ClinicAppointmentType::query()
             ->where('business_id', $businessId)
             ->where('status', 'active')
             ->whereIn('applies_to', ['appointments', 'both'])
             ->orderBy('name')
-            ->get()
-            ->map(function (ClinicAppointmentType $type) {
-                return [
-                    'id' => $type->id,
-                    'name' => $type->name,
-                    'description' => $type->description,
-                ];
-            })
-            ->values();
+            ->get();
+
+        foreach ($types as $type) {
+            $key = mb_strtolower(trim($type->name));
+            if ($key === '' || isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $options->push([
+                'id' => $type->id,
+                'name' => $type->name,
+                'description' => $type->description,
+            ]);
+        }
+
+        foreach ($this->getClinicServices($businessId) as $service) {
+            $key = mb_strtolower(trim((string) ($service['name'] ?? '')));
+            if ($key === '' || isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $options->push($service);
+        }
+
+        return $options->values();
+    }
+
+    protected function isValidClinicBookingType(int $businessId, string $name): bool
+    {
+        $normalized = mb_strtolower(trim($name));
+        if ($normalized === '') {
+            return false;
+        }
+
+        $matchesType = ClinicAppointmentType::query()
+            ->where('business_id', $businessId)
+            ->where('status', 'active')
+            ->whereIn('applies_to', ['appointments', 'both'])
+            ->whereRaw('LOWER(TRIM(name)) = ?', [$normalized])
+            ->exists();
+
+        if ($matchesType) {
+            return true;
+        }
+
+        if (! Schema::hasTable('clinic_services')) {
+            return false;
+        }
+
+        return ClinicService::query()
+            ->where('business_id', $businessId)
+            ->where('status', 'active')
+            ->whereRaw('LOWER(TRIM(name)) = ?', [$normalized])
+            ->exists();
     }
 
     protected function getClinicServices(int $businessId)
     {
-        if (! \Illuminate\Support\Facades\Schema::hasTable('clinic_services')) {
+        if (! Schema::hasTable('clinic_services')) {
             return collect();
         }
 
