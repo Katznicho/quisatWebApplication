@@ -2,6 +2,7 @@
 
 namespace App\Livewire\ClinicPatients;
 
+use App\Livewire\ClinicPatients\Concerns\DisablesBrowserAutocomplete;
 use App\Models\ClinicPatient;
 use App\Models\ClinicPatientGrowthRecord;
 use Filament\Forms\Components\DatePicker;
@@ -21,6 +22,7 @@ use Livewire\Component;
 
 class PatientGrowthTable extends Component implements HasForms, HasTable
 {
+    use DisablesBrowserAutocomplete;
     use InteractsWithForms;
     use InteractsWithTable;
 
@@ -117,10 +119,8 @@ class PatientGrowthTable extends Component implements HasForms, HasTable
                 ->placeholder('e.g. 48.2')
                 ->numeric()
                 ->step(0.01),
-            Textarea::make('notes')
-                ->placeholder('Add growth observations, nutrition notes, or developmental concerns')
-                ->rows(3)
-                ->columnSpanFull(),
+            $this->clinicTextarea('notes')
+                ->placeholder('Add growth observations, nutrition notes, or developmental concerns'),
         ];
     }
 

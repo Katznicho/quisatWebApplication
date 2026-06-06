@@ -2,6 +2,7 @@
 
 namespace App\Livewire\ClinicPatients;
 
+use App\Livewire\ClinicPatients\Concerns\DisablesBrowserAutocomplete;
 use App\Models\ClinicService;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -20,6 +21,7 @@ use Livewire\Component;
 
 class ClinicServicesTable extends Component implements HasForms, HasTable
 {
+    use DisablesBrowserAutocomplete;
     use InteractsWithForms;
     use InteractsWithTable;
 
@@ -32,7 +34,7 @@ class ClinicServicesTable extends Component implements HasForms, HasTable
                     ->latest()
             )
             ->heading('Clinic services')
-            ->description('Services shown to parents in the app (e.g. check-up, vaccination, review). Separate from appointment types used in staff booking forms.')
+            ->description('Parent-facing services in the app. Parents can also book using Appointment Types — add at least one of these plus doctors.')
             ->columns([
                 TextColumn::make('name')
                     ->searchable()
@@ -81,17 +83,17 @@ class ClinicServicesTable extends Component implements HasForms, HasTable
     protected function serviceFormSchema(): array
     {
         return [
-            TextInput::make('name')
+            $this->clinicTextInput('name')
                 ->placeholder('e.g. Pediatric check-up')
                 ->required()
                 ->maxLength(255),
-            TextInput::make('duration_minutes')
+            $this->clinicTextInput('duration_minutes')
                 ->label('Duration (minutes)')
                 ->numeric()
                 ->minValue(1)
                 ->maxValue(480)
                 ->placeholder('e.g. 30'),
-            TextInput::make('price')
+            $this->clinicTextInput('price')
                 ->label('Price (UGX)')
                 ->numeric()
                 ->minValue(0)
@@ -103,10 +105,8 @@ class ClinicServicesTable extends Component implements HasForms, HasTable
                 ])
                 ->default('active')
                 ->required(),
-            Textarea::make('description')
-                ->placeholder('Short description for parents')
-                ->rows(3)
-                ->columnSpanFull(),
+            $this->clinicTextarea('description')
+                ->placeholder('Short description for parents'),
         ];
     }
 

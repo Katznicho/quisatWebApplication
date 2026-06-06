@@ -111,10 +111,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/users/bulk-upload', [UserController::class, 'bulkUpload'])->name('users.bulk-upload');
     Route::resource("users", UserController::class);
     Route::resource("roles", RoleController::class);
-    Route::resource("features", FeatureController::class);
-    Route::resource("currency", CurrencyController::class);
-    Route::resource("countries", CountryController::class)->only(['index', 'store', 'update', 'destroy']);
-    Route::resource("business-categories", BusinessCategoryController::class);
+    Route::middleware('super.admin')->group(function () {
+        Route::resource('features', FeatureController::class);
+        Route::resource('currency', CurrencyController::class);
+        Route::resource('countries', CountryController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::resource('business-categories', BusinessCategoryController::class);
+    });
     
     // Advertisement routes
     Route::resource("advertisements", AdvertisementController::class);
@@ -148,7 +150,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         ->name('clinic-patients.appointments.store');
 
     // Admin Management Routes
-    Route::prefix('admin')->name('admin.')->group(function () {
+    Route::prefix('admin')->name('admin.')->middleware('super.admin')->group(function () {
         Route::get('/dashboard', [AdminManagementController::class, 'index'])->name('dashboard');
         Route::get('/create-admin', [AdminManagementController::class, 'createAdmin'])->name('create-admin');
         Route::post('/create-admin', [AdminManagementController::class, 'storeAdmin'])->name('store-admin');

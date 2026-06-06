@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\AuthorizesBusinessResource;
 use App\Models\ParentCorner;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -9,6 +10,8 @@ use Illuminate\Support\Facades\Storage;
 
 class ParentCornerController extends Controller
 {
+    use AuthorizesBusinessResource;
+
     /**
      * Display a listing of the resource.
      */
@@ -102,6 +105,7 @@ class ParentCornerController extends Controller
      */
     public function show(ParentCorner $parentCorner)
     {
+        $this->authorizeBusinessResource($parentCorner);
         $parentCorner->load(['business', 'creator', 'registrations']);
         
         // Prepare registrations data for JavaScript
@@ -130,6 +134,8 @@ class ParentCornerController extends Controller
      */
     public function edit(ParentCorner $parentCorner)
     {
+        $this->authorizeBusinessResource($parentCorner);
+
         return view('parent-corners.edit', compact('parentCorner'));
     }
 
@@ -138,6 +144,8 @@ class ParentCornerController extends Controller
      */
     public function update(Request $request, ParentCorner $parentCorner)
     {
+        $this->authorizeBusinessResource($parentCorner);
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -179,6 +187,8 @@ class ParentCornerController extends Controller
      */
     public function destroy(ParentCorner $parentCorner)
     {
+        $this->authorizeBusinessResource($parentCorner);
+
         // Delete image if exists
         if ($parentCorner->image_url) {
             Storage::disk('public')->delete($parentCorner->image_url);
@@ -197,7 +207,8 @@ class ParentCornerController extends Controller
     {
         try {
             $parentCorner = ParentCorner::findOrFail($id);
-            
+            $this->authorizeBusinessResource($parentCorner);
+
             // Check if event is full
             if ($parentCorner->is_full) {
                 return redirect()->back()->with('error', 'This event is fully booked.');
@@ -243,8 +254,14 @@ class ParentCornerController extends Controller
     public function destroyRegistration($uuid)
     {
         try {
-            $registration = \App\Models\ParentCornerRegistration::where('uuid', $uuid)->firstOrFail();
-            
+            $registration = \App\Models\ParentCornerRegistration::where('uuid', $uuid)
+                ->with('parentCorner')
+                ->firstOrFail();
+
+            if ($registration->parentCorner) {
+                $this->authorizeBusinessResource($registration->parentCorner);
+            }
+
             // Decrement participant count
             $parentCorner = $registration->parentCorner;
             if ($parentCorner && $parentCorner->current_participants > 0) {

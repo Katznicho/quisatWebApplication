@@ -3,6 +3,7 @@
 namespace App\Livewire\ProgramEvents;
 
 use App\Models\ProgramEvent;
+use App\Support\TenantScope;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Tables;
@@ -20,8 +21,11 @@ class ListProgramEvents extends Component implements HasForms, HasTable
 
     public function table(Table $table): Table
     {
+        $query = ProgramEvent::query();
+        TenantScope::apply($query);
+
         return $table
-            ->query(ProgramEvent::query())
+            ->query($query)
             ->columns([
                 Tables\Columns\TextColumn::make('uuid')
                     ->label('UUID')

@@ -115,6 +115,8 @@ class ClinicController extends Controller
                 'data' => [
                     'clinic' => $this->transformClinic($clinic, true),
                     'linked_children' => $linkedChildren,
+                    'doctor_schedules' => $this->getClinicDoctorSchedules($clinic->id),
+                    'services' => $this->getClinicServices($clinic->id),
                 ],
             ]);
         } catch (\Exception $e) {
@@ -195,47 +197,13 @@ class ClinicController extends Controller
             ];
         });
 
-        $doctorSchedules = ClinicAppointment::query()
-            ->where('business_id', $clinic->id)
-            ->where('status', 'scheduled')
-            ->whereNotNull('doctor_name')
-            ->where('scheduled_at', '>=', now())
-            ->orderBy('scheduled_at')
-            ->get()
-            ->groupBy(fn (ClinicAppointment $appointment) => trim((string) $appointment->doctor_name))
-            ->map(function ($appointments, string $doctorName) {
-                $nextSlot = $appointments->first();
-
-                return [
-                    'doctor_name' => $doctorName,
-                    'next_slot_at' => $nextSlot?->scheduled_at?->toIso8601String(),
-                    'upcoming_slots_count' => $appointments->count(),
-                ];
-            })
-            ->values()
-            ->take(8);
-
-        $doctorProfiles = ClinicDoctor::query()
-            ->where('business_id', $clinic->id)
-            ->where('status', 'active')
-            ->orderBy('name')
-            ->get(['name', 'specialization'])
-            ->keyBy('name');
-
-        $doctorSchedules = $doctorSchedules->map(function (array $schedule) use ($doctorProfiles) {
-            $profile = $doctorProfiles->get($schedule['doctor_name']);
-            $schedule['specialization'] = $profile?->specialization;
-
-            return $schedule;
-        })->values();
-
         return response()->json([
             'success' => true,
             'data' => [
                 'clinic' => $this->transformClinic($clinic, true),
                 'linked_children' => $linkedChildren,
                 'children' => $children,
-                'doctor_schedules' => $doctorSchedules,
+                'doctor_schedules' => $this->getClinicDoctorSchedules($clinic->id),
                 'services' => $this->getClinicServices($clinic->id),
             ],
         ]);
@@ -288,10 +256,7 @@ class ClinicController extends Controller
             'data' => [
                 'clinic' => $this->transformClinic($clinic, true),
                 'patient' => $this->transformPatientProfile($clinic_patient),
-                'booking_options' => [
-                    'doctors' => $this->getClinicDoctors($clinic->id),
-                    'appointment_types' => $this->getClinicBookingOptions($clinic->id),
-                ],
+                'booking_options' => $this->getParentBookingOptions($clinic->id),
             ],
         ]);
     }
@@ -326,6 +291,8 @@ class ClinicController extends Controller
             ], 404);
         }
 
+        $this->ensureDefaultBookingTypes($clinic->id);
+
         $validated = $request->validate([
             'doctor_name' => [
                 'required',
@@ -345,7 +312,7 @@ class ClinicController extends Controller
                     }
                 },
             ],
-            'scheduled_at' => 'required|date',
+            'scheduled_at' => 'required|date|after:now',
             'notes' => 'nullable|string|max:2000',
         ], [
             'doctor_name.exists' => 'Please choose a doctor from this clinic.',
@@ -603,8 +570,6 @@ class ClinicController extends Controller
             'phone' => $business->phone,
             'email' => $business->email,
             'logo_url' => $logo,
-            'rating' => $business->rating !== null ? (float) $business->rating : null,
-            'reviews_count' => $business->reviews_count !== null ? (int) $business->reviews_count : null,
         ];
 
         if ($detailed) {
@@ -740,6 +705,43 @@ class ClinicController extends Controller
         ];
     }
 
+    protected function getClinicDoctorSchedules(int $businessId)
+    {
+        $appointmentByDoctor = ClinicAppointment::query()
+            ->where('business_id', $businessId)
+            ->where('status', 'scheduled')
+            ->whereNotNull('doctor_name')
+            ->where('scheduled_at', '>=', now())
+            ->orderBy('scheduled_at')
+            ->get()
+            ->groupBy(fn (ClinicAppointment $appointment) => trim((string) $appointment->doctor_name))
+            ->map(function ($appointments) {
+                $next = $appointments->first();
+
+                return [
+                    'next_slot_at' => $next?->scheduled_at?->toIso8601String(),
+                    'upcoming_slots_count' => $appointments->count(),
+                ];
+            });
+
+        return ClinicDoctor::query()
+            ->where('business_id', $businessId)
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get()
+            ->map(function (ClinicDoctor $doctor) use ($appointmentByDoctor) {
+                $stats = $appointmentByDoctor->get(trim($doctor->name));
+
+                return [
+                    'doctor_name' => $doctor->name,
+                    'specialization' => $doctor->specialization,
+                    'next_slot_at' => $stats['next_slot_at'] ?? null,
+                    'upcoming_slots_count' => $stats['upcoming_slots_count'] ?? 0,
+                ];
+            })
+            ->values();
+    }
+
     protected function getClinicDoctors(int $businessId)
     {
         return ClinicDoctor::query()
@@ -758,10 +760,75 @@ class ClinicController extends Controller
     }
 
     /**
-     * Options parents can pick when booking: appointment types (if any), plus clinic services.
+     * Booking choices exposed to parents in the mobile app.
+     */
+    protected function getParentBookingOptions(int $businessId): array
+    {
+        $this->ensureDefaultBookingTypes($businessId);
+
+        $doctors = $this->getClinicDoctors($businessId);
+        $visitTypes = $this->getClinicBookingOptions($businessId);
+
+        return [
+            'doctors' => $doctors,
+            'services' => $visitTypes,
+            'appointment_types' => $visitTypes,
+            'parent_can_book' => $doctors->isNotEmpty() && $visitTypes->isNotEmpty(),
+        ];
+    }
+
+    /**
+     * Seed standard visit types when a clinic has doctors but nothing bookable yet.
+     */
+    protected function ensureDefaultBookingTypes(int $businessId): void
+    {
+        $hasDoctors = ClinicDoctor::query()
+            ->where('business_id', $businessId)
+            ->where('status', 'active')
+            ->exists();
+
+        if (! $hasDoctors) {
+            return;
+        }
+
+        $hasBookableTypes = ClinicAppointmentType::query()
+            ->where('business_id', $businessId)
+            ->where('status', 'active')
+            ->whereIn('applies_to', ['appointments', 'both'])
+            ->exists();
+
+        $hasServices = Schema::hasTable('clinic_services')
+            && ClinicService::query()
+                ->where('business_id', $businessId)
+                ->where('status', 'active')
+                ->exists();
+
+        if ($hasBookableTypes || $hasServices) {
+            return;
+        }
+
+        foreach (['Consultation', 'Follow-up', 'Check-up'] as $name) {
+            ClinicAppointmentType::firstOrCreate(
+                [
+                    'business_id' => $businessId,
+                    'name' => $name,
+                ],
+                [
+                    'applies_to' => 'both',
+                    'status' => 'active',
+                    'description' => 'Default visit type for parent and staff booking.',
+                ]
+            );
+        }
+    }
+
+    /**
+     * Visit types parents can pick: appointment types (if any), plus clinic services.
      */
     protected function getClinicBookingOptions(int $businessId)
     {
+        $this->ensureDefaultBookingTypes($businessId);
+
         $options = collect();
         $seen = [];
 
@@ -799,6 +866,8 @@ class ClinicController extends Controller
 
     protected function isValidClinicBookingType(int $businessId, string $name): bool
     {
+        $this->ensureDefaultBookingTypes($businessId);
+
         $normalized = mb_strtolower(trim($name));
         if ($normalized === '') {
             return false;

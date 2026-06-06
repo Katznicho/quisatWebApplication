@@ -2,16 +2,45 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Payment;
+use App\Http\Controllers\Concerns\AuthorizesBusinessResource;
 use App\Models\EventAttendee;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use App\Models\Payment;
+use Illuminate\Database\Eloquent\Builder;
 
 class PaymentController extends Controller
 {
+    use AuthorizesBusinessResource;
+
+    protected function eventAttendeeQuery(): Builder
+    {
+        $query = EventAttendee::query();
+
+        if (! $this->isSuperAdmin()) {
+            $query->whereHas('programEvent', function (Builder $eventQuery) {
+                $eventQuery->where('business_id', $this->currentBusinessId());
+            });
+        }
+
+        return $query;
+    }
+
+    protected function paymentQuery(): Builder
+    {
+        $query = Payment::query();
+
+        if (! $this->isSuperAdmin()) {
+            $query->whereHas('eventAttendee.programEvent', function (Builder $eventQuery) {
+                $eventQuery->where('business_id', $this->currentBusinessId());
+            });
+        }
+
+        return $query;
+    }
+
     public function index()
     {
-        $payments = Payment::with(['eventAttendee.programEvent', 'eventAttendee.user', 'user'])
+        $payments = $this->paymentQuery()
+            ->with(['eventAttendee.programEvent', 'eventAttendee.user', 'user'])
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
@@ -20,37 +49,46 @@ class PaymentController extends Controller
 
     public function pending()
     {
-        $attendees = EventAttendee::with(['programEvent', 'user', 'payments'])
-            ->whereHas('payments', function($query) {
-                $query->havingRaw('SUM(amount) < amount_due');
-            })
-            ->orWhereDoesntHave('payments')
+        $attendees = $this->eventAttendeeQuery()
+            ->with(['programEvent', 'user', 'payments'])
             ->get()
-            ->filter(function($attendee) {
-                return $attendee->balance > 0;
-            });
+            ->filter(fn (EventAttendee $attendee) => $attendee->balance > 0);
 
         return view('payments.pending', compact('attendees'));
     }
 
     public function reports()
     {
-        $totalPayments = Payment::sum('amount');
-        $totalAttendees = EventAttendee::count();
-        $paidAttendees = EventAttendee::whereHas('payments', function($query) {
-            $query->havingRaw('SUM(amount) >= amount_due');
-        })->count();
+        $paymentQuery = $this->paymentQuery();
+        $attendeeQuery = $this->eventAttendeeQuery();
+
+        $totalPayments = (clone $paymentQuery)->sum('amount');
+        $totalAttendees = (clone $attendeeQuery)->count();
+        $paidAttendees = (clone $attendeeQuery)
+            ->whereHas('payments', function ($query) {
+                $query->havingRaw('SUM(amount) >= amount_due');
+            })
+            ->count();
         $pendingAttendees = $totalAttendees - $paidAttendees;
 
-        $paymentsByMethod = Payment::selectRaw('payment_method, COUNT(*) as count, SUM(amount) as total')
+        $paymentsByMethod = (clone $paymentQuery)
+            ->selectRaw('payment_method, COUNT(*) as count, SUM(amount) as total')
             ->groupBy('payment_method')
             ->get();
 
-        $recentPayments = Payment::with(['eventAttendee.programEvent', 'user'])
+        $recentPayments = (clone $paymentQuery)
+            ->with(['eventAttendee.programEvent', 'user'])
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get();
 
-        return view('payments.reports', compact('totalPayments', 'totalAttendees', 'paidAttendees', 'pendingAttendees', 'paymentsByMethod', 'recentPayments'));
+        return view('payments.reports', compact(
+            'totalPayments',
+            'totalAttendees',
+            'paidAttendees',
+            'pendingAttendees',
+            'paymentsByMethod',
+            'recentPayments',
+        ));
     }
 }

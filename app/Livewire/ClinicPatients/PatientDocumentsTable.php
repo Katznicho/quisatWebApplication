@@ -2,6 +2,7 @@
 
 namespace App\Livewire\ClinicPatients;
 
+use App\Livewire\ClinicPatients\Concerns\DisablesBrowserAutocomplete;
 use App\Models\ClinicPatient;
 use App\Models\ClinicPatientDocument;
 use Filament\Forms\Components\FileUpload;
@@ -23,6 +24,7 @@ use Livewire\Component;
 
 class PatientDocumentsTable extends Component implements HasForms, HasTable
 {
+    use DisablesBrowserAutocomplete;
     use InteractsWithForms;
     use InteractsWithTable;
 
@@ -76,7 +78,7 @@ class PatientDocumentsTable extends Component implements HasForms, HasTable
                     ->icon('heroicon-o-arrow-up-tray')
                     ->color('primary')
                     ->form([
-                        TextInput::make('title')
+                        $this->clinicTextInput('title')
                             ->placeholder('e.g. Blood test result - May 2026')
                             ->required()
                             ->maxLength(255),
@@ -92,10 +94,8 @@ class PatientDocumentsTable extends Component implements HasForms, HasTable
                             ->placeholder('Select document type')
                             ->default('other')
                             ->required(),
-                        Textarea::make('description')
-                            ->placeholder('Short description of what this file contains')
-                            ->rows(3)
-                            ->columnSpanFull(),
+                        $this->clinicTextarea('description')
+                            ->placeholder('Short description of what this file contains'),
                         FileUpload::make('file_path')
                             ->label('File')
                             ->disk('public')

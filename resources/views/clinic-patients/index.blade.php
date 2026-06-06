@@ -3,7 +3,7 @@
 @section('content')
 @php
     $activeTab = request('tab', 'patients');
-    if (! in_array($activeTab, ['overview', 'patients', 'doctors', 'consultations', 'appointment-types', 'services'], true)) {
+    if (! in_array($activeTab, ['overview', 'patients', 'appointments', 'doctors', 'consultations', 'appointment-types', 'services'], true)) {
         $activeTab = 'patients';
     }
 @endphp
@@ -101,6 +101,10 @@
                class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'patients' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
                 Patients
             </a>
+            <a href="{{ route('clinic-patients.index', ['tab' => 'appointments']) }}"
+               class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'appointments' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
+                Appointments
+            </a>
             <a href="{{ route('clinic-patients.index', ['tab' => 'doctors']) }}"
                class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'doctors' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
                 Doctors
@@ -157,7 +161,8 @@
                 <ul class="mt-4 space-y-3 text-sm text-slate-600">
                     <li>Start with <strong>Doctors</strong> so booking forms are standardized.</li>
                     <li>Add <strong>Appointment Types</strong> for staff booking and consultation forms.</li>
-                    <li>Add <strong>Services</strong> so parents see your offerings in the mobile app.</li>
+                    <li>Add <strong>Services</strong> or <strong>Appointment Types</strong> so parents can book visits from the Quisat app.</li>
+                    <li>Parents book from the app; staff book from each patient&apos;s <strong>Appointments</strong> tab.</li>
                     <li>Use the <strong>Patients</strong> tab to navigate directly into each child record.</li>
                     <li>Review all clinic activity under <strong>Consultations</strong>.</li>
                 </ul>
@@ -166,6 +171,10 @@
     @elseif($activeTab === 'patients')
         <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <livewire:clinic-patients.clinic-dashboard-patients-table />
+        </div>
+    @elseif($activeTab === 'appointments')
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <livewire:clinic-patients.clinic-dashboard-appointments-table />
         </div>
     @elseif($activeTab === 'doctors')
         <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -181,7 +190,14 @@
         </div>
     @elseif($activeTab === 'services')
         <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <livewire:clinic-patients.clinic-services-table />
+            @if(\Illuminate\Support\Facades\Schema::hasTable('clinic_services'))
+                <livewire:clinic-patients.clinic-services-table />
+            @else
+                <h3 class="text-lg font-semibold text-slate-900">Clinic services unavailable</h3>
+                <p class="mt-2 text-sm text-slate-600">
+                    Run <code class="rounded bg-slate-100 px-1.5 py-0.5">php artisan migrate</code> on this server to enable the services table.
+                </p>
+            @endif
         </div>
     @endif
 </div>

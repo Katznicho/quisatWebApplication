@@ -2,6 +2,7 @@
 
 namespace App\Livewire\ClinicPatients;
 
+use App\Livewire\ClinicPatients\Concerns\DisablesBrowserAutocomplete;
 use App\Models\ClinicAppointment;
 use App\Models\ClinicAppointmentType;
 use App\Models\ClinicDoctor;
@@ -24,6 +25,7 @@ use Livewire\Component;
 
 class PatientAppointmentsTable extends Component implements HasForms, HasTable
 {
+    use DisablesBrowserAutocomplete;
     use InteractsWithForms;
     use InteractsWithTable;
 
@@ -70,9 +72,10 @@ class PatientAppointmentsTable extends Component implements HasForms, HasTable
                     ->limit(50)
                     ->toggleable(),
                 TextColumn::make('creator.name')
-                    ->label('Created by')
-                    ->placeholder('System')
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->label('Booked via')
+                    ->formatStateUsing(fn (?string $state, ClinicAppointment $record): string => $state ?: 'Parent app')
+                    ->badge()
+                    ->color(fn (ClinicAppointment $record): string => $record->created_by ? 'gray' : 'success'),
             ])
             ->headerActions([
                 Action::make('schedule')
@@ -132,10 +135,8 @@ class PatientAppointmentsTable extends Component implements HasForms, HasTable
                 ->placeholder('Select status')
                 ->default('scheduled')
                 ->required(),
-            Textarea::make('notes')
-                ->placeholder('Add reminder notes, preparation instructions, or visit context')
-                ->rows(3)
-                ->columnSpanFull(),
+            $this->clinicTextarea('notes')
+                ->placeholder('Add reminder notes, preparation instructions, or visit context'),
         ];
     }
 

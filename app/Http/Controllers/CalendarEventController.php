@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\AuthorizesBusinessResource;
 use App\Models\CalendarEvent;
 use App\Models\EventNotification;
 use App\Models\ClassRoom;
@@ -13,6 +14,8 @@ use Carbon\Carbon;
 
 class CalendarEventController extends Controller
 {
+    use AuthorizesBusinessResource;
+
     /**
      * Display a listing of the resource.
      */
@@ -95,6 +98,7 @@ class CalendarEventController extends Controller
      */
     public function show(CalendarEvent $calendarEvent)
     {
+        $this->authorizeBusinessResource($calendarEvent);
         $calendarEvent->load(['creator', 'notifications', 'business']);
         
         return view('calendar-events.show', compact('calendarEvent'));
@@ -105,6 +109,8 @@ class CalendarEventController extends Controller
      */
     public function edit(CalendarEvent $calendarEvent)
     {
+        $this->authorizeBusinessResource($calendarEvent);
+
         $classrooms = ClassRoom::where('business_id', Auth::user()->business_id)->get();
         $students = Student::where('business_id', Auth::user()->business_id)->get();
         $teachers = User::where('business_id', Auth::user()->business_id)
@@ -120,6 +126,8 @@ class CalendarEventController extends Controller
      */
     public function update(Request $request, CalendarEvent $calendarEvent)
     {
+        $this->authorizeBusinessResource($calendarEvent);
+
         $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -161,6 +169,7 @@ class CalendarEventController extends Controller
      */
     public function destroy(CalendarEvent $calendarEvent)
     {
+        $this->authorizeBusinessResource($calendarEvent);
         $calendarEvent->delete();
         
         return redirect()->route('calendar-events.index')

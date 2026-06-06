@@ -49,6 +49,10 @@ class RoleController extends Controller
 
     public function edit(Role $role)
     {
+        if (auth()->user()->business_id !== 1 && (int) $role->business_id !== (int) auth()->user()->business_id) {
+            abort(403, 'Unauthorized');
+        }
+
         $permissions = json_decode($role->permissions, true);
         if ($permissions == null) {
             $permissions = [];

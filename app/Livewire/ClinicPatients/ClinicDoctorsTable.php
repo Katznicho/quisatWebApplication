@@ -2,6 +2,7 @@
 
 namespace App\Livewire\ClinicPatients;
 
+use App\Livewire\ClinicPatients\Concerns\DisablesBrowserAutocomplete;
 use App\Models\ClinicDoctor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -20,6 +21,7 @@ use Livewire\Component;
 
 class ClinicDoctorsTable extends Component implements HasForms, HasTable
 {
+    use DisablesBrowserAutocomplete;
     use InteractsWithForms;
     use InteractsWithTable;
 
@@ -32,7 +34,7 @@ class ClinicDoctorsTable extends Component implements HasForms, HasTable
                     ->latest()
             )
             ->heading('Doctors')
-            ->description('Maintain the clinic doctor directory used when booking appointments and consultations.')
+            ->description('Add real doctor names here (not visit types). Parents pick a doctor when booking in the app.')
             ->columns([
                 TextColumn::make('name')
                     ->searchable()
@@ -79,16 +81,16 @@ class ClinicDoctorsTable extends Component implements HasForms, HasTable
     protected function doctorFormSchema(): array
     {
         return [
-            TextInput::make('name')
+            $this->clinicTextInput('name')
                 ->placeholder('e.g. Dr. Sarah Nakanjako')
                 ->required()
                 ->maxLength(255),
-            TextInput::make('specialization')
+            $this->clinicTextInput('specialization')
                 ->placeholder('e.g. Pediatrics'),
-            TextInput::make('phone')
+            $this->clinicTextInput('phone')
                 ->placeholder('+256 700 000 000')
                 ->maxLength(50),
-            TextInput::make('email')
+            $this->clinicTextInput('email')
                 ->placeholder('doctor@clinic.com')
                 ->email()
                 ->maxLength(255),
@@ -100,10 +102,8 @@ class ClinicDoctorsTable extends Component implements HasForms, HasTable
                 ->default('active')
                 ->placeholder('Select status')
                 ->required(),
-            Textarea::make('notes')
-                ->placeholder('Add availability notes, room assignment, or other internal details')
-                ->rows(3)
-                ->columnSpanFull(),
+            $this->clinicTextarea('notes')
+                ->placeholder('Add availability notes, room assignment, or other internal details'),
         ];
     }
 

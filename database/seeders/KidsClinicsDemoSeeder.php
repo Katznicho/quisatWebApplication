@@ -3,9 +3,12 @@
 namespace Database\Seeders;
 
 use App\Models\Business;
+use App\Models\ClinicAppointmentType;
+use App\Models\ClinicDoctor;
 use App\Models\ClinicFamily;
 use App\Models\ClinicFamilyMember;
 use App\Models\ClinicPatient;
+use App\Models\ClinicService;
 use App\Models\Feature;
 use App\Models\ParentGuardian;
 use App\Models\Student;
@@ -48,10 +51,17 @@ class KidsClinicsDemoSeeder extends Seeder
             ],
             [
                 'primary_parent_guardian_id' => $parent?->id,
+                'access_code' => ClinicFamily::generateUniqueAccessCode($business->id),
                 'notes' => 'Sample family for Kids Clinics module testing.',
                 'status' => 'active',
             ]
         );
+
+        if (empty($family->access_code)) {
+            $family->update([
+                'access_code' => ClinicFamily::generateUniqueAccessCode($business->id),
+            ]);
+        }
 
         if ($parent && ! $family->members()->where('parent_guardian_id', $parent->id)->exists()) {
             ClinicFamilyMember::create([
@@ -96,6 +106,39 @@ class KidsClinicsDemoSeeder extends Seeder
             $student->ensureAccessCode();
             $studentCount++;
         });
+
+        foreach ([
+            ['name' => 'Carol Naluwoza', 'specialization' => 'Pediatric'],
+            ['name' => 'Nambi Doreen', 'specialization' => 'General practice'],
+        ] as $doctorData) {
+            ClinicDoctor::firstOrCreate(
+                ['business_id' => $business->id, 'name' => $doctorData['name']],
+                array_merge($doctorData, ['status' => 'active'])
+            );
+        }
+
+        foreach (['Consultation', 'Follow-up', 'Vaccination'] as $typeName) {
+            ClinicAppointmentType::firstOrCreate(
+                ['business_id' => $business->id, 'name' => $typeName],
+                [
+                    'applies_to' => 'both',
+                    'status' => 'active',
+                    'description' => "Demo {$typeName} type for parent and staff booking.",
+                ]
+            );
+        }
+
+        if (\Illuminate\Support\Facades\Schema::hasTable('clinic_services')) {
+            foreach ([
+                ['name' => 'Pediatric check-up', 'duration_minutes' => 30],
+                ['name' => 'Growth review', 'duration_minutes' => 20],
+            ] as $serviceData) {
+                ClinicService::firstOrCreate(
+                    ['business_id' => $business->id, 'name' => $serviceData['name']],
+                    array_merge($serviceData, ['status' => 'active'])
+                );
+            }
+        }
 
         $this->command->info("Demo clinic data ready for: {$business->name}");
         $this->command->info("Family access code: {$family->access_code}");

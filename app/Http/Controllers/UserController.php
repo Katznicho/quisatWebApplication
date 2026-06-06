@@ -17,13 +17,7 @@ class UserController extends Controller
      */
     public function index()
     {
-        //
-        #fecth all users
-        $users = User::all();
-        // Pass businesses to populate select dropdown (optional: only if admin)
-        $businesses = Business::all();
-
-        return view('users.index', compact('users', 'businesses'));
+        return view('users.index');
     }
 
 
@@ -357,10 +351,14 @@ class UserController extends Controller
     // }
 
     public function show(User $user)
-{
-    // Works automatically thanks to route model binding on slug
-    return view('users.show', compact('user'));
-}
+    {
+        $authUser = Auth::user();
+        if ($authUser->business_id !== 1 && (int) $user->business_id !== (int) $authUser->business_id) {
+            abort(403, 'Unauthorized');
+        }
+
+        return view('users.show', compact('user'));
+    }
 
 
     /**

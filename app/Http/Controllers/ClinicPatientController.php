@@ -23,7 +23,16 @@ class ClinicPatientController extends Controller
 {
     public function __construct(
         protected ClinicPatientImportService $importService
-    ) {}
+    ) {
+        $this->middleware(function ($request, $next) {
+            $business = Auth::user()?->business;
+            if (! $business || ! $business->hasFeatureByName('Kids Clinics')) {
+                abort(403, 'Kids Clinics is not enabled for this business.');
+            }
+
+            return $next($request);
+        });
+    }
 
     public function index(Request $request)
     {

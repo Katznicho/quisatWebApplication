@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\AuthorizesBusinessResource;
 use App\Models\Program;
 use App\Models\ProgramEvent;
 use App\Models\Currency;
@@ -14,6 +15,32 @@ use Illuminate\Support\Facades\Storage;
 
 class ProgramController extends Controller
 {
+    use AuthorizesBusinessResource;
+
+    protected function findOwnedProgramEvent(string $uuid): ProgramEvent
+    {
+        $query = ProgramEvent::query()->where('uuid', $uuid);
+
+        if (! $this->isSuperAdmin()) {
+            $query->where('business_id', $this->currentBusinessId());
+        }
+
+        return $query->firstOrFail();
+    }
+
+    protected function findOwnedEventAttendee(string $uuid): EventAttendee
+    {
+        $query = EventAttendee::query()->where('uuid', $uuid);
+
+        if (! $this->isSuperAdmin()) {
+            $query->whereHas('programEvent', function ($eventQuery) {
+                $eventQuery->where('business_id', $this->currentBusinessId());
+            });
+        }
+
+        return $query->firstOrFail();
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -105,7 +132,13 @@ class ProgramController extends Controller
     {
         // NOTE: Program->events is implemented as an accessor querying JSON, so we fetch events explicitly
         // (including relationships) and pass them to the view.
-        $events = ProgramEvent::whereJsonContains('program_ids', $program->id)
+        $eventsQuery = ProgramEvent::whereJsonContains('program_ids', $program->id);
+
+        if (! $this->isSuperAdmin()) {
+            $eventsQuery->where('business_id', $this->currentBusinessId());
+        }
+
+        $events = $eventsQuery
             ->with(['attendees', 'currency', 'business'])
             ->orderBy('start_date', 'asc')
             ->get();
@@ -280,9 +313,8 @@ class ProgramController extends Controller
 
     public function showEvent($eventUuid)
     {
-        $event = ProgramEvent::where('uuid', $eventUuid)
-            ->with(['attendees', 'currency', 'business'])
-            ->firstOrFail();
+        $event = $this->findOwnedProgramEvent($eventUuid)
+            ->load(['attendees', 'currency', 'business']);
 
         // Get the program that this event belongs to
         $program = Program::find($event->program_ids[0] ?? null);
@@ -293,7 +325,7 @@ class ProgramController extends Controller
     public function destroyEvent($eventUuid)
     {
         try {
-            $event = ProgramEvent::where('uuid', $eventUuid)->firstOrFail();
+            $event = $this->findOwnedProgramEvent($eventUuid);
 
             // Delete associated media files
             if ($event->image) {
@@ -350,9 +382,7 @@ class ProgramController extends Controller
 
             Log::info('storeAttendee - Validation passed');
 
-            $programEvent = ProgramEvent::where('uuid', $event)
-                ->orWhere('uuid', $request->program_event_id)
-                ->first();
+            $programEvent = $this->findOwnedProgramEvent($event);
 
             if (!$programEvent) {
                 Log::error('storeAttendee - Event not found', [
@@ -446,8 +476,8 @@ class ProgramController extends Controller
         ]);
         
         // Find attendee by UUID manually since route model binding might not work
-        $attendeeModel = EventAttendee::where('uuid', $attendee)->firstOrFail();
-        
+        $attendeeModel = $this->findOwnedEventAttendee($attendee);
+
         Log::info('Attendee found', [
             'attendee_id' => $attendeeModel->id,
             'attendee_uuid' => $attendeeModel->uuid,
@@ -517,8 +547,7 @@ class ProgramController extends Controller
     public function getAttendeePayments($attendee)
     {
         // Find attendee by UUID manually since route model binding might not work
-        $attendeeModel = EventAttendee::where('uuid', $attendee)->firstOrFail();
-        
+        $attendeeModel = $this->findOwnedEventAttendee($attendee);
         $attendeeModel->load(['payments.user', 'programEvent']);
         
         // Debug: Log the payments and total
@@ -566,8 +595,8 @@ class ProgramController extends Controller
     public function destroyAttendee($attendee)
     {
         try {
-            $attendeeModel = EventAttendee::where('uuid', $attendee)->firstOrFail();
-            
+            $attendeeModel = $this->findOwnedEventAttendee($attendee);
+
             $childName = $attendeeModel->child_name;
             
             // Delete associated payments first

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\AuthorizesBusinessResource;
 use App\Models\KidsEvent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -9,6 +10,8 @@ use Illuminate\Support\Facades\Storage;
 
 class KidsEventController extends Controller
 {
+    use AuthorizesBusinessResource;
+
     /**
      * Display a listing of the resource.
      */
@@ -113,6 +116,7 @@ class KidsEventController extends Controller
      */
     public function show(KidsEvent $kidsEvent)
     {
+        $this->authorizeBusinessResource($kidsEvent);
         $kidsEvent->load(['business', 'creator', 'registrations']);
         return view('kids-events.show', compact('kidsEvent'));
     }
@@ -122,6 +126,8 @@ class KidsEventController extends Controller
      */
     public function edit(KidsEvent $kidsEvent)
     {
+        $this->authorizeBusinessResource($kidsEvent);
+
         return view('kids-events.edit', compact('kidsEvent'));
     }
 
@@ -130,6 +136,8 @@ class KidsEventController extends Controller
      */
     public function update(Request $request, KidsEvent $kidsEvent)
     {
+        $this->authorizeBusinessResource($kidsEvent);
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -177,6 +185,8 @@ class KidsEventController extends Controller
      */
     public function destroy(KidsEvent $kidsEvent)
     {
+        $this->authorizeBusinessResource($kidsEvent);
+
         // Delete image if exists
         if ($kidsEvent->image_url) {
             Storage::disk('public')->delete($kidsEvent->image_url);
@@ -193,6 +203,7 @@ class KidsEventController extends Controller
      */
     public function toggleFeatured(KidsEvent $kidsEvent)
     {
+        $this->authorizeBusinessResource($kidsEvent);
         $kidsEvent->update(['is_featured' => !$kidsEvent->is_featured]);
 
         return response()->json([
@@ -206,6 +217,8 @@ class KidsEventController extends Controller
      */
     public function updateStatus(Request $request, KidsEvent $kidsEvent)
     {
+        $this->authorizeBusinessResource($kidsEvent);
+
         $validated = $request->validate([
             'status' => 'required|in:draft,published'
         ]);

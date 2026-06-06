@@ -2,6 +2,7 @@
 
 namespace App\Livewire\ClinicPatients;
 
+use App\Livewire\ClinicPatients\Concerns\DisablesBrowserAutocomplete;
 use App\Models\ClinicAppointmentType;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -20,6 +21,7 @@ use Livewire\Component;
 
 class ClinicAppointmentTypesTable extends Component implements HasForms, HasTable
 {
+    use DisablesBrowserAutocomplete;
     use InteractsWithForms;
     use InteractsWithTable;
 
@@ -32,7 +34,7 @@ class ClinicAppointmentTypesTable extends Component implements HasForms, HasTabl
                     ->latest()
             )
             ->heading('Appointment types')
-            ->description('Manage the dropdown options used when booking appointments and recording consultations.')
+            ->description('Visit types for staff forms and parent booking in the app (e.g. Consultation, Follow-up).')
             ->columns([
                 TextColumn::make('name')
                     ->searchable()
@@ -79,7 +81,7 @@ class ClinicAppointmentTypesTable extends Component implements HasForms, HasTabl
     protected function typeFormSchema(): array
     {
         return [
-            TextInput::make('name')
+            $this->clinicTextInput('name')
                 ->placeholder('e.g. Consultation')
                 ->required()
                 ->maxLength(255),
@@ -100,10 +102,8 @@ class ClinicAppointmentTypesTable extends Component implements HasForms, HasTabl
                 ->placeholder('Select status')
                 ->default('active')
                 ->required(),
-            Textarea::make('description')
-                ->placeholder('Describe when staff should use this type')
-                ->rows(3)
-                ->columnSpanFull(),
+            $this->clinicTextarea('description')
+                ->placeholder('Describe when staff should use this type'),
         ];
     }
 

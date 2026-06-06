@@ -2,6 +2,7 @@
 
 namespace App\Livewire\ClinicPatients;
 
+use App\Livewire\ClinicPatients\Concerns\DisablesBrowserAutocomplete;
 use App\Models\ClinicAppointmentType;
 use App\Models\ClinicDoctor;
 use App\Models\ClinicPatient;
@@ -24,6 +25,7 @@ use Livewire\Component;
 
 class PatientVisitsTable extends Component implements HasForms, HasTable
 {
+    use DisablesBrowserAutocomplete;
     use InteractsWithForms;
     use InteractsWithTable;
 
@@ -139,26 +141,16 @@ class PatientVisitsTable extends Component implements HasForms, HasTable
                 ->placeholder('Select visit status')
                 ->default('completed')
                 ->required(),
-            Textarea::make('chief_complaint')
-                ->placeholder('e.g. Fever, cough, loss of appetite for 3 days')
-                ->rows(2)
-                ->columnSpanFull(),
-            Textarea::make('consultation_notes')
-                ->placeholder('Enter consultation findings, examination notes, and clinical observations')
-                ->rows(4)
-                ->columnSpanFull(),
-            Textarea::make('treatment_plan')
-                ->placeholder('Describe the treatment plan and care instructions')
-                ->rows(3)
-                ->columnSpanFull(),
-            Textarea::make('prescriptions')
-                ->placeholder('List medicines, dosage, and duration')
-                ->rows(3)
-                ->columnSpanFull(),
-            Textarea::make('lab_results')
-                ->placeholder('Record requested tests or lab result summary')
-                ->rows(3)
-                ->columnSpanFull(),
+            $this->clinicTextarea('chief_complaint', 2)
+                ->placeholder('e.g. Fever, cough, loss of appetite for 3 days'),
+            $this->clinicTextarea('consultation_notes', 4)
+                ->placeholder('Enter consultation findings, examination notes, and clinical observations'),
+            $this->clinicTextarea('treatment_plan')
+                ->placeholder('Describe the treatment plan and care instructions'),
+            $this->clinicTextarea('prescriptions')
+                ->placeholder('List medicines, dosage, and duration'),
+            $this->clinicTextarea('lab_results')
+                ->placeholder('Record requested tests or lab result summary'),
             DatePicker::make('follow_up_date')
                 ->placeholder('Select follow-up date'),
         ];

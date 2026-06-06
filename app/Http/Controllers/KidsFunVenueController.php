@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\AuthorizesBusinessResource;
 use App\Models\KidsFunVenue;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -10,6 +11,8 @@ use Illuminate\Support\Facades\Log;
 
 class KidsFunVenueController extends Controller
 {
+    use AuthorizesBusinessResource;
+
     /**
      * Display a listing of the resource.
      */
@@ -129,6 +132,7 @@ class KidsFunVenueController extends Controller
      */
     public function show(KidsFunVenue $kidsFunVenue)
     {
+        $this->authorizeBusinessResource($kidsFunVenue);
         $kidsFunVenue->load(['business', 'creator']);
         return view('kids-fun-venues.show', compact('kidsFunVenue'));
     }

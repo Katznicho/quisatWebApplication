@@ -2,6 +2,7 @@
 
 namespace App\Livewire\ClinicPatients;
 
+use App\Livewire\ClinicPatients\Concerns\DisablesBrowserAutocomplete;
 use App\Models\ClinicPatient;
 use App\Models\ClinicPatientVaccination;
 use Filament\Forms\Components\DatePicker;
@@ -22,6 +23,7 @@ use Livewire\Component;
 
 class PatientVaccinationsTable extends Component implements HasForms, HasTable
 {
+    use DisablesBrowserAutocomplete;
     use InteractsWithForms;
     use InteractsWithTable;
 
@@ -112,11 +114,11 @@ class PatientVaccinationsTable extends Component implements HasForms, HasTable
     protected function vaccinationFormSchema(): array
     {
         return [
-            TextInput::make('vaccine_name')
+            $this->clinicTextInput('vaccine_name')
                 ->placeholder('e.g. Measles-Rubella')
                 ->required()
                 ->maxLength(255),
-            TextInput::make('dose_label')
+            $this->clinicTextInput('dose_label')
                 ->maxLength(80)
                 ->placeholder('e.g. Dose 1, Booster'),
             Select::make('status')
@@ -135,13 +137,11 @@ class PatientVaccinationsTable extends Component implements HasForms, HasTable
                 ->placeholder('Select administered date'),
             DatePicker::make('next_due_date')
                 ->placeholder('Select next due date'),
-            TextInput::make('batch_number')
+            $this->clinicTextInput('batch_number')
                 ->placeholder('e.g. BATCH-2026-014')
                 ->maxLength(255),
-            Textarea::make('notes')
-                ->placeholder('Add reaction notes, stock notes, or reminders for the next dose')
-                ->rows(3)
-                ->columnSpanFull(),
+            $this->clinicTextarea('notes')
+                ->placeholder('Add reaction notes, stock notes, or reminders for the next dose'),
         ];
     }
 

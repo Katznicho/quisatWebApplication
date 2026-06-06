@@ -3,6 +3,7 @@
 namespace App\Livewire\SchoolManagement;
 
 use App\Models\Grade;
+use App\Support\TenantScope;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Components\TextInput;
@@ -30,8 +31,11 @@ class GradeManagement extends Component implements HasForms, HasTable
 
     public function table(Table $table): Table
     {
+        $query = Grade::query();
+        TenantScope::apply($query);
+
         return $table
-            ->query(Grade::query())
+            ->query($query)
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->searchable()
@@ -149,6 +153,13 @@ class GradeManagement extends Component implements HasForms, HasTable
                             ->label('Active')
                             ->default(true),
                     ])
+                    ->mutateFormDataUsing(function (array $data): array {
+                        if (! TenantScope::isSuperAdmin()) {
+                            $data['business_id'] = TenantScope::businessId();
+                        }
+
+                        return $data;
+                    })
                     ->createAnother(false)
                     ->after(function (Grade $record) {
                         Notification::make()
