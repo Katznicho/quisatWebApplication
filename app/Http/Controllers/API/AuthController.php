@@ -266,6 +266,79 @@ class AuthController extends Controller
     }
 
     /**
+     * Delete the authenticated account (parent or staff).
+     * POST /api/v1/auth/delete-account
+     */
+    public function deleteAccount(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'password' => 'required|string',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $account = $request->user();
+
+            if (! $account || ! Hash::check($request->password, $account->password)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Password is incorrect',
+                ], 400);
+            }
+
+            $account->tokens()->delete();
+
+            if ($account instanceof ParentGuardian) {
+                $account->update([
+                    'email' => 'deleted_'.$account->id.'_'.time().'@deleted.quisat.local',
+                    'phone' => null,
+                    'password' => Hash::make(Str::random(40)),
+                    'status' => 'inactive',
+                    'first_name' => 'Deleted',
+                    'last_name' => 'Account',
+                ]);
+                $account->delete();
+            } elseif ($account instanceof User) {
+                if (method_exists($account, 'deleteProfilePhoto')) {
+                    $account->deleteProfilePhoto();
+                }
+
+                $account->update([
+                    'email' => 'deleted_'.$account->id.'_'.time().'@deleted.quisat.local',
+                    'phone' => null,
+                    'password' => Hash::make(Str::random(40)),
+                    'status' => 'inactive',
+                    'name' => 'Deleted User',
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This account type cannot be deleted from the app.',
+                ], 403);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Your account has been deleted successfully.',
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Delete Account API Error: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while deleting your account',
+            ], 500);
+        }
+    }
+
+    /**
      * Change Password
      * POST /api/v1/auth/change-password
      */

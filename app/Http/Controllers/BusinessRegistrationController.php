@@ -10,6 +10,7 @@ use App\Models\BusinessCategory;
 use App\Models\Country;
 use App\Mail\BusinessWelcomeEmail;
 use App\Mail\BusinessAdminWelcomeEmail;
+use App\Mail\NewBusinessRegisteredMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -18,6 +19,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Auth\Events\Registered;
+use Illuminate\Validation\Rule;
 
 class BusinessRegistrationController extends Controller
 {
@@ -36,7 +38,11 @@ class BusinessRegistrationController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'business_name' => 'required|string|max:255',
-            'business_email' => 'required|email|unique:businesses,email',
+            'business_email' => [
+                'required',
+                'email',
+                Rule::unique('businesses', 'email')->whereNull('deleted_at'),
+            ],
             'business_phone' => 'required|string|max:20',
             'business_address' => 'required|string|max:255',
             'business_country_id' => 'required|exists:countries,id',
@@ -48,10 +54,19 @@ class BusinessRegistrationController extends Controller
             'social_instagram' => 'nullable|url|max:255',
             'social_twitter' => 'nullable|url|max:255',
             'social_whatsapp' => 'nullable|string|max:255',
-            
-            // Admin user details
+
+            // Admin user details — ignore emails tied only to soft-deleted businesses
             'admin_name' => 'required|string|max:255',
-            'admin_email' => 'required|email|unique:users,email',
+            'admin_email' => [
+                'required',
+                'email',
+                Rule::unique('users', 'email')->where(function ($query) {
+                    $query->where(function ($inner) {
+                        $inner->whereNull('business_id')
+                            ->orWhereIn('business_id', Business::query()->select('id'));
+                    });
+                }),
+            ],
             'admin_password' => 'required|string|min:8|confirmed',
             'admin_phone' => 'required|string|max:20',
         ]);
@@ -61,6 +76,11 @@ class BusinessRegistrationController extends Controller
                 ->withErrors($validator)
                 ->withInput();
         }
+
+        $this->releaseEmailsFromDeletedBusinesses(
+            $request->business_email,
+            $request->admin_email,
+        );
 
         try {
             DB::beginTransaction();
@@ -153,11 +173,13 @@ class BusinessRegistrationController extends Controller
 
             // Send welcome emails
             try {
-                // Send business welcome email
                 Mail::to($business->email)->send(new BusinessWelcomeEmail($business));
-                
-                // Send admin welcome email
                 Mail::to($adminUser->email)->send(new BusinessAdminWelcomeEmail($adminUser, $business));
+
+                $notifyAddresses = config('mail.business_registration_notify', []);
+                if (! empty($notifyAddresses)) {
+                    Mail::to($notifyAddresses)->send(new NewBusinessRegisteredMail($business, $adminUser));
+                }
             } catch (\Exception $e) {
                 Log::error('Failed to send welcome emails: ' . $e->getMessage());
                 // Don't fail the registration if email sending fails
@@ -201,6 +223,46 @@ class BusinessRegistrationController extends Controller
             Log::error('Failed to resend verification email: ' . $e->getMessage());
             return redirect()->back()->with('error', 'Failed to send verification email. Please try again.');
         }
+    }
+
+    /**
+     * Free business/admin emails held by soft-deleted businesses so they can register again.
+     */
+    protected function releaseEmailsFromDeletedBusinesses(string $businessEmail, string $adminEmail): void
+    {
+        $businessIdsFromAdmin = User::query()
+            ->where('email', $adminEmail)
+            ->whereNotNull('business_id')
+            ->pluck('business_id');
+
+        $trashedBusinessIds = Business::onlyTrashed()
+            ->where(function ($query) use ($businessEmail, $businessIdsFromAdmin) {
+                $query->where('email', $businessEmail);
+
+                if ($businessIdsFromAdmin->isNotEmpty()) {
+                    $query->orWhereIn('id', $businessIdsFromAdmin);
+                }
+            })
+            ->pluck('id');
+
+        if ($trashedBusinessIds->isEmpty()) {
+            return;
+        }
+
+        User::query()
+            ->whereIn('business_id', $trashedBusinessIds)
+            ->where('email', $adminEmail)
+            ->delete();
+
+        Business::onlyTrashed()
+            ->whereIn('id', $trashedBusinessIds)
+            ->where('email', $businessEmail)
+            ->get()
+            ->each(function (Business $business) {
+                $business->forceFill([
+                    'email' => 'deleted_'.$business->id.'_'.time().'@deleted.quisat.local',
+                ])->save();
+            });
     }
 
     public function verifyEmail(Request $request, $id, $hash)

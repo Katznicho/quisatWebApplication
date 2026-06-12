@@ -182,6 +182,7 @@ Route::prefix('v1')->group(function () {
             Route::get('profile', [AuthController::class, 'profile']);
             Route::put('profile', [AuthController::class, 'updateProfile']);
             Route::post('change-password', [AuthController::class, 'changePassword']);
+            Route::post('delete-account', [AuthController::class, 'deleteAccount']);
             Route::post('refresh', [AuthController::class, 'refresh']);
         });
 

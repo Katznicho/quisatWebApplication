@@ -7,6 +7,9 @@ use App\Models\User;
 use App\Models\Country;
 use App\Models\BusinessCategory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use App\Mail\BusinessAdminWelcomeEmail;
+use App\Mail\BusinessWelcomeEmail;
+use App\Mail\NewBusinessRegisteredMail;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
@@ -75,6 +78,13 @@ class BusinessRegistrationTest extends TestCase
             'business_id' => $business->id,
             'name' => 'Admin',
         ]);
+
+        Mail::assertSent(BusinessWelcomeEmail::class);
+        Mail::assertSent(BusinessAdminWelcomeEmail::class);
+        Mail::assertSent(NewBusinessRegisteredMail::class, function (NewBusinessRegisteredMail $mail) {
+            return $mail->hasTo('quisatug@gmail.com')
+                && $mail->hasTo('info@quisat.com');
+        });
     }
 
     public function test_business_registration_validates_required_fields()
@@ -139,5 +149,51 @@ class BusinessRegistrationTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertSee('Registration Successful');
+    }
+
+    public function test_soft_deleted_business_email_can_be_reused()
+    {
+        Mail::fake();
+
+        $category = BusinessCategory::factory()->create();
+        $country = Country::create([
+            'name' => 'Test Country',
+            'currency_code' => 'TST',
+            'currency_name' => 'Test Currency',
+            'exchange_rate' => 1,
+            'is_default' => true,
+        ]);
+
+        $deletedBusiness = Business::factory()->create([
+            'email' => 'reuse@business.com',
+        ]);
+        User::factory()->create([
+            'email' => 'reuse@admin.com',
+            'business_id' => $deletedBusiness->id,
+        ]);
+
+        $deletedBusiness->delete();
+
+        $response = $this->post('/business/register', [
+            'business_name' => 'New Business',
+            'business_email' => 'reuse@business.com',
+            'business_phone' => '+1234567890',
+            'business_address' => '123 Test Street',
+            'business_country_id' => $country->id,
+            'business_city' => 'Test City',
+            'business_category_id' => $category->id,
+            'admin_name' => 'New Admin',
+            'admin_email' => 'reuse@admin.com',
+            'admin_password' => 'password123',
+            'admin_password_confirmation' => 'password123',
+            'admin_phone' => '+1234567890',
+        ]);
+
+        $response->assertRedirect('/business/registration/success');
+        $this->assertDatabaseHas('businesses', [
+            'email' => 'reuse@business.com',
+            'name' => 'New Business',
+            'deleted_at' => null,
+        ]);
     }
 }

@@ -131,4 +131,18 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Business registration notifications
+    |--------------------------------------------------------------------------
+    |
+    | These addresses receive a copy when a new business registers on Quisat.
+    |
+    */
+
+    'business_registration_notify' => array_filter(array_map(
+        'trim',
+        explode(',', env('BUSINESS_REGISTRATION_NOTIFY', 'quisatug@gmail.com,info@quisat.com'))
+    )),
+
 ];
