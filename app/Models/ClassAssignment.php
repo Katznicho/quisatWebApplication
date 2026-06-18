@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Support\TimeField;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
@@ -34,7 +34,6 @@ class ClassAssignment extends Model
     protected $casts = [
         'assigned_date' => 'date',
         'due_date' => 'date',
-        'due_time' => 'datetime:H:i',
         'attachments' => 'array',
         'published_at' => 'datetime',
     ];
@@ -76,5 +75,15 @@ class ClassAssignment extends Model
     public function parentHiddenStates()
     {
         return $this->hasMany(ClassAssignmentParentHidden::class, 'assignment_id');
+    }
+
+    public function getDueTimeAttribute(?string $value): ?string
+    {
+        return TimeField::formatForInput($value);
+    }
+
+    public function setDueTimeAttribute(?string $value): void
+    {
+        $this->attributes['due_time'] = TimeField::normalizeForStorage($value);
     }
 }

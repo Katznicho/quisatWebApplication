@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\API;
 
-use App\Http\Controllers\Controller;
+use App\Support\TimeField;
 use App\Models\ClassAssignment;
 use App\Models\ClassAssignmentParentHidden;
 use App\Models\ParentGuardian;
@@ -140,7 +140,7 @@ class ClassAssignmentController extends Controller
                 'subject_id' => 'nullable|exists:subjects,id',
                 'assigned_date' => 'nullable|date',
                 'due_date' => 'nullable|date',
-                'due_time' => 'nullable|date_format:H:i',
+                'due_time' => ['nullable', TimeField::VALIDATION_RULE],
                 'total_marks' => 'nullable|integer|min:0',
                 'status' => 'nullable|in:draft,published',
                 'attachments' => 'nullable|array',
@@ -394,7 +394,7 @@ class ClassAssignmentController extends Controller
             'status' => $assignment->status,
             'assigned_date' => optional($assignment->assigned_date)->toDateString(),
             'due_date' => optional($assignment->due_date)->toDateString(),
-            'due_time' => optional($assignment->due_time)->format('H:i'),
+            'due_time' => $assignment->due_time,
             'total_marks' => $assignment->total_marks,
             'attachments' => $assignment->attachments ?? [],
             'published_at' => optional($assignment->published_at)->toIso8601String(),

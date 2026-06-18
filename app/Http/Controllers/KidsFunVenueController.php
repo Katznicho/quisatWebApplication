@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\AuthorizesBusinessResource;
 use App\Models\KidsFunVenue;
+use App\Support\TimeField;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -58,8 +59,8 @@ class KidsFunVenueController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'location' => 'required|string|max:255',
-            'open_time' => 'required|date_format:H:i,H:i:s',
-            'close_time' => 'required|date_format:H:i,H:i:s',
+            'open_time' => ['required', TimeField::VALIDATION_RULE],
+            'close_time' => ['required', TimeField::VALIDATION_RULE],
             'activities' => 'nullable|array',
             'activities.*' => 'string|max:255',
             'prices' => 'nullable|array',
@@ -170,8 +171,8 @@ class KidsFunVenueController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'location' => 'required|string|max:255',
-            'open_time' => 'required|date_format:H:i,H:i:s',
-            'close_time' => 'required|date_format:H:i,H:i:s',
+            'open_time' => ['required', TimeField::VALIDATION_RULE],
+            'close_time' => ['required', TimeField::VALIDATION_RULE],
             'activities' => 'nullable|array',
             'activities.*' => 'string|max:255',
             'prices' => 'nullable|array',
