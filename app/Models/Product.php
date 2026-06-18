@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ProductCategory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -48,5 +49,15 @@ class Product extends Model
     public function images()
     {
         return $this->hasMany(ProductImage::class);
+    }
+
+    public function setCategoryAttribute(?string $value): void
+    {
+        $this->attributes['category'] = ProductCategory::normalize($value);
+    }
+
+    public function getCategoryAttribute(?string $value): ?string
+    {
+        return ProductCategory::normalize($value);
     }
 }

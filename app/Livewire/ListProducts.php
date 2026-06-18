@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Support\ProductCategory;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -50,7 +51,15 @@ class ListProducts extends Component implements HasForms, HasTable
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('category')
-                    ->options(fn () => Product::distinct()->pluck('category', 'category')->toArray()),
+                    ->options(ProductCategory::options())
+                    ->query(function ($query, array $data) {
+                        if (! empty($data['value'])) {
+                            $query->whereIn(
+                                'category',
+                                ProductCategory::matchingStoredValues((string) $data['value'])
+                            );
+                        }
+                    }),
                 Tables\Filters\SelectFilter::make('status')
                     ->options([
                         'active' => 'Active',
@@ -70,8 +79,10 @@ class ListProducts extends Component implements HasForms, HasTable
                             ->required()
                             ->numeric()
                             ->prefix('UGX'),
-                        Forms\Components\TextInput::make('category')
-                            ->maxLength(255),
+                        Forms\Components\Select::make('category')
+                            ->options(ProductCategory::options())
+                            ->searchable()
+                            ->nullable(),
                         Forms\Components\TextInput::make('stock_quantity')
                             ->required()
                             ->numeric()
@@ -151,8 +162,10 @@ class ListProducts extends Component implements HasForms, HasTable
                             ->required()
                             ->numeric()
                             ->prefix('UGX'),
-                        Forms\Components\TextInput::make('category')
-                            ->maxLength(255),
+                        Forms\Components\Select::make('category')
+                            ->options(ProductCategory::options())
+                            ->searchable()
+                            ->nullable(),
                         Forms\Components\TextInput::make('stock_quantity')
                             ->required()
                             ->numeric()

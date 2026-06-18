@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Support\ProductCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class ProductController extends Controller
 {
@@ -23,7 +25,9 @@ class ProductController extends Controller
 
     public function create()
     {
-        return view('products.create');
+        $categories = ProductCategory::options();
+
+        return view('products.create', compact('categories'));
     }
 
     public function store(Request $request)
@@ -32,7 +36,7 @@ class ProductController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
-            'category' => 'nullable|string|max:255',
+            'category' => ['nullable', Rule::in(ProductCategory::categories())],
             'stock_quantity' => 'required|integer|min:0',
             'is_available' => 'boolean',
             'status' => 'nullable|in:active,inactive',
@@ -86,7 +90,9 @@ class ProductController extends Controller
     public function edit(Product $product)
     {
         $product->load('images');
-        return view('products.edit', compact('product'));
+        $categories = ProductCategory::options();
+
+        return view('products.edit', compact('product', 'categories'));
     }
 
     public function update(Request $request, Product $product)
@@ -95,7 +101,7 @@ class ProductController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
-            'category' => 'nullable|string|max:255',
+            'category' => ['nullable', Rule::in(ProductCategory::categories())],
             'stock_quantity' => 'required|integer|min:0',
             'is_available' => 'boolean',
             'status' => 'nullable|in:active,inactive',

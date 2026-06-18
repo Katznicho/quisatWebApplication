@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
+use App\Support\ProductCategory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -22,7 +23,8 @@ class ProductController extends Controller
                 });
 
             if ($category = $request->query('category')) {
-                $query->where('category', $category);
+                $canonical = ProductCategory::normalize((string) $category);
+                $query->whereIn('category', ProductCategory::matchingStoredValues($canonical));
             }
 
             if ($businessId = $request->query('business_id')) {
@@ -42,10 +44,19 @@ class ProductController extends Controller
 
             $products = $query->orderBy('created_at', 'desc')->get();
 
+            $usedCategories = $products
+                ->pluck('category')
+                ->filter()
+                ->unique()
+                ->sort()
+                ->values()
+                ->all();
+
             return response()->json([
                 'success' => true,
                 'data' => [
                     'products' => $products->map(fn (Product $p) => $this->transformProduct($p, false)),
+                    'categories' => $usedCategories,
                 ],
             ]);
         } catch (\Exception $e) {

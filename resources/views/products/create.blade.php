@@ -69,12 +69,14 @@
                     <label for="category" class="block text-sm font-medium text-gray-700 mb-2">
                         Category
                     </label>
-                    <input type="text" 
-                           name="category" 
-                           id="category" 
-                           value="{{ old('category') }}"
-                           placeholder="e.g., Clothing, Toys, School Supplies, Accessories"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    <select name="category"
+                            id="category"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Select a category</option>
+                        @foreach($categories as $value => $label)
+                            <option value="{{ $value }}" @selected(old('category') === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
                     @error('category')
                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                     @enderror
