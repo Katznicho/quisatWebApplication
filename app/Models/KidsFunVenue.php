@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -70,5 +71,59 @@ class KidsFunVenue extends Model
     public function scopeByBusiness($query, $businessId)
     {
         return $query->where('business_id', $businessId);
+    }
+
+    public function getOpenTimeAttribute(?string $value): ?string
+    {
+        return self::formatTimeForInput($value);
+    }
+
+    public function setOpenTimeAttribute(?string $value): void
+    {
+        $this->attributes['open_time'] = self::normalizeTimeForStorage($value);
+    }
+
+    public function getCloseTimeAttribute(?string $value): ?string
+    {
+        return self::formatTimeForInput($value);
+    }
+
+    public function setCloseTimeAttribute(?string $value): void
+    {
+        $this->attributes['close_time'] = self::normalizeTimeForStorage($value);
+    }
+
+    public static function formatTimeForInput(?string $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        foreach (['H:i:s', 'H:i'] as $format) {
+            try {
+                return Carbon::createFromFormat($format, $value)->format('H:i');
+            } catch (\Exception) {
+                continue;
+            }
+        }
+
+        return strlen($value) >= 5 ? substr($value, 0, 5) : $value;
+    }
+
+    public static function normalizeTimeForStorage(?string $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        foreach (['H:i:s', 'H:i'] as $format) {
+            try {
+                return Carbon::createFromFormat($format, $value)->format('H:i:s');
+            } catch (\Exception) {
+                continue;
+            }
+        }
+
+        return $value;
     }
 }
