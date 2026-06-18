@@ -30,6 +30,8 @@ use App\Http\Controllers\API\ClinicController;
 use App\Http\Controllers\API\ProgramRegistrationController;
 use App\Http\Controllers\API\ProductController;
 use App\Http\Controllers\API\OrderController;
+use App\Http\Controllers\API\MarzPayWebhookController;
+use App\Http\Controllers\API\MarzPayPaymentController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -151,6 +153,11 @@ Route::prefix('v1')->group(function () {
         
         // KidsMart Orders - Allow guest ordering (public)
         Route::post('orders', [OrderController::class, 'store']);
+
+        // MarzPay payments (public)
+        Route::post('payments/marzpay/collect', [MarzPayPaymentController::class, 'collect']);
+        Route::get('payments/marzpay/{reference}/status', [MarzPayPaymentController::class, 'status']);
+        Route::post('webhooks/marzpay', [MarzPayWebhookController::class, 'handle']);
 
         // Support Child (public list & detail + enquiries)
         Route::get('support-children', [SupportChildController::class, 'index']);

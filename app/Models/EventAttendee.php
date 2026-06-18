@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\InteractsWithMarzPay;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -11,6 +12,7 @@ class EventAttendee extends Model
 {
     use HasFactory;
     use SoftDeletes;
+    use InteractsWithMarzPay;
 
     protected $fillable = [
         'uuid',
@@ -93,5 +95,42 @@ class EventAttendee extends Model
     public function getRouteKeyName()
     {
         return 'uuid';
+    }
+
+    public function marzPayAmount(): int
+    {
+        return max(0, (int) round((float) $this->balance));
+    }
+
+    public function marzPayDescription(): string
+    {
+        return 'Program registration: '.($this->programEvent?->title ?? 'Event');
+    }
+
+    public function marzPayPhoneNumber(): ?string
+    {
+        return $this->parent_phone;
+    }
+
+    public function markMarzPayCompleted(\App\Models\PaymentCollection $collection): void
+    {
+        Payment::create([
+            'event_attendee_id' => $this->id,
+            'amount' => $collection->amount,
+            'payment_method' => 'mtn_mobile_money',
+            'payment_reference' => $collection->reference,
+            'notes' => 'MarzPay '.$collection->provider,
+            'payment_date' => now(),
+        ]);
+
+        $this->update([
+            'amount_paid' => (float) $this->amount_paid + $collection->amount,
+            'status' => $this->fresh()->is_payment_complete ? 'confirmed' : $this->status,
+        ]);
+    }
+
+    public function markMarzPayFailed(\App\Models\PaymentCollection $collection): void
+    {
+        //
     }
 }

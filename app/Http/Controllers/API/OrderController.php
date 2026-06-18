@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Services\MarzPayCheckoutService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -33,6 +34,7 @@ class OrderController extends Controller
                 'customer_phone' => 'required|string|max:50',
                 'customer_address' => 'nullable|string|max:1000',
                 'notes' => 'nullable|string|max:2000',
+                'payment_method' => 'nullable|in:cash,card,bank_transfer,airtel_money,mtn_mobile_money,other',
             ]);
 
             Log::info('OrderController@store - Validation passed', [
@@ -56,7 +58,7 @@ class OrderController extends Controller
 
             $businessId = $businessIds->first();
 
-            return DB::transaction(function () use ($payload, $items, $products, $businessId) {
+            return DB::transaction(function () use ($payload, $items, $products, $businessId, $request) {
                 // Calculate total first
                 $total = 0;
                 foreach ($items as $item) {
@@ -72,6 +74,8 @@ class OrderController extends Controller
                     $total += $line;
                 }
 
+                $paymentMethod = $payload['payment_method'] ?? 'cash';
+
                 // Create order with subtotal, total, and total_amount
                 $order = Order::create([
                     'uuid' => (string) Str::uuid(),
@@ -83,6 +87,8 @@ class OrderController extends Controller
                     'customer_address' => $payload['customer_address'] ?? null,
                     'notes' => $payload['notes'] ?? null,
                     'status' => 'pending',
+                    'payment_method' => $paymentMethod,
+                    'payment_status' => 'pending',
                     'subtotal' => $total,
                     'total' => $total, // Set total
                     'total_amount' => $total,
@@ -113,17 +119,41 @@ class OrderController extends Controller
                     ]);
                 }
 
+                $payment = null;
+                $paymentMessage = null;
+
+                /** @var MarzPayCheckoutService $checkout */
+                $checkout = app(MarzPayCheckoutService::class);
+                $paymentResult = $checkout->maybeInitiate($order, $paymentMethod);
+
+                if ($paymentResult) {
+                    if ($paymentResult['success']) {
+                        $payment = $paymentResult['data'];
+                        $paymentMessage = $paymentMethod === 'card'
+                            ? 'Complete your card payment using the link provided.'
+                            : 'Approve the mobile money prompt on your phone to complete payment.';
+                    } else {
+                        $order->update(['payment_status' => 'failed']);
+                        $paymentMessage = $paymentResult['message'] ?? 'Payment could not be started.';
+                    }
+                }
+
                 return response()->json([
                     'success' => true,
-                    'message' => 'Order placed successfully',
+                    'message' => $payment
+                        ? 'Order created. '.$paymentMessage
+                        : 'Order placed successfully',
                     'data' => [
                         'order' => [
                             'id' => $order->id,
                             'uuid' => $order->uuid,
                             'order_number' => $order->order_number,
                             'status' => $order->status,
+                            'payment_method' => $order->payment_method,
+                            'payment_status' => $order->payment_status,
                             'total_amount' => (float) $order->total_amount,
                         ],
+                        'payment' => $payment,
                     ],
                 ]);
             });

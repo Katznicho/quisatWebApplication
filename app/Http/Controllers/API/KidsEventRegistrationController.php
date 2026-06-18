@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\KidsEvent;
 use App\Models\KidsEventRegistration;
+use App\Services\MarzPayCheckoutService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -78,9 +79,17 @@ class KidsEventRegistrationController extends Controller
             // Increment current participants
             $event->increment('current_participants');
 
+            $registration->load('kidsEvent');
+            $paymentResult = app(MarzPayCheckoutService::class)->maybeInitiate(
+                $registration,
+                $request->payment_method
+            );
+
             return response()->json([
                 'success' => true,
-                'message' => 'Child registered successfully!',
+                'message' => $paymentResult && ($paymentResult['success'] ?? false)
+                    ? 'Child registered. Complete payment to confirm.'
+                    : 'Child registered successfully!',
                 'data' => [
                     'registration' => [
                         'id' => $registration->id,
@@ -90,6 +99,7 @@ class KidsEventRegistrationController extends Controller
                         'payment_status' => $registration->payment_status,
                         'created_at' => $registration->created_at,
                     ],
+                    'payment' => $paymentResult['data'] ?? null,
                 ],
             ], 201);
         } catch (\Exception $e) {

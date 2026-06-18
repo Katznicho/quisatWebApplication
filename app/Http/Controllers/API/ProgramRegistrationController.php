@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ProgramEvent;
 use App\Models\EventAttendee;
 use App\Models\User;
+use App\Services\MarzPayCheckoutService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -114,9 +115,17 @@ class ProgramRegistrationController extends Controller
                 'status' => 'pending',
             ]);
 
+            $attendee->load('programEvent');
+            $paymentResult = app(MarzPayCheckoutService::class)->maybeInitiate(
+                $attendee,
+                $request->payment_method
+            );
+
             return response()->json([
                 'success' => true,
-                'message' => 'Child registered successfully!',
+                'message' => $paymentResult && ($paymentResult['success'] ?? false)
+                    ? 'Child registered. Complete payment to confirm.'
+                    : 'Child registered successfully!',
                 'data' => [
                     'attendee' => [
                         'id' => $attendee->id,
@@ -124,6 +133,7 @@ class ProgramRegistrationController extends Controller
                         'child_name' => $attendee->child_name,
                         'status' => $attendee->status,
                     ],
+                    'payment' => $paymentResult['data'] ?? null,
                 ],
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {

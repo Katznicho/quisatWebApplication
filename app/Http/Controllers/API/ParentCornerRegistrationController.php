@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\ParentCorner;
 use App\Models\ParentCornerRegistration;
+use App\Services\MarzPayCheckoutService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -80,9 +81,17 @@ class ParentCornerRegistrationController extends Controller
             // Increment current participants
             $event->increment('current_participants');
 
+            $registration->load('parentCorner');
+            $paymentResult = app(MarzPayCheckoutService::class)->maybeInitiate(
+                $registration,
+                $request->payment_method
+            );
+
             return response()->json([
                 'success' => true,
-                'message' => 'Parent registered successfully!',
+                'message' => $paymentResult && ($paymentResult['success'] ?? false)
+                    ? 'Parent registered. Complete payment to confirm.'
+                    : 'Parent registered successfully!',
                 'data' => [
                     'registration' => [
                         'id' => $registration->id,
@@ -92,6 +101,7 @@ class ParentCornerRegistrationController extends Controller
                         'payment_status' => $registration->payment_status,
                         'created_at' => $registration->created_at,
                     ],
+                    'payment' => $paymentResult['data'] ?? null,
                 ],
             ], 201);
         } catch (\Exception $e) {

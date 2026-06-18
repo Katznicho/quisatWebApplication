@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\InteractsWithMarzPay;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -9,6 +10,7 @@ use Illuminate\Support\Str;
 class Order extends Model
 {
     use HasFactory;
+    use InteractsWithMarzPay;
 
     protected $fillable = [
         'uuid',
@@ -20,6 +22,8 @@ class Order extends Model
         'customer_address',
         'notes',
         'status',
+        'payment_method',
+        'payment_status',
         'subtotal',
         'total',
         'total_amount',
@@ -51,5 +55,35 @@ class Order extends Model
     public function items()
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function marzPayAmount(): int
+    {
+        return (int) round((float) ($this->total_amount ?? $this->total ?? 0));
+    }
+
+    public function marzPayDescription(): string
+    {
+        return 'Kidz Mart order '.$this->order_number;
+    }
+
+    public function marzPayPhoneNumber(): ?string
+    {
+        return $this->customer_phone;
+    }
+
+    public function markMarzPayCompleted(\App\Models\PaymentCollection $collection): void
+    {
+        $this->update([
+            'payment_status' => 'paid',
+            'status' => $this->status === 'pending' ? 'confirmed' : $this->status,
+        ]);
+    }
+
+    public function markMarzPayFailed(\App\Models\PaymentCollection $collection): void
+    {
+        $this->update([
+            'payment_status' => 'failed',
+        ]);
     }
 }
