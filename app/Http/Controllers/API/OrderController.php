@@ -8,6 +8,7 @@ use App\Models\OrderItem;
 use App\Models\Product;
 use App\Services\MarzPayCheckoutService;
 use App\Services\BusinessWalletService;
+use App\Support\StationeryHub;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -58,8 +59,16 @@ class OrderController extends Controller
             }
 
             $businessId = $businessIds->first();
+            $hubs = $products->pluck('hub')->filter()->unique()->values();
+            if ($hubs->count() > 1) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Please place orders from one marketplace at a time.',
+                ], 422);
+            }
+            $hub = $hubs->first() ?? StationeryHub::KIDZ_MART;
 
-            return DB::transaction(function () use ($payload, $items, $products, $businessId, $request) {
+            return DB::transaction(function () use ($payload, $items, $products, $businessId, $hub, $request) {
                 // Calculate total first
                 $total = 0;
                 foreach ($items as $item) {
@@ -80,8 +89,8 @@ class OrderController extends Controller
                 // Create order with subtotal, total, and total_amount
                 $order = Order::create([
                     'uuid' => (string) Str::uuid(),
-                    'order_number' => 'KM-' . strtoupper(Str::random(8)),
                     'business_id' => $businessId,
+                    'hub' => $hub,
                     'customer_name' => $payload['customer_name'],
                     'customer_email' => $payload['customer_email'] ?? null,
                     'customer_phone' => $payload['customer_phone'],
@@ -212,6 +221,12 @@ class OrderController extends Controller
             }
 
             $query = Order::query()->with(['items.product', 'business']);
+
+            if ($hub = $request->query('hub')) {
+                if (in_array($hub, [StationeryHub::HUB, StationeryHub::KIDZ_MART], true)) {
+                    $query->where('hub', $hub);
+                }
+            }
 
             // Filter by status if provided
             if ($request->has('status')) {

@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Models\Concerns\InteractsWithMarzPay;
+use App\Support\StationeryHub;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -16,12 +16,14 @@ class Order extends Model
         'uuid',
         'order_number',
         'business_id',
+        'hub',
         'customer_name',
         'customer_email',
         'customer_phone',
         'customer_address',
         'notes',
         'status',
+        'fulfillment_status',
         'payment_method',
         'payment_status',
         'wallet_credit_amount',
@@ -47,7 +49,11 @@ class Order extends Model
                 $order->uuid = (string) Str::uuid();
             }
             if (empty($order->order_number)) {
-                $order->order_number = 'KM-' . strtoupper(Str::random(8));
+                $prefix = ($order->hub ?? StationeryHub::KIDZ_MART) === StationeryHub::HUB ? 'SH-' : 'KM-';
+                $order->order_number = $prefix.strtoupper(Str::random(8));
+            }
+            if (empty($order->fulfillment_status)) {
+                $order->fulfillment_status = 'new';
             }
         });
     }
@@ -69,7 +75,9 @@ class Order extends Model
 
     public function marzPayDescription(): string
     {
-        return 'Kidz Mart order '.$this->order_number;
+        return ($this->hub ?? StationeryHub::KIDZ_MART) === StationeryHub::HUB
+            ? 'Stationery Hub order '.$this->order_number
+            : 'Kidz Mart order '.$this->order_number;
     }
 
     public function marzPayPhoneNumber(): ?string

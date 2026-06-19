@@ -12,7 +12,7 @@
                class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
                 <i class="fas fa-edit mr-2"></i>Edit
             </a>
-            <a href="{{ route('products.index') }}" 
+            <a href="{{ route('products.index', ['hub' => $hub ?? 'kidz_mart']) }}"
                class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
                 <i class="fas fa-arrow-left mr-2"></i>Back
             </a>

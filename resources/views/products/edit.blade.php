@@ -4,7 +4,7 @@
 <div class="container mx-auto px-4 py-8">
     <div class="mb-6">
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Edit Product</h1>
-        <p class="mt-2 text-gray-600 dark:text-gray-400">Update product information</p>
+        <p class="mt-2 text-gray-600 dark:text-gray-400">{{ $hubLabel ?? 'Kids Mart' }}</p>
     </div>
 
     <div class="bg-white rounded-lg shadow p-6">
@@ -96,6 +96,13 @@
                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                     @enderror
                 </div>
+
+                @include('products._stationery-fields', [
+                    'isStationery' => $isStationery ?? false,
+                    'gradeOptions' => $gradeOptions ?? [],
+                    'qualityOptions' => $qualityOptions ?? [],
+                    'product' => $product,
+                ])
 
                 <!-- Sizes -->
                 <div>
@@ -213,7 +220,7 @@
             </div>
 
             <div class="mt-6 flex justify-end space-x-3">
-                <a href="{{ route('products.index') }}" 
+                <a href="{{ route('products.index', ['hub' => $hub ?? 'kidz_mart']) }}"
                    class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
                     Cancel
                 </a>

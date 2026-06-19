@@ -4,6 +4,7 @@ namespace App\Livewire\Orders;
 
 use App\Models\Order;
 use App\Services\BusinessWalletService;
+use App\Support\StationeryHub;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -24,9 +25,17 @@ class ListOrders extends Component implements HasForms, HasTable
     use InteractsWithForms;
     use InteractsWithTable;
 
+    public string $hub = StationeryHub::KIDZ_MART;
+
+    public function mount(string $hub = StationeryHub::KIDZ_MART): void
+    {
+        $this->hub = $hub;
+    }
+
     public function table(Table $table): Table
     {
         $isSuperAdmin = (int) Auth::user()->business_id === 1;
+        $isStationery = $this->hub === StationeryHub::HUB;
 
         $columns = [
             Tables\Columns\TextColumn::make('created_at')
@@ -101,6 +110,19 @@ class ListOrders extends Component implements HasForms, HasTable
                 ->sortable(),
         ]);
 
+        if ($isStationery) {
+            $columns[] = Tables\Columns\TextColumn::make('fulfillment_status')
+                ->label('Fulfillment')
+                ->badge()
+                ->formatStateUsing(fn (?string $state): string => StationeryHub::fulfillmentStatuses()[$state ?? 'new'] ?? ucfirst((string) $state))
+                ->color(fn (?string $state): string => match ($state) {
+                    'delivered' => 'success',
+                    'dispatched' => 'info',
+                    'packed' => 'warning',
+                    default => 'gray',
+                });
+        }
+
         $filters = [
             Tables\Filters\SelectFilter::make('status')
                 ->options($this->statusOptions()),
@@ -118,55 +140,96 @@ class ListOrders extends Component implements HasForms, HasTable
                 ->relationship('business', 'name');
         }
 
+        if ($isStationery) {
+            $filters[] = Tables\Filters\SelectFilter::make('fulfillment_status')
+                ->label('Fulfillment')
+                ->options(StationeryHub::fulfillmentStatuses());
+        }
+
+        $actions = [
+            ViewAction::make()
+                ->modalHeading(fn (Order $record): string => 'Order '.$record->order_number)
+                ->modalContent(fn (Order $record): View => view('orders.partials.show', [
+                    'order' => $record->loadMissing(['items.product', 'business']),
+                ])),
+            Action::make('release_funds')
+                ->label('Confirm received')
+                ->icon('heroicon-o-banknotes')
+                ->color('success')
+                ->visible(fn (Order $record): bool => $record->fundsAreHeld())
+                ->requiresConfirmation()
+                ->modalHeading('Confirm order received')
+                ->modalDescription('This marks the order as delivered and releases the held payment into the business available balance for withdrawal.')
+                ->action(function (Order $record): void {
+                    $this->confirmOrderReceived($record);
+                }),
+            Action::make('update_status')
+                ->label('Update status')
+                ->icon('heroicon-o-arrow-path')
+                ->form([
+                    Select::make('status')
+                        ->label('Order status')
+                        ->options($this->statusOptions())
+                        ->required()
+                        ->default(fn (Order $record): string => $record->status),
+                ])
+                ->action(function (Order $record, array $data): void {
+                    $record->update(['status' => $data['status']]);
+
+                    if ($data['status'] === 'delivered' && $record->fresh()->fundsAreHeld()) {
+                        $this->confirmOrderReceived($record->fresh());
+                    } else {
+                        Notification::make()
+                            ->title('Order status updated')
+                            ->success()
+                            ->send();
+                    }
+                }),
+        ];
+
+        if ($isStationery) {
+            $actions[] = Action::make('update_fulfillment')
+                ->label('Fulfillment')
+                ->icon('heroicon-o-truck')
+                ->form([
+                    Select::make('fulfillment_status')
+                        ->label('Fulfillment status')
+                        ->options(StationeryHub::fulfillmentStatuses())
+                        ->required()
+                        ->default(fn (Order $record): string => $record->fulfillment_status ?? 'new'),
+                ])
+                ->action(function (Order $record, array $data): void {
+                    if (! $this->canManageOrder($record)) {
+                        Notification::make()->title('Unauthorized')->danger()->send();
+
+                        return;
+                    }
+
+                    $record->update(['fulfillment_status' => $data['fulfillment_status']]);
+
+                    if ($data['fulfillment_status'] === 'delivered' && $record->fresh()->fundsAreHeld()) {
+                        $this->confirmOrderReceived($record->fresh());
+                    } else {
+                        Notification::make()
+                            ->title('Fulfillment status updated')
+                            ->success()
+                            ->send();
+                    }
+                });
+        }
+
+        $hubLabel = $isStationery ? 'Stationery Hub' : 'Kids Mart';
+
         return $table
             ->query($this->ordersQuery())
             ->columns($columns)
             ->filters($filters)
-            ->actions([
-                ViewAction::make()
-                    ->modalHeading(fn (Order $record): string => 'Order '.$record->order_number)
-                    ->modalContent(fn (Order $record): View => view('orders.partials.show', [
-                        'order' => $record->loadMissing(['items.product', 'business']),
-                    ])),
-                Action::make('release_funds')
-                    ->label('Confirm received')
-                    ->icon('heroicon-o-banknotes')
-                    ->color('success')
-                    ->visible(fn (Order $record): bool => $record->fundsAreHeld())
-                    ->requiresConfirmation()
-                    ->modalHeading('Confirm order received')
-                    ->modalDescription('This marks the order as delivered and releases the held payment into the business available balance for withdrawal.')
-                    ->action(function (Order $record): void {
-                        $this->confirmOrderReceived($record);
-                    }),
-                Action::make('update_status')
-                    ->label('Update status')
-                    ->icon('heroicon-o-arrow-path')
-                    ->form([
-                        Select::make('status')
-                            ->label('Order status')
-                            ->options($this->statusOptions())
-                            ->required()
-                            ->default(fn (Order $record): string => $record->status),
-                    ])
-                    ->action(function (Order $record, array $data): void {
-                        $record->update(['status' => $data['status']]);
-
-                        if ($data['status'] === 'delivered' && $record->fresh()->fundsAreHeld()) {
-                            $this->confirmOrderReceived($record->fresh());
-                        } else {
-                            Notification::make()
-                                ->title('Order status updated')
-                                ->success()
-                                ->send();
-                        }
-                    }),
-            ])
+            ->actions($actions)
             ->defaultSort('created_at', 'desc')
             ->emptyStateHeading('No orders yet')
             ->emptyStateDescription($isSuperAdmin
-                ? 'All Kids Mart orders from every business will appear here.'
-                : 'Customer orders from Kids Mart will appear here.');
+                ? "All {$hubLabel} orders from every business will appear here."
+                : "Customer orders from {$hubLabel} will appear here.");
     }
 
     protected function confirmOrderReceived(Order $record): void
@@ -183,7 +246,10 @@ class ListOrders extends Component implements HasForms, HasTable
         $released = app(BusinessWalletService::class)->releaseOrderFunds($record, Auth::id());
 
         if ($released) {
-            $record->update(['status' => 'delivered']);
+            $record->update([
+                'status' => 'delivered',
+                'fulfillment_status' => $record->hub === StationeryHub::HUB ? 'delivered' : $record->fulfillment_status,
+            ]);
 
             Notification::make()
                 ->title('Order confirmed — funds released to available balance')
@@ -214,7 +280,7 @@ class ListOrders extends Component implements HasForms, HasTable
             $query->where('business_id', $businessId);
         }
 
-        return $query;
+        return $query->where('hub', $this->hub);
     }
 
     protected function statusOptions(): array

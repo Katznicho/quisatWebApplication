@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Support\ProductCategory;
+use App\Support\StationeryHub;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -16,15 +17,41 @@ class ProductController extends Controller
     public function index(Request $request)
     {
         try {
+            $hub = (string) $request->query('hub', StationeryHub::KIDZ_MART);
+            if (! in_array($hub, [StationeryHub::HUB, StationeryHub::KIDZ_MART], true)) {
+                $hub = StationeryHub::KIDZ_MART;
+            }
+
             $query = Product::query()
-                ->with(['business:id,name,email,phone,address,shop_number,website_link,social_media_handles', 'images'])
+                ->with(['business:id,name,email,phone,address,shop_number,website_link,social_media_handles,stationery_verified_at', 'images'])
+                ->where('hub', $hub)
                 ->where(function (Builder $q) {
                     $q->whereNull('status')->orWhere('status', 'active');
+                })
+                ->where('is_available', true);
+
+            if ($hub === StationeryHub::HUB) {
+                $query->whereHas('business', function (Builder $q) {
+                    $q->where('accepting_stationery_orders', true)
+                        ->whereNotNull('stationery_verified_at');
                 });
+            }
 
             if ($category = $request->query('category')) {
-                $canonical = ProductCategory::normalize((string) $category);
-                $query->whereIn('category', ProductCategory::matchingStoredValues($canonical));
+                if ($hub === StationeryHub::HUB) {
+                    $query->where('category', (string) $category);
+                } else {
+                    $canonical = ProductCategory::normalize((string) $category);
+                    $query->whereIn('category', ProductCategory::matchingStoredValues($canonical));
+                }
+            }
+
+            if ($gradeLevel = $request->query('grade_level')) {
+                $gradeLevel = strtolower(trim((string) $gradeLevel));
+                $query->where(function (Builder $q) use ($gradeLevel) {
+                    $q->whereJsonContains('grade_levels', $gradeLevel)
+                        ->orWhereJsonContains('grade_levels', 'all');
+                });
             }
 
             if ($businessId = $request->query('business_id')) {
@@ -52,11 +79,15 @@ class ProductController extends Controller
                 ->values()
                 ->all();
 
+            $gradeOptions = $hub === StationeryHub::HUB ? StationeryHub::gradeOptions() : [];
+
             return response()->json([
                 'success' => true,
                 'data' => [
+                    'hub' => $hub,
                     'products' => $products->map(fn (Product $p) => $this->transformProduct($p, false)),
                     'categories' => $usedCategories,
+                    'grade_levels' => $gradeOptions,
                 ],
             ]);
         } catch (\Exception $e) {
@@ -136,10 +167,14 @@ class ProductController extends Controller
         return [
             'id' => $product->id,
             'uuid' => $product->uuid,
+            'hub' => $product->hub ?? StationeryHub::KIDZ_MART,
             'name' => $product->name,
             'description' => $product->description,
             'price' => $product->price !== null ? (float) $product->price : 0,
             'category' => $product->category,
+            'grade_levels' => $product->grade_levels ?? [],
+            'delivery_days' => (int) ($product->delivery_days ?? 3),
+            'quality_grade' => $product->quality_grade,
             'image_url' => $mainImage,
             'images' => $images,
             // For now keep a single "size" field (app uses it), but also provide sizes list
@@ -157,6 +192,7 @@ class ProductController extends Controller
                 'shop_number' => $product->business->shop_number,
                 'website_link' => $product->business->website_link,
                 'social_media_handles' => $product->business->social_media_handles,
+                'stationery_verified' => $product->business->stationery_verified_at !== null,
             ] : null,
         ];
     }

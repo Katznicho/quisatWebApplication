@@ -2,12 +2,17 @@
 
 @section('content')
 <div class="container mx-auto px-4 py-8">
+    @include('marketplace._hub-tabs', ['availableHubs' => $availableHubs ?? [], 'hub' => $hub ?? 'kidz_mart'])
+
     <div class="mb-6 flex justify-between items-center">
         <div>
-            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Kids Mart Products</h1>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{{ $hubLabel ?? 'Kids Mart' }} Products</h1>
             <p class="mt-2 text-gray-600 dark:text-gray-400">Manage your products and inventory</p>
+            @if (($lowStockCount ?? 0) > 0)
+                <p class="mt-1 text-sm text-amber-700">{{ $lowStockCount }} product(s) at or below low-stock threshold</p>
+            @endif
         </div>
-        <a href="{{ route('products.create') }}" 
+        <a href="{{ route('products.create', ['hub' => $hub ?? 'kidz_mart']) }}"
            class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
             <i class="fas fa-plus mr-2"></i>Add New Product
         </a>
@@ -59,7 +64,12 @@
                             {{ $product->business->currency_code ?? 'UGX' }} {{ number_format($product->price, 0) }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="text-sm text-gray-900">{{ $product->stock_quantity }}</span>
+                            <span class="text-sm text-gray-900 {{ $product->isLowStock() ? 'text-amber-700 font-semibold' : '' }}">{{ $product->stock_quantity }}</span>
+                            @if ($product->isLowStock())
+                                <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                                    Low stock
+                                </span>
+                            @endif
                             @if($product->is_available)
                                 <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                     Available
@@ -113,7 +123,7 @@
                 @empty
                     <tr>
                         <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">
-                            No products found. <a href="{{ route('products.create') }}" class="text-blue-600 hover:text-blue-900">Create your first product</a>
+                            No products found. <a href="{{ route('products.create', ['hub' => $hub ?? 'kidz_mart']) }}" class="text-blue-600 hover:text-blue-900">Create your first product</a>
                         </td>
                     </tr>
                 @endforelse

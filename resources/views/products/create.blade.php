@@ -4,12 +4,13 @@
 <div class="container mx-auto px-4 py-8">
     <div class="mb-6">
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Create New Product</h1>
-        <p class="mt-2 text-gray-600 dark:text-gray-400">Add a new product to your Kids Mart</p>
+        <p class="mt-2 text-gray-600 dark:text-gray-400">Add a new product to {{ $hubLabel ?? 'Kids Mart' }}</p>
     </div>
 
     <div class="bg-white rounded-lg shadow p-6">
         <form action="{{ route('products.store') }}" method="POST" enctype="multipart/form-data">
             @csrf
+            <input type="hidden" name="hub" value="{{ $hub ?? 'kidz_mart' }}">
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Name -->
@@ -100,6 +101,13 @@
                     @enderror
                 </div>
 
+                @include('products._stationery-fields', [
+                    'isStationery' => $isStationery ?? false,
+                    'gradeOptions' => $gradeOptions ?? [],
+                    'qualityOptions' => $qualityOptions ?? [],
+                    'product' => new \App\Models\Product(),
+                ])
+
                 <!-- Sizes -->
                 <div>
                     <label for="sizes" class="block text-sm font-medium text-gray-700 mb-2">
@@ -186,7 +194,7 @@
             </div>
 
             <div class="mt-6 flex justify-end space-x-3">
-                <a href="{{ route('products.index') }}" 
+                <a href="{{ route('products.index', ['hub' => $hub ?? 'kidz_mart']) }}"
                    class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
                     Cancel
                 </a>

@@ -29,6 +29,8 @@ class Business extends Model
         'total_balance',
         'withdrawal_pin',
         'use_custom_withdrawal_tiers',
+        'accepting_stationery_orders',
+        'stationery_verified_at',
         'mode',
         'date',
         'country',
@@ -52,6 +54,8 @@ class Business extends Model
         'held_balance' => 'decimal:2',
         'total_balance' => 'decimal:2',
         'use_custom_withdrawal_tiers' => 'boolean',
+        'accepting_stationery_orders' => 'boolean',
+        'stationery_verified_at' => 'datetime',
     ];
 
     protected $hidden = [
@@ -119,6 +123,11 @@ class Business extends Model
     public function hasWithdrawalPin(): bool
     {
         return ! empty($this->withdrawal_pin);
+    }
+
+    public function isStationeryVerified(): bool
+    {
+        return $this->stationery_verified_at !== null;
     }
 
     
