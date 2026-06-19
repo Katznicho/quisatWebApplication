@@ -28,7 +28,9 @@ class ProductController extends Controller
                 ->where(function (Builder $q) {
                     $q->whereNull('status')->orWhere('status', 'active');
                 })
-                ->where('is_available', true);
+                ->where(function (Builder $q) {
+                    $q->where('is_available', true)->orWhereNull('is_available');
+                });
 
             if ($hub === StationeryHub::HUB) {
                 $query->whereHas('business', function (Builder $q) {

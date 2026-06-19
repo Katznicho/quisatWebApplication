@@ -285,6 +285,34 @@
                 </div>
             </div>
 
+            @if($business->hasFeatureByName('StationeryHub'))
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                    </svg>
+                    Stationery Hub
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-sm font-medium text-gray-500">Vendor verification</label>
+                        <p class="mt-1">
+                            @if($business->isStationeryVerified())
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">Verified — products visible in the app</span>
+                            @else
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-800">Pending super-admin verification</span>
+                            @endif
+                        </p>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-500">Accepting orders</label>
+                        <p class="text-gray-900 mt-1">{{ ($business->accepting_stationery_orders ?? true) ? 'Yes' : 'Paused' }}</p>
+                    </div>
+                </div>
+                <p class="mt-4 text-sm text-gray-600">Manage stationery products from <a href="{{ route('products.index', ['hub' => 'stationery_hub']) }}" class="text-blue-600 hover:text-blue-800 font-medium">Marketplace → Products</a>.</p>
+            </div>
+            @endif
+
             <!-- Account Information -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">

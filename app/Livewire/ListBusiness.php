@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\Business;
 use App\Models\BusinessCategory;
 use App\Models\Country;
+use App\Support\StationeryHub;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Tables;
@@ -168,6 +169,24 @@ class ListBusiness extends Component implements HasForms, HasTable
                     ->wrap()
                     ->searchable(false)
                     ->sortable(false),
+                Tables\Columns\TextColumn::make('stationery_verified_at')
+                    ->label('Stationery')
+                    ->badge()
+                    ->visible(fn (): bool => Auth::user()->business_id === 1)
+                    ->formatStateUsing(function ($state, Business $record): string {
+                        if (! $record->hasFeatureByName(StationeryHub::featureName())) {
+                            return 'N/A';
+                        }
+
+                        return $record->isStationeryVerified() ? 'Verified' : 'Pending';
+                    })
+                    ->color(function ($state, Business $record): string {
+                        if (! $record->hasFeatureByName(StationeryHub::featureName())) {
+                            return 'gray';
+                        }
+
+                        return $record->isStationeryVerified() ? 'success' : 'warning';
+                    }),
             ])
             ->filters([
                 ...(Auth::check() && Auth::user()->business_id === 1 ? [
@@ -323,6 +342,7 @@ class ListBusiness extends Component implements HasForms, HasTable
                             'website_link' => $record->website_link ?? '',
                             'business_category_id' => $record->business_category_id,
                             'enabled_feature_ids' => $record->enabled_feature_ids ?? [],
+                            'accepting_stationery_orders' => (bool) ($record->accepting_stationery_orders ?? true),
                             'social_facebook' => $socialHandles['facebook'] ?? null,
                             'social_instagram' => $socialHandles['instagram'] ?? null,
                             'social_twitter' => $socialHandles['twitter'] ?? null,
@@ -388,6 +408,14 @@ class ListBusiness extends Component implements HasForms, HasTable
                                 return \App\Models\Feature::whereIn('id', $category?->feature_ids ?? [])->pluck('name', 'id');
                             })
                             ->reactive(),
+                        \Filament\Forms\Components\Toggle::make('accepting_stationery_orders')
+                            ->label('Accepting Stationery Hub orders')
+                            ->visible(function (\Filament\Forms\Get $get): bool {
+                                $featureIds = array_map('intval', $get('enabled_feature_ids') ?? []);
+                                $stationeryId = \App\Models\Feature::where('name', StationeryHub::featureName())->value('id');
+
+                                return $stationeryId && in_array((int) $stationeryId, $featureIds, true);
+                            }),
                     ])
                     ->mutateFormDataUsing(function (array $data): array {
                         $data = self::ensureEnabledFeaturesInFormData($data);
@@ -423,6 +451,27 @@ class ListBusiness extends Component implements HasForms, HasTable
                         return $data;
                     })
                     ->visible(fn (Business $record): bool => Auth::user()->business_id === 1 || $record->id === Auth::user()->business_id),
+                Tables\Actions\Action::make('toggle_stationery_verification')
+                    ->label(fn (Business $record): string => $record->isStationeryVerified()
+                        ? 'Revoke stationery verification'
+                        : 'Verify stationery vendor')
+                    ->icon('heroicon-o-check-badge')
+                    ->color(fn (Business $record): string => $record->isStationeryVerified() ? 'danger' : 'success')
+                    ->visible(fn (Business $record): bool => Auth::user()->business_id === 1
+                        && $record->hasFeatureByName(StationeryHub::featureName()))
+                    ->requiresConfirmation()
+                    ->action(function (Business $record): void {
+                        $record->update([
+                            'stationery_verified_at' => $record->isStationeryVerified() ? null : now(),
+                        ]);
+
+                        Notification::make()
+                            ->title($record->fresh()->isStationeryVerified()
+                                ? 'Stationery vendor verified'
+                                : 'Stationery verification revoked')
+                            ->success()
+                            ->send();
+                    }),
                 Tables\Actions\DeleteAction::make()
                     ->visible(fn (Business $record): bool => Auth::user()->business_id === 1),
 

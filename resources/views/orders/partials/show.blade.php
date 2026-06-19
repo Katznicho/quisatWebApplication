@@ -11,6 +11,12 @@
         <div>
             <p class="font-semibold text-gray-900 dark:text-white">Order details</p>
             <p>Status: <span class="font-medium">{{ ucfirst($order->status) }}</span></p>
+            @if (($order->hub ?? 'kidz_mart') === 'stationery_hub')
+                <p>Marketplace: <span class="font-medium">Stationery Hub</span></p>
+                <p>Fulfillment: <span class="font-medium">{{ \App\Support\StationeryHub::fulfillmentStatuses()[$order->fulfillment_status ?? 'new'] ?? ucfirst($order->fulfillment_status ?? 'new') }}</span></p>
+            @else
+                <p>Marketplace: <span class="font-medium">Kids Mart</span></p>
+            @endif
             <p>Payment: {{ ucfirst(str_replace('_', ' ', $order->payment_method ?? 'cash')) }} ({{ ucfirst($order->payment_status ?? 'pending') }})</p>
             <p>Total: UGX {{ number_format((float) ($order->total_amount ?? $order->total ?? 0)) }}</p>
             @if ($order->business)

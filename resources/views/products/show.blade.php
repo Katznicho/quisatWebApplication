@@ -67,6 +67,29 @@
                     </div>
                     @endif
 
+                    @if($product->isStationery())
+                    <div>
+                        <label class="text-sm font-medium text-gray-500">Delivery</label>
+                        <p class="text-gray-900">{{ (int) ($product->delivery_days ?? 3) }} day(s)</p>
+                    </div>
+                    @if($product->quality_grade)
+                    <div>
+                        <label class="text-sm font-medium text-gray-500">Quality</label>
+                        <p class="text-gray-900">{{ \App\Support\StationeryHub::qualityOptions()[$product->quality_grade] ?? ucfirst($product->quality_grade) }}</p>
+                    </div>
+                    @endif
+                    @if(is_array($product->grade_levels) && count($product->grade_levels) > 0)
+                    <div>
+                        <label class="text-sm font-medium text-gray-500">Grade levels</label>
+                        <div class="flex flex-wrap gap-2 mt-1">
+                            @foreach($product->grade_levels as $grade)
+                                <span class="px-3 py-1 bg-indigo-50 text-indigo-800 rounded-full text-sm">{{ \App\Support\StationeryHub::gradeLabel($grade) }}</span>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+                    @endif
+
                     @if(is_array($product->sizes) && count($product->sizes) > 0)
                     <div>
                         <label class="text-sm font-medium text-gray-500">Sizes</label>
