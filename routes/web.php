@@ -2,6 +2,7 @@
 
 
 use App\Http\Controllers\BusinessController;
+use App\Http\Controllers\BusinessCategoryController;
 use App\Http\Controllers\BusinessRegistrationController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\SupportController;
@@ -11,7 +12,7 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\FeatureController;
 use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\CountryController;
-use App\Http\Controllers\BusinessCategoryController;
+use App\Http\Controllers\DocumentTypeController;
 use App\Http\Controllers\ProgramController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\AdminManagementController;
@@ -84,6 +85,7 @@ Route::redirect('/', 'login');
 // Business Registration Routes (Public)
 Route::get('/business/register', [BusinessRegistrationController::class, 'showRegistrationForm'])->name('business.register');
 Route::post('/business/register', [BusinessRegistrationController::class, 'register']);
+Route::get('/business/register/categories/{categoryId}/documents', [BusinessRegistrationController::class, 'categoryDocuments'])->name('business.register.category-documents');
 Route::get('/business/registration/success', [BusinessRegistrationController::class, 'registrationSuccess'])->name('business.registration.success');
 Route::post('/business/resend-verification', [BusinessRegistrationController::class, 'resendVerification'])->name('business.resend.verification');
 
@@ -116,6 +118,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::resource('currency', CurrencyController::class);
         Route::resource('countries', CountryController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::resource('business-categories', BusinessCategoryController::class);
+        Route::get('document-types', [DocumentTypeController::class, 'index'])->name('document-types.index');
+        Route::get('marzpay/settings', [\App\Http\Controllers\MarzPaySettingsController::class, 'edit'])->name('marzpay.settings.edit');
+        Route::put('marzpay/settings', [\App\Http\Controllers\MarzPaySettingsController::class, 'update'])->name('marzpay.settings.update');
+        Route::get('marzpay/transactions', [\App\Http\Controllers\MarzPayTransactionController::class, 'index'])->name('marzpay.transactions.index');
     });
     
     // Advertisement routes

@@ -8,6 +8,7 @@ use App\Models\ProgramEvent;
 use App\Models\Currency;
 use App\Models\EventAttendee;
 use App\Models\Payment;
+use App\Services\MarzPayCheckoutService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -425,11 +426,35 @@ class ProgramController extends Controller
                 'attendee_id' => $attendee->id,
             ]);
 
+            $attendee->load('programEvent');
+            $checkout = app(MarzPayCheckoutService::class);
+            $paymentResult = $checkout->maybeInitiate(
+                $attendee,
+                $request->payment_method
+            );
+            $paymentMeta = $checkout->registrationPaymentMeta(
+                $paymentResult,
+                $request->payment_method,
+                'Child registered. Complete payment on your phone or card checkout to confirm.',
+                'Child registered successfully!'
+            );
+
             if ($request->expectsJson()) {
-                return response()->json(['success' => true, 'message' => 'Child registered successfully!']);
+                return response()->json([
+                    'success' => true,
+                    'message' => $paymentMeta['message'],
+                    'payment_initiated' => $paymentMeta['payment_initiated'],
+                    'payment_error' => $paymentMeta['payment_error'],
+                    'payment' => $paymentMeta['payment'],
+                ]);
             }
 
-            return redirect()->back()->with('success', 'Child registered successfully!');
+            if ($paymentMeta['payment_error']) {
+                return redirect()->back()
+                    ->with('warning', $paymentMeta['message'].' '.$paymentMeta['payment_error']);
+            }
+
+            return redirect()->back()->with('success', $paymentMeta['message']);
         } catch (\Illuminate\Validation\ValidationException $e) {
             $errorMsg = 'Validation failed: ' . implode(', ', $e->errors() ? array_merge(...array_values($e->errors())) : [$e->getMessage()]);
             Log::error('storeAttendee - Validation error', [

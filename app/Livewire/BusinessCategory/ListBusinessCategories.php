@@ -3,13 +3,16 @@
 namespace App\Livewire\BusinessCategory;
 
 use App\Models\BusinessCategory;
+use App\Models\DocumentType;
 use App\Models\Feature;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
-use Filament\Forms\Components\MultiSelect;
+use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Tables;
 use Filament\Tables\Concerns\InteractsWithTable;
@@ -39,7 +42,7 @@ class ListBusinessCategories extends Component implements HasForms, HasTable
     public function table(Table $table): Table
     {
         return $table
-            ->query(BusinessCategory::query())
+            ->query(BusinessCategory::query()->with('documentTypes'))
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->searchable(),
@@ -113,6 +116,12 @@ class ListBusinessCategories extends Component implements HasForms, HasTable
                     ->wrap()
                     ->searchable(false)
                     ->sortable(false),
+                Tables\Columns\TextColumn::make('documentTypes.name')
+                    ->label('Documents')
+                    ->badge()
+                    ->limitList(3)
+                    ->listWithLineBreaks()
+                    ->default('—'),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -139,6 +148,15 @@ class ListBusinessCategories extends Component implements HasForms, HasTable
                     ]),
                 EditAction::make()
                     ->modalHeading('Edit Business Category')
+                    ->fillForm(fn (BusinessCategory $record): array => [
+                        'name' => $record->name,
+                        'description' => $record->description,
+                        'feature_ids' => $record->feature_ids,
+                        'attached_documents' => $record->documentTypes->map(fn (DocumentType $documentType) => [
+                            'document_type_id' => (string) $documentType->id,
+                            'is_required' => (bool) $documentType->pivot->is_required,
+                        ])->values()->toArray(),
+                    ])
                     ->form([
                         TextInput::make('name')
                             ->required()
@@ -149,8 +167,36 @@ class ListBusinessCategories extends Component implements HasForms, HasTable
                         CheckboxList::make('feature_ids')
                             ->label('Features')
                             ->options(Feature::pluck('name', 'id')),
+                        Repeater::make('attached_documents')
+                            ->label('Required onboarding documents')
+                            ->schema([
+                                Select::make('document_type_id')
+                                    ->label('Document type')
+                                    ->options(DocumentType::active()->ordered()->pluck('name', 'id'))
+                                    ->searchable()
+                                    ->required()
+                                    ->disableOptionsWhenSelectedInSiblingRepeaterItems(),
+                                Toggle::make('is_required')
+                                    ->label('Required for this category')
+                                    ->default(true),
+                            ])
+                            ->defaultItems(0)
+                            ->columnSpanFull(),
                     ])
-                    ->successNotificationTitle('Business Category updated successfully.'),
+                    ->action(function (BusinessCategory $record, array $data): void {
+                        $record->update([
+                            'name' => $data['name'],
+                            'description' => $data['description'] ?? null,
+                            'feature_ids' => $data['feature_ids'] ?? [],
+                        ]);
+
+                        $this->syncCategoryDocuments($record, $data['attached_documents'] ?? []);
+
+                        Notification::make()
+                            ->title('Business Category updated successfully.')
+                            ->success()
+                            ->send();
+                    }),
                 DeleteAction::make()
                     ->modalHeading('Delete Business Category')
                     ->successNotificationTitle('Business Category deleted successfully (soft).'),
@@ -176,15 +222,59 @@ class ListBusinessCategories extends Component implements HasForms, HasTable
                         CheckboxList::make('feature_ids')
                             ->label('Features')
                             ->options(Feature::pluck('name', 'id')),
+                        Repeater::make('attached_documents')
+                            ->label('Required onboarding documents')
+                            ->schema([
+                                Select::make('document_type_id')
+                                    ->label('Document type')
+                                    ->options(DocumentType::active()->ordered()->pluck('name', 'id'))
+                                    ->searchable()
+                                    ->required()
+                                    ->disableOptionsWhenSelectedInSiblingRepeaterItems(),
+                                Toggle::make('is_required')
+                                    ->label('Required for this category')
+                                    ->default(true),
+                            ])
+                            ->defaultItems(0)
+                            ->columnSpanFull(),
                     ])
                     ->createAnother(false)
-                    ->after(function (BusinessCategory $record) {
+                    ->using(function (array $data): BusinessCategory {
+                        $record = BusinessCategory::create([
+                            'name' => $data['name'],
+                            'description' => $data['description'] ?? null,
+                            'feature_ids' => $data['feature_ids'] ?? [],
+                        ]);
+
+                        $this->syncCategoryDocuments($record, $data['attached_documents'] ?? []);
+
+                        return $record;
+                    })
+                    ->after(function () {
                         Notification::make()
                             ->title('Business Category created successfully.')
                             ->success()
                             ->send();
                     }),
             ]);
+    }
+
+    protected function syncCategoryDocuments(BusinessCategory $category, array $attachedDocuments): void
+    {
+        $sync = [];
+
+        foreach ($attachedDocuments as $index => $item) {
+            if (empty($item['document_type_id'])) {
+                continue;
+            }
+
+            $sync[(int) $item['document_type_id']] = [
+                'is_required' => ! empty($item['is_required']),
+                'sort_order' => $index + 1,
+            ];
+        }
+
+        $category->documentTypes()->sync($sync);
     }
 
     public function render(): View

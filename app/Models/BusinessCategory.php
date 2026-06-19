@@ -31,6 +31,26 @@ class BusinessCategory extends Model
         return $this->hasMany(Business::class);
     }
 
+    public function documentTypes()
+    {
+        return $this->belongsToMany(DocumentType::class, 'business_category_document_type')
+            ->withPivot(['is_required', 'sort_order'])
+            ->withTimestamps()
+            ->orderByPivot('sort_order')
+            ->orderBy('document_types.name');
+    }
+
+    public function requiredDocumentTypesForAccount(string $accountType = 'business')
+    {
+        return $this->documentTypes()
+            ->where('document_types.is_active', true)
+            ->where(function ($query) use ($accountType) {
+                $query->where('document_types.account_type', $accountType)
+                    ->orWhere('document_types.account_type', 'both');
+            })
+            ->get();
+    }
+
     protected static function booted()
     {
         static::creating(function ($category) {

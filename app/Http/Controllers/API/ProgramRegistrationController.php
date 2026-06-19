@@ -116,16 +116,23 @@ class ProgramRegistrationController extends Controller
             ]);
 
             $attendee->load('programEvent');
-            $paymentResult = app(MarzPayCheckoutService::class)->maybeInitiate(
+            $checkout = app(MarzPayCheckoutService::class);
+            $paymentResult = $checkout->maybeInitiate(
                 $attendee,
                 $request->payment_method
+            );
+            $paymentMeta = $checkout->registrationPaymentMeta(
+                $paymentResult,
+                $request->payment_method,
+                'Child registered. Complete payment to confirm.',
+                'Child registered successfully!'
             );
 
             return response()->json([
                 'success' => true,
-                'message' => $paymentResult && ($paymentResult['success'] ?? false)
-                    ? 'Child registered. Complete payment to confirm.'
-                    : 'Child registered successfully!',
+                'message' => $paymentMeta['message'],
+                'payment_initiated' => $paymentMeta['payment_initiated'],
+                'payment_error' => $paymentMeta['payment_error'],
                 'data' => [
                     'attendee' => [
                         'id' => $attendee->id,
@@ -133,7 +140,7 @@ class ProgramRegistrationController extends Controller
                         'child_name' => $attendee->child_name,
                         'status' => $attendee->status,
                     ],
-                    'payment' => $paymentResult['data'] ?? null,
+                    'payment' => $paymentMeta['payment'],
                 ],
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {

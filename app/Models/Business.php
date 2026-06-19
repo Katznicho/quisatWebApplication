@@ -78,6 +78,11 @@ class Business extends Model
         return $this->belongsTo(BusinessCategory::class);
     }
 
+    public function registrationDocuments()
+    {
+        return $this->hasMany(BusinessRegistrationDocument::class);
+    }
+
     public function countryRef()
     {
         return $this->belongsTo(Country::class, 'country_id');

@@ -41,14 +41,22 @@ class MarzPayPaymentController extends Controller
 
         $amount = $resolver->amountFor($payable);
 
-        if ($amount < 500) {
+        if ($amount < 1) {
             return response()->json([
                 'success' => false,
-                'message' => 'This payment does not require online collection or is below the minimum amount (500 UGX).',
+                'message' => 'This payment does not require online collection.',
             ], 422);
         }
 
         $method = $marzPay->mapPaymentMethod($validated['payment_method']);
+        $charge = \App\Models\MarzPaySetting::current()->calculateCharge($amount, $method);
+
+        if ($charge['total_amount'] < 500) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Total payable amount must be at least 500 UGX after charges.',
+            ], 422);
+        }
         $phone = $validated['phone_number'] ?? $resolver->phoneFor($payable);
 
         if ($method === 'mobile_money' && ! $phone) {
@@ -134,6 +142,8 @@ class MarzPayPaymentController extends Controller
         return [
             'reference' => $collection->reference,
             'status' => $collection->status,
+            'base_amount' => $collection->base_amount,
+            'platform_charge' => $collection->platform_charge,
             'amount' => $collection->amount,
             'currency' => $collection->currency,
             'method' => $collection->method,

@@ -103,7 +103,41 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script type="text/javascript">
     window.addEventListener('load', function() {
-        // Initialize any global JavaScript here
+        @if (Session::has('success'))
+            Swal.fire({
+                icon: 'success',
+                title: 'Success',
+                text: @json(Session::get('success')),
+                confirmButtonColor: '#2563eb',
+            });
+        @endif
+
+        @if (Session::has('warning'))
+            Swal.fire({
+                icon: 'warning',
+                title: 'Attention',
+                text: @json(Session::get('warning')),
+                confirmButtonColor: '#2563eb',
+            });
+        @endif
+
+        @if (Session::has('error'))
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: @json(Session::get('error')),
+                confirmButtonColor: '#2563eb',
+            });
+        @endif
+
+        @if (isset($errors) && $errors->any())
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: @json($errors->first()),
+                confirmButtonColor: '#2563eb',
+            });
+        @endif
     });
 </script>
 

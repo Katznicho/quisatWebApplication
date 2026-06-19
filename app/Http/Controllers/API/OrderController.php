@@ -121,6 +121,8 @@ class OrderController extends Controller
 
                 $payment = null;
                 $paymentMessage = null;
+                $paymentError = null;
+                $paymentInitiated = false;
 
                 /** @var MarzPayCheckoutService $checkout */
                 $checkout = app(MarzPayCheckoutService::class);
@@ -129,12 +131,14 @@ class OrderController extends Controller
                 if ($paymentResult) {
                     if ($paymentResult['success']) {
                         $payment = $paymentResult['data'];
+                        $paymentInitiated = true;
                         $paymentMessage = $paymentMethod === 'card'
                             ? 'Complete your card payment using the link provided.'
                             : 'Approve the mobile money prompt on your phone to complete payment.';
                     } else {
                         $order->update(['payment_status' => 'failed']);
-                        $paymentMessage = $paymentResult['message'] ?? 'Payment could not be started.';
+                        $paymentError = $paymentResult['message'] ?? 'Payment could not be started.';
+                        $paymentMessage = $paymentError;
                     }
                 }
 
@@ -142,7 +146,9 @@ class OrderController extends Controller
                     'success' => true,
                     'message' => $payment
                         ? 'Order created. '.$paymentMessage
-                        : 'Order placed successfully',
+                        : ($paymentError ? 'Order created, but online payment could not be started.' : 'Order placed successfully'),
+                    'payment_initiated' => $paymentInitiated,
+                    'payment_error' => $paymentError,
                     'data' => [
                         'order' => [
                             'id' => $order->id,

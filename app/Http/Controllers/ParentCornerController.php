@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\AuthorizesBusinessResource;
 use App\Models\ParentCorner;
+use App\Services\MarzPayCheckoutService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -240,8 +241,23 @@ class ParentCornerController extends Controller
             
             // Increment current participants
             $parentCorner->increment('current_participants');
-            
-            return redirect()->back()->with('success', 'Parent registered successfully!');
+
+            $registration->load('parentCorner');
+            $checkout = app(MarzPayCheckoutService::class);
+            $paymentResult = $checkout->maybeInitiate($registration, $validated['payment_method']);
+            $paymentMeta = $checkout->registrationPaymentMeta(
+                $paymentResult,
+                $validated['payment_method'],
+                'Parent registered. Complete payment on your phone or card checkout to confirm.',
+                'Parent registered successfully!'
+            );
+
+            if ($paymentMeta['payment_error']) {
+                return redirect()->back()
+                    ->with('warning', $paymentMeta['message'].' '.$paymentMeta['payment_error']);
+            }
+
+            return redirect()->back()->with('success', $paymentMeta['message']);
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Error registering parent: ' . $e->getMessage());
             return redirect()->back()->with('error', 'Failed to register parent. Please try again.')->withInput();

@@ -82,16 +82,23 @@ class ParentCornerRegistrationController extends Controller
             $event->increment('current_participants');
 
             $registration->load('parentCorner');
-            $paymentResult = app(MarzPayCheckoutService::class)->maybeInitiate(
+            $checkout = app(MarzPayCheckoutService::class);
+            $paymentResult = $checkout->maybeInitiate(
                 $registration,
                 $request->payment_method
+            );
+            $paymentMeta = $checkout->registrationPaymentMeta(
+                $paymentResult,
+                $request->payment_method,
+                'Parent registered. Complete payment to confirm.',
+                'Parent registered successfully!'
             );
 
             return response()->json([
                 'success' => true,
-                'message' => $paymentResult && ($paymentResult['success'] ?? false)
-                    ? 'Parent registered. Complete payment to confirm.'
-                    : 'Parent registered successfully!',
+                'message' => $paymentMeta['message'],
+                'payment_initiated' => $paymentMeta['payment_initiated'],
+                'payment_error' => $paymentMeta['payment_error'],
                 'data' => [
                     'registration' => [
                         'id' => $registration->id,
@@ -101,7 +108,7 @@ class ParentCornerRegistrationController extends Controller
                         'payment_status' => $registration->payment_status,
                         'created_at' => $registration->created_at,
                     ],
-                    'payment' => $paymentResult['data'] ?? null,
+                    'payment' => $paymentMeta['payment'],
                 ],
             ], 201);
         } catch (\Exception $e) {

@@ -556,6 +556,9 @@
                                         class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Business
                                         Categories</a>
                                 </li>
+                                <li><a href="{{ route('document-types.index') }}"
+                                        class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Document Types</a>
+                                </li>
                                 <li><a href="{{ route('features.index') }}"
                                         class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Features</a>
                                 </li>
@@ -569,6 +572,12 @@
                                 </li>
                                 <li><a href="{{ route('roles.index') }}"
                                         class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Roles</a>
+                                </li>
+                                <li><a href="{{ route('marzpay.settings.edit') }}"
+                                        class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">MarzPay Settings</a>
+                                </li>
+                                <li><a href="{{ route('marzpay.transactions.index') }}"
+                                        class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Mobile Money Transactions</a>
                                 </li>
                             </ul>
                         </li>

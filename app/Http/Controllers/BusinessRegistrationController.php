@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Role;
 use App\Models\Branch;
 use App\Models\BusinessCategory;
+use App\Models\BusinessRegistrationDocument;
 use App\Models\Country;
 use App\Mail\BusinessWelcomeEmail;
 use App\Mail\BusinessAdminWelcomeEmail;
@@ -32,6 +33,22 @@ class BusinessRegistrationController extends Controller
             ->get();
 
         return view('businesses.register', compact('businessCategories', 'countries'));
+    }
+
+    public function categoryDocuments($categoryId)
+    {
+        $category = BusinessCategory::findOrFail($categoryId);
+
+        $documents = $category->requiredDocumentTypesForAccount('business')->map(function ($documentType) {
+            return [
+                'id' => $documentType->id,
+                'name' => $documentType->name,
+                'description' => $documentType->description,
+                'is_required' => (bool) $documentType->pivot->is_required,
+            ];
+        })->values();
+
+        return response()->json(['documents' => $documents]);
     }
 
     public function register(Request $request)
@@ -70,6 +87,18 @@ class BusinessRegistrationController extends Controller
             'admin_password' => 'required|string|min:8|confirmed',
             'admin_phone' => 'required|string|max:20',
         ]);
+
+        $category = BusinessCategory::with(['documentTypes' => fn ($query) => $query->where('document_types.is_active', true)])
+            ->find($request->business_category_id);
+
+        if ($category) {
+            foreach ($category->requiredDocumentTypesForAccount('business') as $documentType) {
+                $rule = ((bool) $documentType->pivot->is_required) ? 'required' : 'nullable';
+                $validator->addRules([
+                    "documents.{$documentType->id}" => "{$rule}|file|mimes:pdf,jpg,jpeg,png|max:5120",
+                ]);
+            }
+        }
 
         if ($validator->fails()) {
             return redirect()->back()
@@ -168,6 +197,26 @@ class BusinessRegistrationController extends Controller
 
             // Fire the Registered event to trigger email verification
             event(new Registered($adminUser));
+
+            if ($category) {
+                foreach ($category->requiredDocumentTypesForAccount('business') as $documentType) {
+                    $uploadedFile = $request->file("documents.{$documentType->id}");
+
+                    if (! $uploadedFile) {
+                        continue;
+                    }
+
+                    $storedPath = $uploadedFile->store('business_registration_documents', 'public');
+
+                    BusinessRegistrationDocument::create([
+                        'business_id' => $business->id,
+                        'document_type_id' => $documentType->id,
+                        'file_path' => $storedPath,
+                        'original_filename' => $uploadedFile->getClientOriginalName(),
+                        'mime_type' => $uploadedFile->getClientMimeType(),
+                    ]);
+                }
+            }
 
             DB::commit();
 

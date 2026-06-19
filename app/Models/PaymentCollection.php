@@ -12,6 +12,8 @@ class PaymentCollection extends Model
         'reference',
         'payable_type',
         'payable_id',
+        'base_amount',
+        'platform_charge',
         'amount',
         'currency',
         'method',
@@ -30,6 +32,8 @@ class PaymentCollection extends Model
 
     protected $casts = [
         'amount' => 'integer',
+        'base_amount' => 'integer',
+        'platform_charge' => 'integer',
         'request_payload' => 'array',
         'callback_payload' => 'array',
         'completed_at' => 'datetime',

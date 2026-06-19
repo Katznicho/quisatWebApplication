@@ -104,7 +104,7 @@ class EventAttendee extends Model
 
     public function marzPayDescription(): string
     {
-        return 'Program registration: '.($this->programEvent?->title ?? 'Event');
+        return 'Program registration: '.($this->programEvent?->name ?? 'Event');
     }
 
     public function marzPayPhoneNumber(): ?string
@@ -114,17 +114,19 @@ class EventAttendee extends Model
 
     public function markMarzPayCompleted(\App\Models\PaymentCollection $collection): void
     {
+        $paidAmount = (float) ($collection->base_amount ?? $collection->amount);
+
         Payment::create([
             'event_attendee_id' => $this->id,
-            'amount' => $collection->amount,
-            'payment_method' => 'mtn_mobile_money',
+            'amount' => $paidAmount,
+            'payment_method' => $this->payment_method ?: 'mtn_mobile_money',
             'payment_reference' => $collection->reference,
-            'notes' => 'MarzPay '.$collection->provider,
+            'notes' => 'MarzPay '.($collection->provider ?: 'online payment'),
             'payment_date' => now(),
         ]);
 
         $this->update([
-            'amount_paid' => (float) $this->amount_paid + $collection->amount,
+            'amount_paid' => (float) $this->amount_paid + $paidAmount,
             'status' => $this->fresh()->is_payment_complete ? 'confirmed' : $this->status,
         ]);
     }

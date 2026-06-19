@@ -46,18 +46,6 @@
                 </div>
             </div>
 
-            @if (session('success'))
-                <div x-data="{ show: true }" x-show="show"
-                    class="relative bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4 transition"
-                    role="alert">
-                    <span class="block sm:inline">{{ session('success') }}</span>
-                    <button @click="show = false"
-                        class="absolute top-1 right-2 text-xl font-semibold text-green-700">
-                        &times;
-                    </button>
-                </div>
-            @endif
-
             <!-- Events Section -->
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 mb-6">
                 <div class="flex justify-between items-center mb-6">
@@ -504,11 +492,12 @@
                                 <select name="payment_method" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                                     <option value="">Select Payment Method</option>
                                     <option value="cash">Cash</option>
-                                    <option value="card" disabled>Card (Coming Soon)</option>
-                                    <option value="bank_transfer" disabled>Bank Transfer (Coming Soon)</option>
-                                    <option value="airtel_money" disabled>Airtel Money (Coming Soon)</option>
-                                    <option value="mtn_mobile_money" disabled>MTN Mobile Money (Coming Soon)</option>
+                                    <option value="card">Card</option>
+                                    <option value="airtel_money">Airtel Money</option>
+                                    <option value="mtn_mobile_money">MTN Mobile Money</option>
+                                    <option value="bank_transfer">Bank Transfer</option>
                                 </select>
+                                <p class="mt-1 text-xs text-gray-500">Mobile money and card payments are processed via MarzPay. Approve the prompt on your phone to complete payment.</p>
                             </div>
                         </div>
                         
@@ -591,6 +580,21 @@
     </div>
 
     <script>
+        function showSwal({ icon, title, html, text, reload = false }) {
+            return Swal.fire({
+                icon,
+                title,
+                html,
+                text,
+                confirmButtonColor: '#2563eb',
+                confirmButtonText: 'OK',
+            }).then(() => {
+                if (reload) {
+                    window.location.reload();
+                }
+            });
+        }
+
         function viewEvent(eventUuid) {
             // Navigate to event detail page or show in modal
             window.location.href = `/programs/events/${eventUuid}`;
@@ -635,16 +639,28 @@
             })
             .then(data => {
                 if (data.success || data.message) {
-                    alert(data.message || 'Event deleted successfully!');
-                    window.location.reload();
+                    showSwal({
+                        icon: 'success',
+                        title: 'Deleted',
+                        text: data.message || 'Event deleted successfully!',
+                        reload: true,
+                    });
                 } else {
-                    alert('Event deleted successfully!');
-                    window.location.reload();
+                    showSwal({
+                        icon: 'success',
+                        title: 'Deleted',
+                        text: 'Event deleted successfully!',
+                        reload: true,
+                    });
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Error: ' + (error.message || 'Failed to delete event. Please try again.'));
+                showSwal({
+                    icon: 'error',
+                    title: 'Delete failed',
+                    text: error.message || 'Failed to delete event. Please try again.',
+                });
             });
         }
 
@@ -661,7 +677,11 @@
             }
             
             if (!selectedEvent) {
-                alert('Please select an event');
+                showSwal({
+                    icon: 'warning',
+                    title: 'Select an event',
+                    text: 'Please choose an event before registering.',
+                });
                 return;
             }
             
@@ -718,35 +738,62 @@
             })
             .then(data => {
                 if (data.success) {
-                    console.error('✅ [WEB REGISTRATION] Success:', data.message);
-                    alert('Success: ' + data.message);
-                    window.location.reload();
-                } else {
-                    const errorMessage = data.message || data.error || 'Unknown error occurred';
-                    if (data.errors && typeof data.errors === 'object') {
-                        const errorArray = Object.values(data.errors).flat();
-                        errorMessage = errorArray.join('\n');
+                    if (data.payment?.redirect_url) {
+                        window.location.href = data.payment.redirect_url;
+                        return;
                     }
-                    console.error('❌ [WEB REGISTRATION] Registration failed:', errorMessage);
-                    console.error('❌ [WEB REGISTRATION] Full response:', JSON.stringify(data, null, 2));
-                    alert('Error: ' + errorMessage);
+
+                    if (data.payment_error) {
+                        showSwal({
+                            icon: 'warning',
+                            title: 'Registration saved',
+                            html: `<p class="mb-2">${data.message}</p><p class="text-sm text-gray-600">${data.payment_error}</p>`,
+                            reload: true,
+                        });
+                        return;
+                    }
+
+                    let html = `<p>${data.message || 'Child registered successfully!'}</p>`;
+
+                    if (data.payment?.reference) {
+                        const total = data.payment.amount
+                            ? ` UGX ${Number(data.payment.amount).toLocaleString()}`
+                            : '';
+                        const charge = data.payment.platform_charge > 0
+                            ? ` (includes UGX ${Number(data.payment.platform_charge).toLocaleString()} service fee)`
+                            : '';
+                        html += `<p class="mt-2 text-sm text-gray-600">A payment prompt${total}${charge} has been sent. Please approve it on your phone to complete registration.</p>`;
+                    }
+
+                    showSwal({
+                        icon: 'success',
+                        title: 'Registration successful',
+                        html,
+                        reload: true,
+                    });
+                    return;
                 }
+
+                let errorMessage = data.message || data.error || 'Unknown error occurred';
+                if (data.errors && typeof data.errors === 'object') {
+                    const errorArray = Object.values(data.errors).flat();
+                    errorMessage = errorArray.join('<br>');
+                }
+
+                showSwal({
+                    icon: 'error',
+                    title: 'Registration failed',
+                    html: errorMessage,
+                });
             })
             .catch(error => {
-                console.error('❌ [WEB REGISTRATION] Exception caught:', error);
-                console.error('❌ [WEB REGISTRATION] Error name:', error.name);
-                console.error('❌ [WEB REGISTRATION] Error message:', error.message);
-                console.error('❌ [WEB REGISTRATION] Error stack:', error.stack);
-                
-                // Always show the exact error message
-                const errorMessage = error.message || 'An error occurred while registering the child. Please check the console for details.';
-                alert('ERROR: ' + errorMessage);
-                
-                // Also log to console for debugging
-                console.error('════════════════════════════════════════');
-                console.error('FULL ERROR DETAILS:');
-                console.error(error);
-                console.error('════════════════════════════════════════');
+                console.error('Registration error:', error);
+
+                showSwal({
+                    icon: 'error',
+                    title: 'Registration failed',
+                    text: error.message || 'An error occurred while registering the child. Please try again.',
+                });
             });
         }
 
@@ -775,7 +822,11 @@
             const formData = new FormData(form);
             
             if (!currentAttendeeUuid) {
-                alert('Please select an attendee');
+                showSwal({
+                    icon: 'warning',
+                    title: 'No attendee selected',
+                    text: 'Please select an attendee first.',
+                });
                 return false;
             }
             
@@ -798,38 +849,38 @@
             })
             .then(data => {
                 if (data.success) {
-                            // Close the payment modal using Alpine.js
-        const alpineElement = document.querySelector('[x-data]');
-        if (alpineElement && alpineElement.__x) {
-            alpineElement.__x.$data.showPaymentModal = false;
-        }
-                    
-                    // Show success message
-                    const successMessage = document.createElement('div');
-                    successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-md shadow-lg z-50';
-                    successMessage.textContent = 'Payment recorded successfully!';
-                    document.body.appendChild(successMessage);
-                    
-                    // Remove success message after 3 seconds
-                    setTimeout(() => {
-                        successMessage.remove();
-                    }, 3000);
-                    
-                            // Update the attendee's payment status in the table
-        updateAttendeePaymentStatus(currentAttendeeUuid, data.new_balance);
-        
-        // Reset the payment form
-        const form = document.getElementById('paymentForm');
-        if (form) {
-            form.reset();
-        }
+                    const alpineElement = document.querySelector('[x-data]');
+                    if (alpineElement && alpineElement.__x) {
+                        alpineElement.__x.$data.showPaymentModal = false;
+                    }
+
+                    showSwal({
+                        icon: 'success',
+                        title: 'Payment recorded',
+                        text: 'Payment recorded successfully!',
+                    });
+
+                    updateAttendeePaymentStatus(currentAttendeeUuid, data.new_balance);
+
+                    const form = document.getElementById('paymentForm');
+                    if (form) {
+                        form.reset();
+                    }
                 } else {
-                    alert('Error: ' + data.message);
+                    showSwal({
+                        icon: 'error',
+                        title: 'Payment failed',
+                        text: data.message || 'Unable to record payment.',
+                    });
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('An error occurred while recording the payment. Please try again.');
+                showSwal({
+                    icon: 'error',
+                    title: 'Payment failed',
+                    text: 'An error occurred while recording the payment. Please try again.',
+                });
             });
             
             return false;

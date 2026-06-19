@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\MarzPaySetting;
 use App\Models\PaymentCollection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -113,6 +114,9 @@ class MarzPayService
             'data' => [
                 'reference' => $collection->reference,
                 'status' => $collection->status,
+                'base_amount' => $collection->base_amount,
+                'platform_charge' => $collection->platform_charge,
+                'amount' => $collection->amount,
                 'redirect_url' => $collection->redirect_url,
                 'transaction_uuid' => $collection->marz_transaction_uuid,
             ],
@@ -121,15 +125,19 @@ class MarzPayService
 
     public function createAndInitiate(
         object $payable,
-        int $amount,
+        int $baseAmount,
         string $method,
         ?string $phoneNumber = null,
         ?string $description = null,
     ): array {
+        $charge = MarzPaySetting::current()->calculateCharge($baseAmount, $method);
+
         $collection = PaymentCollection::create([
             'payable_type' => $payable::class,
             'payable_id' => $payable->getKey(),
-            'amount' => $amount,
+            'base_amount' => $charge['base_amount'],
+            'platform_charge' => $charge['platform_charge'],
+            'amount' => $charge['total_amount'],
             'currency' => 'UGX',
             'method' => $method,
             'phone_number' => $phoneNumber,
