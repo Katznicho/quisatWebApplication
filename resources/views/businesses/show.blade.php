@@ -159,6 +159,31 @@
                         Set up a withdrawal PIN to withdraw your online payment earnings.
                     @endif
                 </p>
+
+                @if (isset($withdrawalTiers) && $withdrawalTiers->isNotEmpty())
+                <div class="mt-6">
+                    <h4 class="text-sm font-semibold text-gray-800 mb-2">Withdrawal Fee Tiers</h4>
+                    <p class="text-xs text-gray-500 mb-3">Platform fees set by Quisat — same for all businesses.</p>
+                    <div class="overflow-x-auto rounded-lg border border-gray-200">
+                        <table class="min-w-full text-sm">
+                            <thead class="bg-gray-900 text-white">
+                                <tr>
+                                    <th class="px-4 py-2 text-left">Range (UGX)</th>
+                                    <th class="px-4 py-2 text-left">Charge (UGX)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($withdrawalTiers as $index => $tier)
+                                    <tr class="{{ $index % 2 === 0 ? 'bg-white' : 'bg-gray-50' }}">
+                                        <td class="px-4 py-2">{{ $tier->rangeLabel() }}</td>
+                                        <td class="px-4 py-2 font-semibold">{{ number_format($tier->charge_amount) }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                @endif
             </div>
             @endif
 

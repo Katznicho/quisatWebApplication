@@ -80,6 +80,9 @@
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div>
                         <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-3">Withdrawal Fee Tiers</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                            Standard platform fees apply to every withdrawal. These are set by Quisat and are the same for all businesses.
+                        </p>
                         <div class="overflow-x-auto rounded-lg border border-gray-200">
                             <table class="min-w-full text-sm">
                                 <thead class="bg-gray-900 text-white">
@@ -98,16 +101,6 @@
                                 </tbody>
                             </table>
                         </div>
-                        @if ($business->use_custom_withdrawal_tiers)
-                            <p class="text-xs text-blue-600 mt-2">Using your custom fee tiers.</p>
-                        @else
-                            <p class="text-xs text-gray-500 mt-2">Using platform default fee tiers.</p>
-                        @endif
-
-                        <button type="button" onclick="document.getElementById('tiersModal').classList.remove('hidden')"
-                            class="mt-3 text-sm font-semibold text-blue-600 hover:text-blue-800">
-                            Customize fee tiers for this business
-                        </button>
                     </div>
 
                     <div>
@@ -168,5 +161,5 @@
         </div>
     </div>
 
-    @include('business-wallet.partials.modals', ['business' => $business, 'customTiers' => $customTiers, 'globalTiers' => $globalTiers])
+    @include('business-wallet.partials.modals', ['business' => $business])
 </x-app-layout>

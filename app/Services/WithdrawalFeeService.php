@@ -26,14 +26,6 @@ class WithdrawalFeeService
 
     public function tiersFor(Business $business): Collection
     {
-        if ($business->use_custom_withdrawal_tiers) {
-            $custom = $this->businessTiers($business);
-
-            if ($custom->isNotEmpty()) {
-                return $custom;
-            }
-        }
-
         return $this->globalTiers();
     }
 

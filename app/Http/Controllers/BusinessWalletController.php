@@ -34,17 +34,13 @@ class BusinessWalletController extends Controller
             ->limit(10)
             ->get();
 
-        $tiers = $this->feeService->tiersFor($business);
-        $customTiers = $this->feeService->businessTiers($business);
-        $globalTiers = $this->feeService->globalTiers();
+        $tiers = $this->feeService->globalTiers();
 
         return view('business-wallet.index', compact(
             'business',
             'ledgers',
             'withdrawals',
             'tiers',
-            'customTiers',
-            'globalTiers'
         ));
     }
 
@@ -129,24 +125,7 @@ class BusinessWalletController extends Controller
 
     public function updateTiers(Request $request)
     {
-        $business = $this->authorizedBusiness();
-
-        $validated = $request->validate([
-            'use_custom_withdrawal_tiers' => 'nullable|boolean',
-            'tiers' => 'nullable|array|min:1',
-            'tiers.*.min_amount' => 'required_with:tiers|integer|min:0',
-            'tiers.*.max_amount' => 'nullable|integer|min:0',
-            'tiers.*.charge_amount' => 'required_with:tiers|integer|min:0',
-        ]);
-
-        $useCustom = $request->boolean('use_custom_withdrawal_tiers');
-        $business->update(['use_custom_withdrawal_tiers' => $useCustom]);
-
-        if ($useCustom && ! empty($validated['tiers'])) {
-            $this->feeService->syncBusinessTiers($business, $validated['tiers']);
-        }
-
-        return back()->with('success', 'Withdrawal fee tiers updated successfully.');
+        abort(403, 'Withdrawal fee tiers are managed by the platform administrator.');
     }
 
     public function estimateFee(Request $request)

@@ -5,7 +5,7 @@
                 <div class="mb-6">
                     <h2 class="text-xl font-bold text-gray-800 dark:text-white">Default Withdrawal Fee Tiers</h2>
                     <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                        These tiers apply to all businesses unless a business enables custom withdrawal tiers.
+                        These tiers apply to all businesses on the platform. Only super administrators can change them here.
                     </p>
                 </div>
 

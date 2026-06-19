@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Business;
 use App\Models\Country;
+use App\Services\WithdrawalFeeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -20,7 +21,9 @@ class BusinessController extends Controller
         // For regular businesses, show a different view
         if ($user->business_id != 1) {
             $business = Business::findOrFail($user->business_id);
-            return view('businesses.show', compact('business'));
+            $withdrawalTiers = app(WithdrawalFeeService::class)->globalTiers();
+
+            return view('businesses.show', compact('business', 'withdrawalTiers'));
         }
         
         // For super business, show the table view
