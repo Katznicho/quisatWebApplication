@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Services\MarzPayCheckoutService;
+use App\Services\BusinessWalletService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -221,8 +222,9 @@ class OrderController extends Controller
             $isStaffOrBusiness = $user instanceof \App\Models\User && $user->business_id;
             
             if ($isStaffOrBusiness) {
-                // For staff/business users, show orders for their business
-                $query->where('business_id', $user->business_id);
+                if ((int) $user->business_id !== 1) {
+                    $query->where('business_id', $user->business_id);
+                }
             } else {
                 // For customers/parents, show orders by their email
                 // Use the user's email to find their orders
@@ -250,31 +252,7 @@ class OrderController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'orders' => $orders->map(function ($order) {
-                        return [
-                            'id' => $order->id,
-                            'uuid' => $order->uuid,
-                            'order_number' => $order->order_number,
-                            'customer_name' => $order->customer_name,
-                            'customer_email' => $order->customer_email,
-                            'customer_phone' => $order->customer_phone,
-                            'status' => $order->status,
-                            'subtotal' => (float) ($order->subtotal ?? 0),
-                            'total' => (float) ($order->total ?? 0),
-                            'total_amount' => (float) $order->total_amount,
-                            'created_at' => $order->created_at?->toISOString(),
-                            'items' => $order->items->map(function ($item) {
-                                return [
-                                    'id' => $item->id,
-                                    'product_id' => $item->product_id,
-                                    'product_name' => $item->product->name ?? 'Unknown',
-                                    'quantity' => $item->quantity,
-                                    'unit_price' => (float) $item->unit_price,
-                                    'total_price' => (float) $item->total_price,
-                                ];
-                            }),
-                        ];
-                    }),
+                    'orders' => $orders->map(fn ($order) => $this->formatOrderSummary($order)),
                 ],
             ]);
         } catch (\Exception $e) {
@@ -316,7 +294,7 @@ class OrderController extends Controller
             }
 
             // Check if user has access to this order
-            if ($user->business_id && $order->business_id !== $user->business_id) {
+            if (!$this->userCanAccessOrder($user, $order)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized access to this order.',
@@ -326,41 +304,7 @@ class OrderController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'order' => [
-                        'id' => $order->id,
-                        'uuid' => $order->uuid,
-                        'order_number' => $order->order_number,
-                        'customer_name' => $order->customer_name,
-                        'customer_email' => $order->customer_email,
-                        'customer_phone' => $order->customer_phone,
-                        'customer_address' => $order->customer_address,
-                        'notes' => $order->notes,
-                        'status' => $order->status,
-                        'subtotal' => (float) ($order->subtotal ?? 0),
-                        'total' => (float) ($order->total ?? 0),
-                        'total_amount' => (float) $order->total_amount,
-                        'created_at' => $order->created_at?->toISOString(),
-                        'updated_at' => $order->updated_at?->toISOString(),
-                        'business' => $order->business ? [
-                            'id' => $order->business->id,
-                            'name' => $order->business->name,
-                        ] : null,
-                        'items' => $order->items->map(function ($item) {
-                            return [
-                                'id' => $item->id,
-                                'product_id' => $item->product_id,
-                                'product' => $item->product ? [
-                                    'id' => $item->product->id,
-                                    'name' => $item->product->name,
-                                    'image_url' => $item->product->image_url,
-                                ] : null,
-                                'quantity' => $item->quantity,
-                                'unit_price' => (float) $item->unit_price,
-                                'total_price' => (float) $item->total_price,
-                                'selected_size' => $item->selected_size,
-                            ];
-                        }),
-                    ],
+                    'order' => $this->formatOrderSummary($order, true),
                 ],
             ]);
         } catch (\Exception $e) {
@@ -404,8 +348,8 @@ class OrderController extends Controller
                 ], 404);
             }
 
-            // Check if user has access to this order
-            if ($user->business_id && $order->business_id !== $user->business_id) {
+            // Check if user can manage this order
+            if (! $this->userCanManageOrder($user, $order)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized access to this order.',
@@ -413,6 +357,10 @@ class OrderController extends Controller
             }
 
             $order->update(['status' => $request->status]);
+
+            if ($request->status === 'delivered' && $order->fresh()->fundsAreHeld()) {
+                app(BusinessWalletService::class)->releaseOrderFunds($order->fresh(), $user->id);
+            }
 
             return response()->json([
                 'success' => true,
@@ -440,5 +388,165 @@ class OrderController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Customer or business confirms order received — releases held funds.
+     */
+    public function confirmReceived(Request $request, $id)
+    {
+        try {
+            $user = \Illuminate\Support\Facades\Auth::guard('sanctum')->user();
+
+            if (! $user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication required.',
+                ], 401);
+            }
+
+            $order = Order::where(function ($q) use ($id) {
+                $q->where('uuid', $id)->orWhere('id', $id);
+            })->first();
+
+            if (! $order) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order not found.',
+                ], 404);
+            }
+
+            if (! $this->userCanAccessOrder($user, $order)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized access to this order.',
+                ], 403);
+            }
+
+            if (! $order->fundsAreHeld()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'There are no held funds to release for this order.',
+                ], 422);
+            }
+
+            app(BusinessWalletService::class)->releaseOrderFunds($order, $user->id);
+            $order->update(['status' => 'delivered']);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Order confirmed as received. Funds are now available for withdrawal.',
+                'data' => [
+                    'order' => $this->formatOrderSummary($order->fresh()),
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('OrderController@confirmReceived - '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to confirm order receipt.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    private function userCanAccessOrder($user, Order $order): bool
+    {
+        if ((int) $user->business_id === 1) {
+            return true;
+        }
+
+        if ($user->business_id) {
+            return (int) $order->business_id === (int) $user->business_id;
+        }
+
+        if ($user->email && $order->customer_email) {
+            return strcasecmp($user->email, $order->customer_email) === 0;
+        }
+
+        return false;
+    }
+
+    private function userCanManageOrder($user, Order $order): bool
+    {
+        if ((int) $user->business_id === 1) {
+            return true;
+        }
+
+        if ($user->business_id) {
+            return (int) $order->business_id === (int) $user->business_id;
+        }
+
+        return false;
+    }
+
+    private function formatOrderItem($item, bool $detailed = false): array
+    {
+        $unitPrice = (float) $item->unit_price;
+        $totalPrice = (float) $item->total_price;
+        $productName = $item->product->name ?? 'Unknown';
+
+        $data = [
+            'id' => $item->id,
+            'product_id' => $item->product_id,
+            'product_name' => $productName,
+            'quantity' => $item->quantity,
+            'unit_price' => $unitPrice,
+            'total_price' => $totalPrice,
+            'price' => $unitPrice,
+            'subtotal' => $totalPrice,
+        ];
+
+        if ($detailed) {
+            $data['selected_size'] = $item->selected_size;
+            $data['product'] = $item->product ? [
+                'id' => $item->product->id,
+                'name' => $item->product->name,
+                'image_url' => $item->product->image_url,
+            ] : null;
+        }
+
+        return $data;
+    }
+
+    private function formatOrderSummary(Order $order, bool $detailed = false): array
+    {
+        $subtotal = (float) ($order->subtotal ?? $order->total_amount ?? 0);
+        $total = (float) ($order->total_amount ?? $order->total ?? $subtotal);
+
+        $data = [
+            'id' => $order->id,
+            'uuid' => $order->uuid,
+            'order_number' => $order->order_number,
+            'customer_name' => $order->customer_name,
+            'customer_email' => $order->customer_email,
+            'customer_phone' => $order->customer_phone,
+            'status' => $order->status,
+            'payment_status' => $order->payment_status,
+            'payment_method' => $order->payment_method,
+            'wallet_credit_amount' => (float) ($order->wallet_credit_amount ?? 0),
+            'funds_released_at' => $order->funds_released_at?->toISOString(),
+            'funds_held' => $order->fundsAreHeld(),
+            'subtotal' => $subtotal,
+            'total' => $total,
+            'total_amount' => $total,
+            'created_at' => $order->created_at?->toISOString(),
+            'items' => $order->items->map(fn ($item) => $this->formatOrderItem($item, $detailed)),
+        ];
+
+        if ($detailed) {
+            $data['customer_address'] = $order->customer_address;
+            $data['notes'] = $order->notes;
+            $data['updated_at'] = $order->updated_at?->toISOString();
+            $data['business'] = $order->business ? [
+                'id' => $order->business->id,
+                'name' => $order->business->name,
+                'email' => $order->business->email ?? null,
+                'phone' => $order->business->phone ?? null,
+            ] : null;
+        }
+
+        return $data;
     }
 }

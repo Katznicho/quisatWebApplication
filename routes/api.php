@@ -308,6 +308,7 @@ Route::prefix('v1')->group(function () {
                 Route::get('/', [OrderController::class, 'index']);
                 Route::get('{order}', [OrderController::class, 'show']);
                 Route::patch('{order}/status', [OrderController::class, 'updateStatus']);
+                Route::post('{order}/confirm-received', [OrderController::class, 'confirmReceived']);
             });
         });
     });

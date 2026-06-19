@@ -3,9 +3,12 @@
 namespace App\Livewire\MarzPay;
 
 use App\Models\PaymentCollection;
+use App\Services\MarzPayService;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
+use Filament\Notifications\Notification;
 use Filament\Tables;
+use Filament\Tables\Actions\Action;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
@@ -94,6 +97,32 @@ class ListPaymentCollections extends Component implements HasForms, HasTable
                     ]),
             ])
             ->defaultSort('created_at', 'desc')
+            ->actions([
+                Action::make('sync_status')
+                    ->label('Refresh status')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('info')
+                    ->requiresConfirmation()
+                    ->modalHeading('Refresh from MarzPay')
+                    ->modalDescription('Check the latest payment status from MarzPay and update this record if it has changed.')
+                    ->action(function (PaymentCollection $record): void {
+                        $result = app(MarzPayService::class)->syncCollectionStatus($record);
+
+                        if ($result['success']) {
+                            Notification::make()
+                                ->title($result['message'])
+                                ->success()
+                                ->send();
+
+                            return;
+                        }
+
+                        Notification::make()
+                            ->title($result['message'])
+                            ->danger()
+                            ->send();
+                    }),
+            ])
             ->emptyStateHeading('No MarzPay transactions yet')
             ->emptyStateDescription('Mobile money and card collections will appear here once customers pay online.');
     }

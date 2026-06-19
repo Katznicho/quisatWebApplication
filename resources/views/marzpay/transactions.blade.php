@@ -6,6 +6,7 @@
                     <h2 class="text-xl font-bold text-gray-800 dark:text-white">MarzPay Transactions</h2>
                     <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
                         All mobile money and card collections processed through MarzPay.
+                        Use <strong>Refresh status</strong> to manually sync a transaction from MarzPay when webhooks are delayed.
                     </p>
                 </div>
 

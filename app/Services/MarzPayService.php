@@ -148,4 +148,94 @@ class MarzPayService
 
         return $this->initiate($collection);
     }
+
+    /**
+     * Fetch latest status from MarzPay and update the local collection.
+     *
+     * @see https://wallet.wearemarz.com/documentation/payments
+     *
+     * @return array{success:bool,message:string,changed?:bool,status?:string}
+     */
+    public function syncCollectionStatus(PaymentCollection $collection): array
+    {
+        $identifier = $collection->marz_transaction_uuid ?: $collection->reference;
+
+        if (! $identifier) {
+            return [
+                'success' => false,
+                'message' => 'No MarzPay reference is available for this transaction.',
+            ];
+        }
+
+        $response = Http::withHeaders([
+            'Authorization' => $this->authorizationHeader(),
+            'Accept' => 'application/json',
+        ])->get(
+            rtrim((string) config('marzpay.base_url'), '/').'/transactions/'.urlencode($identifier)
+        );
+
+        $body = $response->json() ?? [];
+
+        if (! $response->successful() || data_get($body, 'status') === 'error') {
+            Log::warning('MarzPay status sync failed', [
+                'reference' => $collection->reference,
+                'identifier' => $identifier,
+                'http_status' => $response->status(),
+                'body' => $body,
+            ]);
+
+            return [
+                'success' => false,
+                'message' => data_get($body, 'message', 'Unable to fetch transaction status from MarzPay.'),
+            ];
+        }
+
+        $status = data_get($body, 'transaction.status');
+
+        if (! $status) {
+            return [
+                'success' => false,
+                'message' => 'MarzPay did not return a transaction status.',
+            ];
+        }
+
+        $previousStatus = $collection->status;
+
+        if ($collection->isFinal() && $previousStatus === $status) {
+            return [
+                'success' => true,
+                'message' => 'Status is already up to date ('.$status.').',
+                'changed' => false,
+                'status' => $status,
+            ];
+        }
+
+        $collection->update([
+            'status' => $status,
+            'marz_transaction_uuid' => data_get($body, 'transaction.uuid', $collection->marz_transaction_uuid),
+            'provider' => data_get($body, 'collection.provider', $collection->provider),
+            'provider_transaction_id' => data_get(
+                $body,
+                'collection.provider_transaction_id',
+                $collection->provider_transaction_id
+            ),
+            'callback_payload' => $body,
+            'completed_at' => $status === 'completed'
+                ? ($collection->completed_at ?? now())
+                : $collection->completed_at,
+        ]);
+
+        if ($status !== $previousStatus) {
+            app(MarzPayPayableResolver::class)->applyCallback($collection->fresh());
+        }
+
+        return [
+            'success' => true,
+            'message' => $status === $previousStatus
+                ? 'Status confirmed as '.$status.'.'
+                : 'Status updated from '.$previousStatus.' to '.$status.'.',
+            'changed' => $status !== $previousStatus,
+            'status' => $status,
+        ];
+    }
 }

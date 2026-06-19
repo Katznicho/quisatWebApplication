@@ -26,6 +26,10 @@ use App\Http\Controllers\SupportChildController;
 use App\Http\Controllers\ClinicPatientController;
 use App\Http\Controllers\ParentCornerController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\OrderController;
+use App\Http\Controllers\BusinessWalletController;
+use App\Http\Controllers\BusinessAccountStatementController;
+use App\Http\Controllers\WithdrawalSettingsController;
 use App\Http\Controllers\SchoolManagement\ParentGuardianController;
 use App\Http\Controllers\SchoolManagement\StudentController;
 
@@ -105,6 +109,22 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::resource("businesses", BusinessController::class);
     Route::patch('businesses/{business}/update-logo', [BusinessController::class, 'updateLogo'])->name('businesses.update-logo');
     Route::patch('businesses/{business}/update-social-media', [BusinessController::class, 'updateSocialMedia'])->name('businesses.update-social-media');
+
+    Route::prefix('business/wallet')->name('business.wallet.')->group(function () {
+        Route::get('/', [BusinessWalletController::class, 'index'])->name('index');
+        Route::post('/setup-pin', [BusinessWalletController::class, 'setupPin'])->name('setup-pin');
+        Route::post('/change-pin', [BusinessWalletController::class, 'changePin'])->name('change-pin');
+        Route::post('/reset-pin', [BusinessWalletController::class, 'resetPin'])->name('reset-pin');
+        Route::post('/withdraw', [BusinessWalletController::class, 'withdraw'])->name('withdraw');
+        Route::post('/tiers', [BusinessWalletController::class, 'updateTiers'])->name('tiers');
+        Route::get('/estimate-fee', [BusinessWalletController::class, 'estimateFee'])->name('estimate-fee');
+    });
+
+    Route::prefix('business/statement')->name('business.statement.')->group(function () {
+        Route::get('/', [BusinessAccountStatementController::class, 'index'])->name('index');
+        Route::get('/download', [BusinessAccountStatementController::class, 'download'])->name('download');
+        Route::post('/email', [BusinessAccountStatementController::class, 'email'])->name('email');
+    });
     Route::resource("support", SupportController::class);
     Route::resource("transactions", TransactionController::class);
     // User routes - custom routes must come before resource route to avoid conflicts
@@ -122,6 +142,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('marzpay/settings', [\App\Http\Controllers\MarzPaySettingsController::class, 'edit'])->name('marzpay.settings.edit');
         Route::put('marzpay/settings', [\App\Http\Controllers\MarzPaySettingsController::class, 'update'])->name('marzpay.settings.update');
         Route::get('marzpay/transactions', [\App\Http\Controllers\MarzPayTransactionController::class, 'index'])->name('marzpay.transactions.index');
+        Route::get('withdrawal/settings', [WithdrawalSettingsController::class, 'edit'])->name('withdrawal.settings.edit');
+        Route::put('withdrawal/settings', [WithdrawalSettingsController::class, 'update'])->name('withdrawal.settings.update');
+        Route::get('withdrawal/requests', [WithdrawalSettingsController::class, 'withdrawals'])->name('withdrawal.requests.index');
+        Route::patch('withdrawal/requests/{withdrawal}', [WithdrawalSettingsController::class, 'updateWithdrawalStatus'])->name('withdrawal.requests.update');
     });
     
     // Advertisement routes
@@ -289,4 +313,5 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // Kids Mart Products Routes
     Route::resource('products', ProductController::class);
+    Route::get('orders', [OrderController::class, 'index'])->name('orders.index');
 });

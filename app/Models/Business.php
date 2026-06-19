@@ -24,6 +24,11 @@ class Business extends Model
         'type',
         'account_number',
         'account_balance',
+        'available_balance',
+        'held_balance',
+        'total_balance',
+        'withdrawal_pin',
+        'use_custom_withdrawal_tiers',
         'mode',
         'date',
         'country',
@@ -43,6 +48,14 @@ class Business extends Model
         'enabled_feature_ids' => 'array',
         'social_media_handles' => 'array',
         'exchange_rate' => 'float',
+        'available_balance' => 'decimal:2',
+        'held_balance' => 'decimal:2',
+        'total_balance' => 'decimal:2',
+        'use_custom_withdrawal_tiers' => 'boolean',
+    ];
+
+    protected $hidden = [
+        'withdrawal_pin',
     ];
 
     /**
@@ -86,6 +99,26 @@ class Business extends Model
     public function countryRef()
     {
         return $this->belongsTo(Country::class, 'country_id');
+    }
+
+    public function balanceLedgers()
+    {
+        return $this->hasMany(BusinessBalanceLedger::class);
+    }
+
+    public function withdrawalRequests()
+    {
+        return $this->hasMany(WithdrawalRequest::class);
+    }
+
+    public function withdrawalFeeTiers()
+    {
+        return $this->hasMany(WithdrawalFeeTier::class);
+    }
+
+    public function hasWithdrawalPin(): bool
+    {
+        return ! empty($this->withdrawal_pin);
     }
 
     

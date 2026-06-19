@@ -28,6 +28,8 @@ class PaymentCollection extends Model
         'request_payload',
         'callback_payload',
         'completed_at',
+        'business_id',
+        'business_credited_at',
     ];
 
     protected $casts = [
@@ -37,6 +39,7 @@ class PaymentCollection extends Model
         'request_payload' => 'array',
         'callback_payload' => 'array',
         'completed_at' => 'datetime',
+        'business_credited_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -51,6 +54,11 @@ class PaymentCollection extends Model
     public function payable(): MorphTo
     {
         return $this->morphTo();
+    }
+
+    public function business()
+    {
+        return $this->belongsTo(Business::class);
     }
 
     public function isFinal(): bool

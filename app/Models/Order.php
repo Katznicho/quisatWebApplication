@@ -24,6 +24,9 @@ class Order extends Model
         'status',
         'payment_method',
         'payment_status',
+        'wallet_credit_amount',
+        'funds_released_at',
+        'funds_released_by',
         'subtotal',
         'total',
         'total_amount',
@@ -33,6 +36,8 @@ class Order extends Model
         'subtotal' => 'decimal:2',
         'total' => 'decimal:2',
         'total_amount' => 'decimal:2',
+        'wallet_credit_amount' => 'decimal:2',
+        'funds_released_at' => 'datetime',
     ];
 
     protected static function booted()
@@ -76,8 +81,22 @@ class Order extends Model
     {
         $this->update([
             'payment_status' => 'paid',
-            'status' => $this->status === 'pending' ? 'confirmed' : $this->status,
+            'status' => in_array($this->status, ['pending', 'confirmed'], true) ? 'processing' : $this->status,
         ]);
+    }
+
+    public function fundsAreHeld(): bool
+    {
+        if ($this->funds_released_at || $this->payment_status !== 'paid') {
+            return false;
+        }
+
+        return in_array($this->payment_method, ['mtn_mobile_money', 'airtel_money', 'card'], true);
+    }
+
+    public function fundsReleasedBy()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'funds_released_by');
     }
 
     public function markMarzPayFailed(\App\Models\PaymentCollection $collection): void

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Business;
 use App\Models\EventAttendee;
 use App\Models\KidsEventRegistration;
 use App\Models\Order;
@@ -12,6 +13,9 @@ use Illuminate\Support\Str;
 
 class MarzPayPayableResolver
 {
+    public function __construct(
+        protected BusinessWalletService $walletService
+    ) {}
     public function resolve(string $type, string $identifier): ?Model
     {
         return match ($type) {
@@ -81,12 +85,33 @@ class MarzPayPayableResolver
             return;
         }
 
-        if ($collection->status === 'completed' && method_exists($payable, 'markMarzPayCompleted')) {
-            $payable->markMarzPayCompleted($collection);
+        if ($collection->status === 'completed') {
+            if (! $collection->business_credited_at) {
+                $business = $this->resolveBusiness($payable);
+
+                if ($business) {
+                    $this->walletService->creditFromCollection($business, $collection->fresh());
+                }
+            }
+
+            if (method_exists($payable, 'markMarzPayCompleted')) {
+                $payable->markMarzPayCompleted($collection);
+            }
         }
 
         if ($collection->status === 'failed' && method_exists($payable, 'markMarzPayFailed')) {
             $payable->markMarzPayFailed($collection);
         }
+    }
+
+    public function resolveBusiness(Model $payable): ?Business
+    {
+        return match ($payable::class) {
+            Order::class => $payable->business,
+            KidsEventRegistration::class => $payable->kidsEvent?->business,
+            ParentCornerRegistration::class => $payable->parentCorner?->business,
+            EventAttendee::class => $payable->programEvent?->business,
+            default => null,
+        };
     }
 }

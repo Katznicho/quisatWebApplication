@@ -119,6 +119,49 @@
                 </div>
             </div>
 
+            <!-- Wallet -->
+            @if (auth()->user()->business_id != 1)
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"></path>
+                        </svg>
+                        Wallet
+                    </h3>
+                    <a href="{{ route('business.wallet.index') }}"
+                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200">
+                        Manage Wallet
+                    </a>
+                    <a href="{{ route('business.statement.index') }}"
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200">
+                        Account Statement
+                    </a>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="rounded-lg bg-blue-50 border border-blue-200 p-4">
+                        <p class="text-sm text-blue-700 font-medium">Available Balance</p>
+                        <p class="text-2xl font-bold text-blue-900 mt-1">UGX {{ number_format($business->available_balance ?? 0, 0) }}</p>
+                    </div>
+                    <div class="rounded-lg bg-amber-50 border border-amber-200 p-4">
+                        <p class="text-sm text-amber-700 font-medium">Held Balance</p>
+                        <p class="text-2xl font-bold text-amber-900 mt-1">UGX {{ number_format($business->held_balance ?? 0, 0) }}</p>
+                    </div>
+                    <div class="rounded-lg bg-gray-50 border border-gray-200 p-4">
+                        <p class="text-sm text-gray-700 font-medium">Total Balance</p>
+                        <p class="text-2xl font-bold text-gray-900 mt-1">UGX {{ number_format($business->total_balance ?? 0, 0) }}</p>
+                    </div>
+                </div>
+                <p class="text-sm text-gray-500 mt-4">
+                    @if ($business->hasWithdrawalPin())
+                        Withdrawal PIN is set. You can withdraw funds from your wallet.
+                    @else
+                        Set up a withdrawal PIN to withdraw your online payment earnings.
+                    @endif
+                </p>
+            </div>
+            @endif
+
             <!-- Social Media & Website -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
                 <div class="flex items-center justify-between mb-4">
