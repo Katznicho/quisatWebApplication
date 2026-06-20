@@ -26,8 +26,11 @@ class BusinessController extends Controller
             return view('businesses.show', compact('business', 'withdrawalTiers'));
         }
         
-        // For super business, show the table view
-        return view('businesses.index');
+        // For super business, show the table view plus own wallet summary
+        $business = Business::findOrFail($user->business_id);
+        $withdrawalTiers = app(WithdrawalFeeService::class)->globalTiers();
+
+        return view('businesses.index', compact('business', 'withdrawalTiers'));
     }
 
     /**

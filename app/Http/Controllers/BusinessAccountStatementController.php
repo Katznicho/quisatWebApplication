@@ -97,7 +97,7 @@ class BusinessAccountStatementController extends Controller
     {
         $user = Auth::user();
 
-        if (! $user || ! $user->business_id || (int) $user->business_id === 1) {
+        if (! $user || ! $user->business_id) {
             abort(403, 'Account statements are only available for registered businesses.');
         }
 

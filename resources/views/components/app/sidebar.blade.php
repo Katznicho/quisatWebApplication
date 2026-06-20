@@ -545,7 +545,6 @@
                                     {{ auth()->user()->business_id == 1 ? 'Manage Business' : 'View My Business' }}
                                 </a>
                             </li>
-                            @if (auth()->user()->business_id != 1)
                             <li><a href="{{ route('business.wallet.index') }}"
                                     class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">
                                     Wallet & Withdrawals
@@ -556,7 +555,6 @@
                                     Account Statement
                                 </a>
                             </li>
-                            @endif
                         </ul>
                     </li>
 

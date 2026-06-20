@@ -120,7 +120,6 @@
             </div>
 
             <!-- Wallet -->
-            @if (auth()->user()->business_id != 1)
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-lg font-semibold text-gray-900 flex items-center">
@@ -185,7 +184,6 @@
                 </div>
                 @endif
             </div>
-            @endif
 
             <!-- Social Media & Website -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
