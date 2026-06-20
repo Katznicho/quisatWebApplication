@@ -193,6 +193,14 @@ Route::prefix('v1')->group(function () {
             Route::post('refresh', [AuthController::class, 'refresh']);
         });
 
+        // Marketplace orders — auth only; OrderController enforces per-order access
+        Route::prefix('orders')->group(function () {
+            Route::get('/', [OrderController::class, 'index']);
+            Route::get('{order}', [OrderController::class, 'show']);
+            Route::patch('{order}/status', [OrderController::class, 'updateStatus']);
+            Route::post('{order}/confirm-received', [OrderController::class, 'confirmReceived']);
+        });
+
         // Business-scoped Routes (Require Authentication + Business Association)
         Route::middleware('business.scope')->group(function () {
             Route::prefix('students')->group(function () {
@@ -302,14 +310,6 @@ Route::prefix('v1')->group(function () {
             Route::get('documents', [DocumentController::class, 'index']);
             Route::post('documents', [DocumentController::class, 'store']);
             Route::delete('documents/{document}', [DocumentController::class, 'destroy']);
-            
-            // KidsMart Orders (for authenticated users - viewing their orders)
-            Route::prefix('orders')->group(function () {
-                Route::get('/', [OrderController::class, 'index']);
-                Route::get('{order}', [OrderController::class, 'show']);
-                Route::patch('{order}/status', [OrderController::class, 'updateStatus']);
-                Route::post('{order}/confirm-received', [OrderController::class, 'confirmReceived']);
-            });
         });
     });
 

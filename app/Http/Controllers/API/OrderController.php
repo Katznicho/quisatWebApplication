@@ -234,28 +234,15 @@ class OrderController extends Controller
                 $query->where('status', $request->status);
             }
 
-            // Determine if user is a staff/business user or a customer/parent
-            $isStaffOrBusiness = $user instanceof \App\Models\User && $user->business_id;
-            
+            // Determine if user is staff/business (vendor view) or a customer/parent
+            $isStaffOrBusiness = $this->isStaffOrBusinessUser($user);
+
             if ($isStaffOrBusiness) {
                 if ((int) $user->business_id !== 1) {
                     $query->where('business_id', $user->business_id);
                 }
             } else {
-                // For customers/parents, show orders by their email
-                // Use the user's email to find their orders
-                $userEmail = $user->email ?? null;
-                if ($userEmail) {
-                    $query->where('customer_email', $userEmail);
-                } else {
-                    // If no email, return empty array
-                    return response()->json([
-                        'success' => true,
-                        'data' => [
-                            'orders' => [],
-                        ],
-                    ]);
-                }
+                $this->scopeOrdersToCustomer($query, $user);
             }
 
             // Filter by customer email if explicitly provided (for staff to view specific customer orders)
@@ -467,34 +454,103 @@ class OrderController extends Controller
         }
     }
 
-    private function userCanAccessOrder($user, Order $order): bool
+    private function isStaffOrBusinessUser($user): bool
     {
-        if ((int) $user->business_id === 1) {
+        if (! $user instanceof \App\Models\User || ! $user->business_id) {
+            return false;
+        }
+
+        return $user->isAdmin() || $user->isBusinessAdmin() || $user->isStaff();
+    }
+
+    private function scopeOrdersToCustomer($query, $user): void
+    {
+        $email = strtolower(trim((string) ($user->email ?? '')));
+        $phoneSuffix = $this->phoneMatchSuffix($user->phone ?? null);
+
+        if ($email === '' && $phoneSuffix === null) {
+            $query->whereRaw('0 = 1');
+
+            return;
+        }
+
+        $query->where(function ($q) use ($email, $phoneSuffix) {
+            if ($email !== '') {
+                $q->whereRaw('LOWER(TRIM(customer_email)) = ?', [$email]);
+            }
+
+            if ($phoneSuffix !== null) {
+                $like = '%'.$phoneSuffix;
+                if ($email !== '') {
+                    $q->orWhereRaw(
+                        "REPLACE(REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '-', ''), '+', ''), '(', '') LIKE ?",
+                        [$like]
+                    );
+                } else {
+                    $q->whereRaw(
+                        "REPLACE(REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '-', ''), '+', ''), '(', '') LIKE ?",
+                        [$like]
+                    );
+                }
+            }
+        });
+    }
+
+    private function customerOwnsOrder($user, Order $order): bool
+    {
+        $email = strtolower(trim((string) ($user->email ?? '')));
+        $orderEmail = strtolower(trim((string) ($order->customer_email ?? '')));
+
+        if ($email !== '' && $orderEmail !== '' && $email === $orderEmail) {
             return true;
         }
 
-        if ($user->business_id) {
+        $phoneSuffix = $this->phoneMatchSuffix($user->phone ?? null);
+        if ($phoneSuffix === null || ! $order->customer_phone) {
+            return false;
+        }
+
+        $orderDigits = preg_replace('/\D+/', '', (string) $order->customer_phone);
+
+        return $orderDigits !== '' && str_ends_with($orderDigits, $phoneSuffix);
+    }
+
+    private function phoneMatchSuffix(?string $phone): ?string
+    {
+        if ($phone === null || trim($phone) === '') {
+            return null;
+        }
+
+        $digits = preg_replace('/\D+/', '', $phone);
+
+        if ($digits === '') {
+            return null;
+        }
+
+        return strlen($digits) >= 9 ? substr($digits, -9) : $digits;
+    }
+
+    private function userCanAccessOrder($user, Order $order): bool
+    {
+        if ((int) ($user->business_id ?? 0) === 1 && $user instanceof \App\Models\User) {
+            return true;
+        }
+
+        if ($this->isStaffOrBusinessUser($user)) {
             return (int) $order->business_id === (int) $user->business_id;
         }
 
-        if ($user->email && $order->customer_email) {
-            return strcasecmp($user->email, $order->customer_email) === 0;
-        }
-
-        return false;
+        return $this->customerOwnsOrder($user, $order);
     }
 
     private function userCanManageOrder($user, Order $order): bool
     {
-        if ((int) $user->business_id === 1) {
+        if ((int) ($user->business_id ?? 0) === 1 && $user instanceof \App\Models\User) {
             return true;
         }
 
-        if ($user->business_id) {
-            return (int) $order->business_id === (int) $user->business_id;
-        }
-
-        return false;
+        return $this->isStaffOrBusinessUser($user)
+            && (int) $order->business_id === (int) $user->business_id;
     }
 
     private function formatOrderItem($item, bool $detailed = false): array
