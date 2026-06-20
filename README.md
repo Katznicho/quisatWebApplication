@@ -9,3 +9,4 @@ php artisan db:seed --class=KidsClinicsDemoSeeder   # optional sample data
 php artisan migrate   # includes clinic_services for parent-facing services
 
 
+
