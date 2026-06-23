@@ -103,6 +103,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+    // Push notifications (admin compose + web device registration)
+    Route::get('push-notifications', [\App\Http\Controllers\PushBroadcastController::class, 'index'])->name('push-notifications.index');
+    Route::get('push-notifications/create', [\App\Http\Controllers\PushBroadcastController::class, 'create'])->name('push-notifications.create');
+    Route::post('push-notifications', [\App\Http\Controllers\PushBroadcastController::class, 'store'])->name('push-notifications.store');
+    Route::get('push-notifications/{pushNotification}', [\App\Http\Controllers\PushBroadcastController::class, 'show'])->name('push-notifications.show');
+    Route::get('web-push/vapid-public-key', [\App\Http\Controllers\WebPushDeviceController::class, 'vapidPublicKey'])->name('web-push.vapid-key');
+    Route::post('web-push/subscribe', [\App\Http\Controllers\WebPushDeviceController::class, 'store'])->name('web-push.subscribe');
+    Route::delete('web-push/unsubscribe', [\App\Http\Controllers\WebPushDeviceController::class, 'destroy'])->name('web-push.unsubscribe');
+
     Route::impersonate();
 
 

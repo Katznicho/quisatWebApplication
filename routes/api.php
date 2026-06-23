@@ -208,6 +208,13 @@ Route::prefix('v1')->group(function () {
         Route::post('products/{id}/reviews', [ProductReviewController::class, 'store']);
         Route::post('businesses/{id}/reviews', [BusinessReviewController::class, 'store']);
 
+        // Push notifications & device registration
+        Route::post('device-tokens', [\App\Http\Controllers\API\DeviceTokenController::class, 'store']);
+        Route::delete('device-tokens', [\App\Http\Controllers\API\DeviceTokenController::class, 'destroy']);
+        Route::get('notifications', [\App\Http\Controllers\API\UserNotificationController::class, 'index']);
+        Route::post('notifications/read-all', [\App\Http\Controllers\API\UserNotificationController::class, 'markAllRead']);
+        Route::post('notifications/{uuid}/read', [\App\Http\Controllers\API\UserNotificationController::class, 'markRead']);
+
         // Business-scoped Routes (Require Authentication + Business Association)
         Route::middleware('business.scope')->group(function () {
             Route::prefix('students')->group(function () {
