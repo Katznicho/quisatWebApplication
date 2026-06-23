@@ -20,7 +20,8 @@ class BusinessController extends Controller
         
         // For regular businesses, show a different view
         if ($user->business_id != 1) {
-            $business = Business::findOrFail($user->business_id);
+            $business = Business::with(['registrationDocuments.documentType', 'businessCategory'])
+                ->findOrFail($user->business_id);
             $withdrawalTiers = app(WithdrawalFeeService::class)->globalTiers();
 
             return view('businesses.show', compact('business', 'withdrawalTiers'));

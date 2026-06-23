@@ -21,8 +21,11 @@ class NewBusinessRegisteredMail extends Mailable
 
     public function envelope(): Envelope
     {
+        $cc = config('mail.business_registration_notify_cc', []);
+
         return new Envelope(
             subject: 'New business registered on '.config('app.name').': '.$this->business->name,
+            cc: ! empty($cc) ? $cc : [],
         );
     }
 

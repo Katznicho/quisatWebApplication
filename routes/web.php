@@ -4,6 +4,7 @@
 use App\Http\Controllers\BusinessController;
 use App\Http\Controllers\BusinessCategoryController;
 use App\Http\Controllers\BusinessRegistrationController;
+use App\Http\Controllers\BusinessRegistrationDocumentController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\SupportController;
 use App\Http\Controllers\TransactionController;
@@ -109,6 +110,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::resource("businesses", BusinessController::class);
     Route::patch('businesses/{business}/update-logo', [BusinessController::class, 'updateLogo'])->name('businesses.update-logo');
     Route::patch('businesses/{business}/update-social-media', [BusinessController::class, 'updateSocialMedia'])->name('businesses.update-social-media');
+    Route::get('businesses/{business}/registration-documents/{document}', [BusinessRegistrationDocumentController::class, 'download'])
+        ->name('businesses.registration-documents.download');
 
     Route::prefix('business/wallet')->name('business.wallet.')->group(function () {
         Route::get('/', [BusinessWalletController::class, 'index'])->name('index');
@@ -312,6 +315,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     });
 
     // Kids Mart Products Routes
+    Route::get('products/bulk-upload', [ProductController::class, 'bulkUploadPage'])->name('products.bulk-upload-page');
+    Route::get('products/bulk-upload/template', [ProductController::class, 'downloadBulkTemplate'])->name('products.bulk-upload-template');
+    Route::post('products/bulk-upload', [ProductController::class, 'bulkUpload'])->name('products.bulk-upload');
     Route::resource('products', ProductController::class);
     Route::get('orders', [OrderController::class, 'index'])->name('orders.index');
+    Route::get('reviews', [\App\Http\Controllers\ReviewController::class, 'index'])->name('reviews.index');
 });

@@ -48,12 +48,8 @@ class ProductController extends Controller
                 }
             }
 
-            if ($gradeLevel = $request->query('grade_level')) {
-                $gradeLevel = strtolower(trim((string) $gradeLevel));
-                $query->where(function (Builder $q) use ($gradeLevel) {
-                    $q->whereJsonContains('grade_levels', $gradeLevel)
-                        ->orWhereJsonContains('grade_levels', 'all');
-                });
+            if (filter_var($request->query('on_sale_only'), FILTER_VALIDATE_BOOL)) {
+                $query->where('is_on_sale', true)->whereNotNull('sale_price');
             }
 
             if ($businessId = $request->query('business_id')) {
@@ -67,7 +63,8 @@ class ProductController extends Controller
             if ($search = trim((string) $request->query('search'))) {
                 $query->where(function (Builder $q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
-                      ->orWhere('description', 'like', "%{$search}%");
+                      ->orWhere('description', 'like', "%{$search}%")
+                      ->orWhere('sku', 'like', "%{$search}%");
                 });
             }
 
@@ -81,7 +78,7 @@ class ProductController extends Controller
                 ->values()
                 ->all();
 
-            $gradeOptions = $hub === StationeryHub::HUB ? StationeryHub::gradeOptions() : [];
+            $onSaleCount = $products->filter(fn (Product $p) => $p->isPromotionActive())->count();
 
             return response()->json([
                 'success' => true,
@@ -89,7 +86,7 @@ class ProductController extends Controller
                     'hub' => $hub,
                     'products' => $products->map(fn (Product $p) => $this->transformProduct($p, false)),
                     'categories' => $usedCategories,
-                    'grade_levels' => $gradeOptions,
+                    'on_sale_count' => $onSaleCount,
                 ],
             ]);
         } catch (\Exception $e) {
@@ -171,10 +168,21 @@ class ProductController extends Controller
             'uuid' => $product->uuid,
             'hub' => $product->hub ?? StationeryHub::KIDZ_MART,
             'name' => $product->name,
+            'sku' => $product->sku,
             'description' => $product->description,
+            'key_features' => $product->key_features,
+            'whats_in_box' => $product->whats_in_box,
             'price' => $product->price !== null ? (float) $product->price : 0,
+            'sale_price' => $product->sale_price !== null ? (float) $product->sale_price : null,
+            'effective_price' => $product->effectivePrice(),
+            'is_on_sale' => (bool) ($product->is_on_sale ?? false),
+            'is_promotion_active' => $product->isPromotionActive(),
+            'discount_percent' => $product->discountPercent(),
+            'promotion_label' => $product->promotion_label,
+            'promotion_starts_at' => $product->promotion_starts_at?->toISOString(),
+            'promotion_ends_at' => $product->promotion_ends_at?->toISOString(),
             'category' => $product->category,
-            'grade_levels' => $product->grade_levels ?? [],
+            'grade' => $product->grade,
             'delivery_days' => (int) ($product->delivery_days ?? 3),
             'quality_grade' => $product->quality_grade,
             'image_url' => $mainImage,
@@ -185,6 +193,8 @@ class ProductController extends Controller
             'stock_quantity' => (int) ($product->stock_quantity ?? 0),
             'is_available' => (bool) ($product->is_available ?? true),
             'status' => $product->status ?? 'active',
+            'rating' => $product->rating !== null ? (float) $product->rating : null,
+            'total_ratings' => (int) ($product->total_ratings ?? 0),
             'business' => $product->business ? [
                 'id' => $product->business->id,
                 'name' => $product->business->name,
@@ -195,6 +205,8 @@ class ProductController extends Controller
                 'website_link' => $product->business->website_link,
                 'social_media_handles' => $product->business->social_media_handles,
                 'stationery_verified' => $product->business->stationery_verified_at !== null,
+                'rating' => $product->business->rating !== null ? (float) $product->business->rating : null,
+                'total_ratings' => (int) ($product->business->total_ratings ?? 0),
             ] : null,
         ];
     }

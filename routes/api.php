@@ -30,6 +30,8 @@ use App\Http\Controllers\API\ClinicController;
 use App\Http\Controllers\API\ProgramRegistrationController;
 use App\Http\Controllers\API\ProductController;
 use App\Http\Controllers\API\OrderController;
+use App\Http\Controllers\API\ProductReviewController;
+use App\Http\Controllers\API\BusinessReviewController;
 use App\Http\Controllers\API\MarzPayWebhookController;
 use App\Http\Controllers\API\MarzPayPaymentController;
 use Illuminate\Support\Facades\DB;
@@ -150,6 +152,8 @@ Route::prefix('v1')->group(function () {
         // KidsMart Products (public)
         Route::get('products', [ProductController::class, 'index']);
         Route::get('products/{id}', [ProductController::class, 'show']);
+        Route::get('products/{id}/reviews', [ProductReviewController::class, 'index']);
+        Route::get('businesses/{id}/reviews', [BusinessReviewController::class, 'index']);
         
         // KidsMart Orders - Allow guest ordering (public)
         Route::post('orders', [OrderController::class, 'store']);
@@ -200,6 +204,9 @@ Route::prefix('v1')->group(function () {
             Route::patch('{order}/status', [OrderController::class, 'updateStatus']);
             Route::post('{order}/confirm-received', [OrderController::class, 'confirmReceived']);
         });
+
+        Route::post('products/{id}/reviews', [ProductReviewController::class, 'store']);
+        Route::post('businesses/{id}/reviews', [BusinessReviewController::class, 'store']);
 
         // Business-scoped Routes (Require Authentication + Business Association)
         Route::middleware('business.scope')->group(function () {

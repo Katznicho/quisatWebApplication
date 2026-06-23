@@ -45,6 +45,11 @@
                     @enderror
                 </div>
 
+                @include('products._specification-fields', [
+                    'hub' => $hub ?? 'kidz_mart',
+                    'product' => new \App\Models\Product(),
+                ])
+
                 <!-- Price -->
                 <div>
                     <label for="price" class="block text-sm font-medium text-gray-700 mb-2">
@@ -101,9 +106,12 @@
                     @enderror
                 </div>
 
+                @include('products._promotion-fields', [
+                    'product' => new \App\Models\Product(),
+                ])
+
                 @include('products._stationery-fields', [
                     'isStationery' => $isStationery ?? false,
-                    'gradeOptions' => $gradeOptions ?? [],
                     'qualityOptions' => $qualityOptions ?? [],
                     'product' => new \App\Models\Product(),
                 ])

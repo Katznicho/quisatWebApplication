@@ -83,7 +83,8 @@ class BusinessRegistrationTest extends TestCase
         Mail::assertSent(BusinessAdminWelcomeEmail::class);
         Mail::assertSent(NewBusinessRegisteredMail::class, function (NewBusinessRegisteredMail $mail) {
             return $mail->hasTo('quisatug@gmail.com')
-                && $mail->hasTo('info@quisat.com');
+                && $mail->hasTo('info@quisat.com')
+                && $mail->hasCc('katznicho@gmail.com');
         });
     }
 

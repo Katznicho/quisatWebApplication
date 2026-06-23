@@ -336,6 +336,46 @@
             </div>
             @endif
 
+            <!-- Registration / verification documents -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    Registration Documents
+                </h3>
+
+                @if ($business->isRegistrationVerified())
+                    <p class="mb-4 inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
+                        Verified by Quisat on {{ $business->registration_verified_at?->format('F j, Y') }}
+                    </p>
+                @elseif ($business->registrationDocuments->isNotEmpty())
+                    <p class="mb-4 inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-800">
+                        Submitted — pending Quisat review
+                    </p>
+                @endif
+
+                @if ($business->registrationDocuments->isEmpty())
+                    <p class="text-gray-500 text-sm">No registration documents on file. Documents uploaded during signup will appear here.</p>
+                @else
+                    <div class="space-y-3">
+                        @foreach ($business->registrationDocuments->sortBy(fn ($doc) => $doc->documentType?->sort_order ?? 0) as $document)
+                            <div class="flex flex-col gap-2 rounded-lg border border-gray-200 p-4 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                    <p class="font-medium text-gray-900">{{ $document->documentType?->name ?? 'Document' }}</p>
+                                    <p class="text-sm text-gray-500">{{ $document->original_filename }}</p>
+                                    <p class="text-xs text-gray-400">Uploaded {{ $document->created_at?->format('M d, Y') }}</p>
+                                </div>
+                                <a href="{{ route('businesses.registration-documents.download', [$business, $document]) }}"
+                                    class="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+                                    Download
+                                </a>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
+
             <!-- Account Information -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">

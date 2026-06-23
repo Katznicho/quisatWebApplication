@@ -31,6 +31,9 @@ class Business extends Model
         'use_custom_withdrawal_tiers',
         'accepting_stationery_orders',
         'stationery_verified_at',
+        'registration_verified_at',
+        'rating',
+        'total_ratings',
         'mode',
         'date',
         'country',
@@ -56,6 +59,9 @@ class Business extends Model
         'use_custom_withdrawal_tiers' => 'boolean',
         'accepting_stationery_orders' => 'boolean',
         'stationery_verified_at' => 'datetime',
+        'registration_verified_at' => 'datetime',
+        'rating' => 'decimal:2',
+        'total_ratings' => 'integer',
     ];
 
     protected $hidden = [
@@ -115,6 +121,11 @@ class Business extends Model
         return $this->hasMany(WithdrawalRequest::class);
     }
 
+    public function reviews()
+    {
+        return $this->hasMany(BusinessReview::class);
+    }
+
     public function withdrawalFeeTiers()
     {
         return $this->hasMany(WithdrawalFeeTier::class);
@@ -128,6 +139,11 @@ class Business extends Model
     public function isStationeryVerified(): bool
     {
         return $this->stationery_verified_at !== null;
+    }
+
+    public function isRegistrationVerified(): bool
+    {
+        return $this->registration_verified_at !== null;
     }
 
     

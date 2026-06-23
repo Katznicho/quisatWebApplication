@@ -81,6 +81,12 @@ class ListOrders extends Component implements HasForms, HasTable
                     'failed' => 'danger',
                     default => 'warning',
                 }),
+            Tables\Columns\TextColumn::make('customer_received_at')
+                ->label('Customer received')
+                ->badge()
+                ->formatStateUsing(fn (?string $state): string => $state ? 'Confirmed' : 'Pending')
+                ->description(fn (Order $record): ?string => $record->customer_received_at?->format('M d, Y H:i'))
+                ->color(fn (?string $state): string => $state ? 'success' : 'gray'),
             Tables\Columns\TextColumn::make('funds_released_at')
                 ->label('Funds')
                 ->badge()
@@ -150,7 +156,7 @@ class ListOrders extends Component implements HasForms, HasTable
             ViewAction::make()
                 ->modalHeading(fn (Order $record): string => 'Order '.$record->order_number)
                 ->modalContent(fn (Order $record): View => view('orders.partials.show', [
-                    'order' => $record->loadMissing(['items.product', 'business']),
+                    'order' => $record->loadMissing(['items.product', 'business', 'customerReceivedBy']),
                 ])),
             Action::make('release_funds')
                 ->label('Confirm received')

@@ -48,6 +48,13 @@
                         <p class="text-lg font-semibold text-gray-900">{{ $product->name }}</p>
                     </div>
 
+                    @if($product->sku)
+                    <div>
+                        <label class="text-sm font-medium text-gray-500">SKU / Item Code</label>
+                        <p class="text-gray-900 font-mono">{{ $product->sku }}</p>
+                    </div>
+                    @endif
+
                     @if($product->description)
                     <div>
                         <label class="text-sm font-medium text-gray-500">Description</label>
@@ -55,15 +62,49 @@
                     </div>
                     @endif
 
+                    @if($product->key_features)
+                    <div>
+                        <label class="text-sm font-medium text-gray-500">Key Features</label>
+                        <div class="text-gray-900 whitespace-pre-line">{{ $product->key_features }}</div>
+                    </div>
+                    @endif
+
+                    @if($product->whats_in_box)
+                    <div>
+                        <label class="text-sm font-medium text-gray-500">What's in the Box</label>
+                        <div class="text-gray-900 whitespace-pre-line">{{ $product->whats_in_box }}</div>
+                    </div>
+                    @endif
+
                     <div>
                         <label class="text-sm font-medium text-gray-500">Price</label>
-                        <p class="text-2xl font-bold text-blue-600">{{ $product->business->currency_code ?? 'UGX' }} {{ number_format($product->price, 0) }}</p>
+                        @if($product->isPromotionActive())
+                            <p class="text-sm text-gray-500 line-through">{{ $product->business->currency_code ?? 'UGX' }} {{ number_format($product->price, 0) }}</p>
+                            <p class="text-2xl font-bold text-red-600">{{ $product->business->currency_code ?? 'UGX' }} {{ number_format($product->sale_price, 0) }}</p>
+                            @if($product->discountPercent())
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 mt-1">
+                                    {{ $product->discountPercent() }}% OFF
+                                </span>
+                            @endif
+                            @if($product->promotion_label)
+                                <p class="text-sm text-amber-700 mt-1">{{ $product->promotion_label }}</p>
+                            @endif
+                        @else
+                            <p class="text-2xl font-bold text-blue-600">{{ $product->business->currency_code ?? 'UGX' }} {{ number_format($product->price, 0) }}</p>
+                        @endif
                     </div>
 
                     @if($product->category)
                     <div>
                         <label class="text-sm font-medium text-gray-500">Category</label>
                         <p class="text-gray-900">{{ $product->category }}</p>
+                    </div>
+                    @endif
+
+                    @if($product->grade)
+                    <div>
+                        <label class="text-sm font-medium text-gray-500">Grade</label>
+                        <p class="text-gray-900">{{ $product->grade }}</p>
                     </div>
                     @endif
 
@@ -78,16 +119,25 @@
                         <p class="text-gray-900">{{ \App\Support\StationeryHub::qualityOptions()[$product->quality_grade] ?? ucfirst($product->quality_grade) }}</p>
                     </div>
                     @endif
-                    @if(is_array($product->grade_levels) && count($product->grade_levels) > 0)
-                    <div>
-                        <label class="text-sm font-medium text-gray-500">Grade levels</label>
-                        <div class="flex flex-wrap gap-2 mt-1">
-                            @foreach($product->grade_levels as $grade)
-                                <span class="px-3 py-1 bg-indigo-50 text-indigo-800 rounded-full text-sm">{{ \App\Support\StationeryHub::gradeLabel($grade) }}</span>
-                            @endforeach
-                        </div>
-                    </div>
                     @endif
+
+                    @if($product->is_on_sale)
+                    <div>
+                        <label class="text-sm font-medium text-gray-500">Promotion</label>
+                        <p class="text-gray-900">
+                            @if($product->isPromotionActive())
+                                <span class="text-green-700 font-medium">Active</span>
+                            @else
+                                <span class="text-gray-500">Scheduled or ended</span>
+                            @endif
+                            @if($product->promotion_starts_at || $product->promotion_ends_at)
+                                <span class="block text-sm text-gray-500 mt-1">
+                                    @if($product->promotion_starts_at) From {{ $product->promotion_starts_at->format('M d, Y H:i') }} @endif
+                                    @if($product->promotion_ends_at) until {{ $product->promotion_ends_at->format('M d, Y H:i') }} @endif
+                                </span>
+                            @endif
+                        </p>
+                    </div>
                     @endif
 
                     @if(is_array($product->sizes) && count($product->sizes) > 0)

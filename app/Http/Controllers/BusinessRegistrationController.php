@@ -220,19 +220,7 @@ class BusinessRegistrationController extends Controller
 
             DB::commit();
 
-            // Send welcome emails
-            try {
-                Mail::to($business->email)->send(new BusinessWelcomeEmail($business));
-                Mail::to($adminUser->email)->send(new BusinessAdminWelcomeEmail($adminUser, $business));
-
-                $notifyAddresses = config('mail.business_registration_notify', []);
-                if (! empty($notifyAddresses)) {
-                    Mail::to($notifyAddresses)->send(new NewBusinessRegisteredMail($business, $adminUser));
-                }
-            } catch (\Exception $e) {
-                Log::error('Failed to send welcome emails: ' . $e->getMessage());
-                // Don't fail the registration if email sending fails
-            }
+            $this->sendRegistrationEmails($business, $adminUser);
 
             return redirect()->route('business.registration.success')
                 ->with('success', 'Business registered successfully! Please check your email to verify your account.');
@@ -271,6 +259,52 @@ class BusinessRegistrationController extends Controller
         } catch (\Exception $e) {
             Log::error('Failed to resend verification email: ' . $e->getMessage());
             return redirect()->back()->with('error', 'Failed to send verification email. Please try again.');
+        }
+    }
+
+    /**
+     * Send welcome and internal notification emails after registration.
+     * Each message is sent independently so one failure does not block the others.
+     */
+    protected function sendRegistrationEmails(Business $business, User $adminUser): void
+    {
+        try {
+            Mail::to($business->email)->send(new BusinessWelcomeEmail($business));
+        } catch (\Exception $e) {
+            Log::error('Failed to send business welcome email', [
+                'business_id' => $business->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        try {
+            Mail::to($adminUser->email)->send(new BusinessAdminWelcomeEmail($adminUser, $business));
+        } catch (\Exception $e) {
+            Log::error('Failed to send business admin welcome email', [
+                'user_id' => $adminUser->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        $notifyAddresses = config('mail.business_registration_notify', []);
+        if (empty($notifyAddresses)) {
+            return;
+        }
+
+        try {
+            Mail::to($notifyAddresses)->send(new NewBusinessRegisteredMail($business, $adminUser));
+            Log::info('Business registration notification sent', [
+                'business_id' => $business->id,
+                'to' => $notifyAddresses,
+                'cc' => config('mail.business_registration_notify_cc', []),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to send business registration notification emails', [
+                'business_id' => $business->id,
+                'to' => $notifyAddresses,
+                'cc' => config('mail.business_registration_notify_cc', []),
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 

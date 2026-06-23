@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\ProductReview;
+use App\Models\BusinessReview;
+use App\Support\CustomerOrderMatcher;
 use App\Services\MarzPayCheckoutService;
 use App\Services\BusinessWalletService;
 use App\Support\StationeryHub;
@@ -79,7 +82,7 @@ class OrderController extends Controller
                     }
 
                     $qty = (int) $item['quantity'];
-                    $unit = (float) ($product->price ?? 0);
+                    $unit = $product->effectivePrice();
                     $line = $unit * $qty;
                     $total += $line;
                 }
@@ -113,7 +116,7 @@ class OrderController extends Controller
                     }
 
                     $qty = (int) $item['quantity'];
-                    $unit = (float) ($product->price ?? 0);
+                    $unit = $product->effectivePrice();
                     $line = $unit * $qty;
 
                     OrderItem::create([
@@ -255,7 +258,7 @@ class OrderController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'orders' => $orders->map(fn ($order) => $this->formatOrderSummary($order)),
+                    'orders' => $orders->map(fn ($order) => $this->formatOrderSummary($order, false, $user)),
                 ],
             ]);
         } catch (\Exception $e) {
@@ -307,7 +310,7 @@ class OrderController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'order' => $this->formatOrderSummary($order, true),
+                    'order' => $this->formatOrderSummary($order, true, $user),
                 ],
             ]);
         } catch (\Exception $e) {
@@ -394,7 +397,8 @@ class OrderController extends Controller
     }
 
     /**
-     * Customer or business confirms order received — releases held funds.
+     * Customer confirms order received (releases held funds when applicable).
+     * Vendors may still confirm via the web panel; that path does not set customer_received_at.
      */
     public function confirmReceived(Request $request, $id)
     {
@@ -426,6 +430,52 @@ class OrderController extends Controller
                 ], 403);
             }
 
+            $isCustomer = $this->customerOwnsOrder($user, $order) && ! $this->isStaffOrBusinessUser($user);
+
+            if ($isCustomer) {
+                if ($order->customerHasConfirmedReceipt()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'You have already confirmed receipt of this order.',
+                    ], 422);
+                }
+
+                if (! $order->customerCanConfirmReceipt()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'This order cannot be confirmed as received yet.',
+                    ], 422);
+                }
+
+                $order->update([
+                    'customer_received_at' => now(),
+                    'customer_received_by' => $user->id,
+                    'status' => 'delivered',
+                    'fulfillment_status' => ($order->hub ?? StationeryHub::KIDZ_MART) === StationeryHub::HUB
+                        ? 'delivered'
+                        : $order->fulfillment_status,
+                ]);
+
+                if ($order->fundsAreHeld()) {
+                    app(BusinessWalletService::class)->releaseOrderFunds($order->fresh(), $user->id);
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Thank you! Your order has been marked as received.',
+                    'data' => [
+                        'order' => $this->formatOrderSummary($order->fresh()->load(['items.product', 'business']), true, $user),
+                    ],
+                ]);
+            }
+
+            if (! $this->userCanManageOrder($user, $order)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only the customer or vendor can confirm order receipt.',
+                ], 403);
+            }
+
             if (! $order->fundsAreHeld()) {
                 return response()->json([
                     'success' => false,
@@ -440,7 +490,7 @@ class OrderController extends Controller
                 'success' => true,
                 'message' => 'Order confirmed as received. Funds are now available for withdrawal.',
                 'data' => [
-                    'order' => $this->formatOrderSummary($order->fresh()),
+                    'order' => $this->formatOrderSummary($order->fresh()->load(['items.product', 'business']), true, $user),
                 ],
             ]);
         } catch (\Exception $e) {
@@ -582,7 +632,7 @@ class OrderController extends Controller
         return $data;
     }
 
-    private function formatOrderSummary(Order $order, bool $detailed = false): array
+    private function formatOrderSummary(Order $order, bool $detailed = false, $user = null): array
     {
         $subtotal = (float) ($order->subtotal ?? $order->total_amount ?? 0);
         $total = (float) ($order->total_amount ?? $order->total ?? $subtotal);
@@ -602,12 +652,20 @@ class OrderController extends Controller
             'wallet_credit_amount' => (float) ($order->wallet_credit_amount ?? 0),
             'funds_released_at' => $order->funds_released_at?->toISOString(),
             'funds_held' => $order->fundsAreHeld(),
+            'customer_received_at' => $order->customer_received_at?->toISOString(),
+            'customer_received_confirmed' => $order->customerHasConfirmedReceipt(),
             'subtotal' => $subtotal,
             'total' => $total,
             'total_amount' => $total,
             'created_at' => $order->created_at?->toISOString(),
             'items' => $order->items->map(fn ($item) => $this->formatOrderItem($item, $detailed)),
         ];
+
+        if ($user) {
+            $data['can_confirm_received'] = $this->customerOwnsOrder($user, $order)
+                && ! $this->isStaffOrBusinessUser($user)
+                && $order->customerCanConfirmReceipt();
+        }
 
         if ($detailed) {
             $data['customer_address'] = $order->customer_address;
@@ -618,9 +676,44 @@ class OrderController extends Controller
                 'name' => $order->business->name,
                 'email' => $order->business->email ?? null,
                 'phone' => $order->business->phone ?? null,
+                'rating' => $order->business->rating !== null ? (float) $order->business->rating : null,
+                'total_ratings' => (int) ($order->business->total_ratings ?? 0),
             ] : null;
+
+            if ($user && $this->customerOwnsOrder($user, $order) && ! $this->isStaffOrBusinessUser($user)) {
+                $data = array_merge($data, $this->formatOrderReviewState($order, $user));
+            }
         }
 
         return $data;
+    }
+
+    private function formatOrderReviewState(Order $order, $user): array
+    {
+        $eligible = CustomerOrderMatcher::orderEligibleForReview($order);
+        $reviewedItemIds = ProductReview::query()
+            ->where('user_id', $user->id)
+            ->where('order_id', $order->id)
+            ->pluck('order_item_id')
+            ->all();
+        $businessReviewed = BusinessReview::query()
+            ->where('user_id', $user->id)
+            ->where('order_id', $order->id)
+            ->exists();
+
+        return [
+            'can_submit_reviews' => $eligible,
+            'can_review_business' => $eligible && ! $businessReviewed && $order->business_id,
+            'business_review_submitted' => $businessReviewed,
+            'reviewable_items' => $order->items->map(function ($item) use ($reviewedItemIds, $eligible) {
+                return [
+                    'order_item_id' => $item->id,
+                    'product_id' => $item->product_id,
+                    'product_name' => $item->product_name ?? $item->product?->name ?? 'Product',
+                    'can_review' => $eligible && ! in_array($item->id, $reviewedItemIds, true),
+                    'review_submitted' => in_array($item->id, $reviewedItemIds, true),
+                ];
+            })->values()->all(),
+        ];
     }
 }

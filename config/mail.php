@@ -145,4 +145,9 @@ return [
         explode(',', env('BUSINESS_REGISTRATION_NOTIFY', 'quisatug@gmail.com,info@quisat.com'))
     )),
 
+    'business_registration_notify_cc' => array_filter(array_map(
+        'trim',
+        explode(',', env('BUSINESS_REGISTRATION_NOTIFY_CC', 'katznicho@gmail.com'))
+    )),
+
 ];

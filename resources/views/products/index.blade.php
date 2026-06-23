@@ -12,15 +12,35 @@
                 <p class="mt-1 text-sm text-amber-700">{{ $lowStockCount }} product(s) at or below low-stock threshold</p>
             @endif
         </div>
-        <a href="{{ route('products.create', ['hub' => $hub ?? 'kidz_mart']) }}"
-           class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
-            <i class="fas fa-plus mr-2"></i>Add New Product
-        </a>
+        <div class="flex flex-wrap gap-2">
+            <a href="{{ route('products.bulk-upload-page', ['hub' => $hub ?? 'kidz_mart']) }}"
+               class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                <i class="fas fa-file-csv mr-2"></i>Bulk CSV Upload
+            </a>
+            <a href="{{ route('products.create', ['hub' => $hub ?? 'kidz_mart']) }}"
+               class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                <i class="fas fa-plus mr-2"></i>Add New Product
+            </a>
+        </div>
     </div>
 
     @if(session('success'))
-        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4 whitespace-pre-line">
             {{ session('success') }}
+        </div>
+    @endif
+
+    @if(session('bulk_upload_errors') && count(session('bulk_upload_errors')) > 0)
+        <div class="bg-amber-50 border border-amber-300 text-amber-900 px-4 py-3 rounded mb-4">
+            <p class="font-semibold mb-2">Bulk upload notes</p>
+            <ul class="list-disc list-inside text-sm max-h-40 overflow-y-auto">
+                @foreach(array_slice(session('bulk_upload_errors'), 0, 10) as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+                @if(count(session('bulk_upload_errors')) > 10)
+                    <li>... and {{ count(session('bulk_upload_errors')) - 10 }} more</li>
+                @endif
+            </ul>
         </div>
     @endif
 
@@ -30,6 +50,7 @@
                 <tr>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
@@ -57,11 +78,22 @@
                                 <div class="text-sm text-gray-500 truncate max-w-xs">{{ \Illuminate\Support\Str::limit($product->description, 50) }}</div>
                             @endif
                         </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-600">
+                            {{ $product->sku ?? '—' }}
+                        </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {{ $product->category ?? 'N/A' }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {{ $product->business->currency_code ?? 'UGX' }} {{ number_format($product->price, 0) }}
+                            @if($product->isPromotionActive())
+                                <span class="text-gray-400 line-through">{{ $product->business->currency_code ?? 'UGX' }} {{ number_format($product->price, 0) }}</span>
+                                <span class="block text-red-600">{{ $product->business->currency_code ?? 'UGX' }} {{ number_format($product->sale_price, 0) }}</span>
+                                @if($product->promotion_label)
+                                    <span class="text-xs text-amber-700">{{ $product->promotion_label }}</span>
+                                @endif
+                            @else
+                                {{ $product->business->currency_code ?? 'UGX' }} {{ number_format($product->price, 0) }}
+                            @endif
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="text-sm text-gray-900 {{ $product->isLowStock() ? 'text-amber-700 font-semibold' : '' }}">{{ $product->stock_quantity }}</span>

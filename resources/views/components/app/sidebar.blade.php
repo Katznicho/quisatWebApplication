@@ -482,6 +482,9 @@
                                 <li><a href="{{ route('orders.index') }}"
                                         class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Orders</a>
                                 </li>
+                                <li><a href="{{ route('reviews.index') }}"
+                                        class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Customer feedback</a>
+                                </li>
                             </ul>
                         </li>
                     @endif

@@ -19,8 +19,8 @@ A new business has registered on **{{ config('app.name') }}**.
 - **Email:** {{ $adminUser->email }}
 - **Phone:** {{ $adminUser->phone ?? 'Not provided' }}
 
-<x-mail::button :url="url('/login')">
-View dashboard
+<x-mail::button :url="url('/businesses')">
+Review business & KYC documents
 </x-mail::button>
 
 Thanks,<br>

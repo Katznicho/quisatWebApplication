@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Services\ProductCsvImportService;
 use App\Support\MarketplaceHub;
 use App\Support\ProductCategory;
 use App\Support\StationeryHub;
@@ -47,7 +48,6 @@ class ProductController extends Controller
             'categories' => MarketplaceHub::categoriesForHub($hub),
             'hub' => $hub,
             'hubLabel' => MarketplaceHub::hubLabel($hub),
-            'gradeOptions' => StationeryHub::gradeOptions(),
             'qualityOptions' => StationeryHub::qualityOptions(),
             'isStationery' => $hub === StationeryHub::HUB,
         ]);
@@ -65,15 +65,21 @@ class ProductController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'sku' => $this->skuRules($business->id),
             'description' => 'nullable|string',
+            'key_features' => 'nullable|string',
+            'whats_in_box' => 'nullable|string',
             'price' => 'required|numeric|min:0',
             'category' => $categoryRule,
             'stock_quantity' => 'required|integer|min:0',
             'low_stock_threshold' => 'nullable|integer|min:0',
             'delivery_days' => 'nullable|integer|min:1|max:30',
             'quality_grade' => ['nullable', Rule::in(array_keys(StationeryHub::qualityOptions()))],
-            'grade_levels' => 'nullable|array',
-            'grade_levels.*' => Rule::in(array_keys(StationeryHub::gradeOptions())),
+            'is_on_sale' => 'boolean',
+            'sale_price' => 'nullable|numeric|min:0|lt:price',
+            'promotion_label' => 'nullable|string|max:120',
+            'promotion_starts_at' => 'nullable|date',
+            'promotion_ends_at' => 'nullable|date|after_or_equal:promotion_starts_at',
             'is_available' => 'boolean',
             'status' => 'nullable|in:active,inactive',
             'image_path' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
@@ -82,11 +88,25 @@ class ProductController extends Controller
 
         $validated['business_id'] = $business->id ?? null;
         $validated['hub'] = $hub;
+        $validated['sku'] = $this->normalizeSku($validated['sku'] ?? null);
         $validated['is_available'] = $request->has('is_available');
+        $validated['is_on_sale'] = $request->has('is_on_sale');
         $validated['status'] = $validated['status'] ?? 'active';
-        $validated['grade_levels'] = StationeryHub::normalizeGrades($validated['grade_levels'] ?? []);
         $validated['delivery_days'] = $validated['delivery_days'] ?? 3;
         $validated['low_stock_threshold'] = $validated['low_stock_threshold'] ?? 15;
+
+        if (! $validated['is_on_sale']) {
+            $validated['sale_price'] = null;
+            $validated['promotion_label'] = null;
+            $validated['promotion_starts_at'] = null;
+            $validated['promotion_ends_at'] = null;
+        }
+
+        if ($request->has('is_on_sale') && empty($validated['sale_price'])) {
+            return back()
+                ->withErrors(['sale_price' => 'Sale price is required when putting a product on promotion.'])
+                ->withInput();
+        }
 
         if ($request->hasFile('image_path')) {
             $validated['image_path'] = $request->file('image_path')->store('products', 'public');
@@ -125,7 +145,6 @@ class ProductController extends Controller
             'categories' => MarketplaceHub::categoriesForHub($hub),
             'hub' => $hub,
             'hubLabel' => MarketplaceHub::hubLabel($hub),
-            'gradeOptions' => StationeryHub::gradeOptions(),
             'qualityOptions' => StationeryHub::qualityOptions(),
             'isStationery' => $hub === StationeryHub::HUB,
         ]);
@@ -142,15 +161,21 @@ class ProductController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'sku' => $this->skuRules($product->business_id, $product->id),
             'description' => 'nullable|string',
+            'key_features' => 'nullable|string',
+            'whats_in_box' => 'nullable|string',
             'price' => 'required|numeric|min:0',
             'category' => $categoryRule,
             'stock_quantity' => 'required|integer|min:0',
             'low_stock_threshold' => 'nullable|integer|min:0',
             'delivery_days' => 'nullable|integer|min:1|max:30',
             'quality_grade' => ['nullable', Rule::in(array_keys(StationeryHub::qualityOptions()))],
-            'grade_levels' => 'nullable|array',
-            'grade_levels.*' => Rule::in(array_keys(StationeryHub::gradeOptions())),
+            'is_on_sale' => 'boolean',
+            'sale_price' => 'nullable|numeric|min:0|lt:price',
+            'promotion_label' => 'nullable|string|max:120',
+            'promotion_starts_at' => 'nullable|date',
+            'promotion_ends_at' => 'nullable|date|after_or_equal:promotion_starts_at',
             'is_available' => 'boolean',
             'status' => 'nullable|in:active,inactive',
             'image_path' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
@@ -158,10 +183,24 @@ class ProductController extends Controller
         ]);
 
         $validated['is_available'] = $request->has('is_available');
+        $validated['is_on_sale'] = $request->has('is_on_sale');
+        $validated['sku'] = $this->normalizeSku($validated['sku'] ?? null) ?? $product->sku;
         $validated['status'] = $validated['status'] ?? 'active';
-        $validated['grade_levels'] = StationeryHub::normalizeGrades($validated['grade_levels'] ?? []);
         $validated['delivery_days'] = $validated['delivery_days'] ?? $product->delivery_days ?? 3;
         $validated['low_stock_threshold'] = $validated['low_stock_threshold'] ?? $product->low_stock_threshold ?? 15;
+
+        if (! $validated['is_on_sale']) {
+            $validated['sale_price'] = null;
+            $validated['promotion_label'] = null;
+            $validated['promotion_starts_at'] = null;
+            $validated['promotion_ends_at'] = null;
+        }
+
+        if ($request->has('is_on_sale') && empty($validated['sale_price'])) {
+            return back()
+                ->withErrors(['sale_price' => 'Sale price is required when putting a product on promotion.'])
+                ->withInput();
+        }
 
         if ($request->hasFile('image_path')) {
             if ($product->image_path) {
@@ -201,6 +240,68 @@ class ProductController extends Controller
             ->with('success', 'Product deleted successfully!');
     }
 
+    public function bulkUploadPage(Request $request)
+    {
+        $business = Auth::user()->business;
+        $hub = MarketplaceHub::resolveHub($request, MarketplaceHub::defaultHubForBusiness($business));
+        MarketplaceHub::ensureHubAccess($business, $hub);
+
+        return view('products.bulk-upload', [
+            'hub' => $hub,
+            'hubLabel' => MarketplaceHub::hubLabel($hub),
+            'availableHubs' => MarketplaceHub::availableHubs($business),
+        ]);
+    }
+
+    public function downloadBulkTemplate(Request $request, ProductCsvImportService $importService)
+    {
+        $business = Auth::user()->business;
+        $hub = MarketplaceHub::resolveHub($request, MarketplaceHub::defaultHubForBusiness($business));
+        MarketplaceHub::ensureHubAccess($business, $hub);
+
+        $filename = 'products_template_'.$hub.'_'.now()->format('Y-m-d').'.csv';
+
+        return response($importService->templateCsv($hub))
+            ->header('Content-Type', 'text/csv')
+            ->header('Content-Disposition', 'attachment; filename="'.$filename.'"');
+    }
+
+    public function bulkUpload(Request $request, ProductCsvImportService $importService)
+    {
+        $business = Auth::user()->business;
+        $hub = MarketplaceHub::resolveHub($request, MarketplaceHub::defaultHubForBusiness($business));
+        MarketplaceHub::ensureHubAccess($business, $hub);
+
+        $request->validate([
+            'csv_file' => 'required|file|mimes:csv,txt|max:10240',
+            'hub' => ['required', Rule::in([StationeryHub::HUB, StationeryHub::KIDZ_MART])],
+        ]);
+
+        if ($request->input('hub') !== $hub) {
+            $hub = (string) $request->input('hub');
+            MarketplaceHub::ensureHubAccess($business, $hub);
+        }
+
+        $result = $importService->import(
+            $request->file('csv_file')->getRealPath(),
+            (int) $business->id,
+            $hub
+        );
+
+        $message = "Bulk upload completed. Imported: {$result['success']}";
+        if ($result['skipped'] > 0) {
+            $message .= ", Skipped empty rows: {$result['skipped']}";
+        }
+        if (count($result['errors']) > 0) {
+            $message .= ', Issues: '.count($result['errors']);
+        }
+
+        return redirect()
+            ->route('products.index', ['hub' => $hub])
+            ->with('success', $message)
+            ->with('bulk_upload_errors', $result['errors']);
+    }
+
     protected function authorizeProduct(Product $product): void
     {
         $business = Auth::user()->business;
@@ -217,6 +318,29 @@ class ProductController extends Controller
         }
 
         return array_values(array_filter(array_map('trim', explode(',', $sizes))));
+    }
+
+    protected function skuRules(?int $businessId, ?int $ignoreProductId = null): array
+    {
+        if (! $businessId) {
+            return ['nullable', 'string', 'max:64'];
+        }
+
+        $rule = Rule::unique('products', 'sku')
+            ->where(fn ($query) => $query->where('business_id', $businessId));
+
+        if ($ignoreProductId) {
+            $rule->ignore($ignoreProductId);
+        }
+
+        return ['nullable', 'string', 'max:64', $rule];
+    }
+
+    protected function normalizeSku(?string $sku): ?string
+    {
+        $sku = strtoupper(trim((string) $sku));
+
+        return $sku !== '' ? $sku : null;
     }
 
     protected function storeAdditionalImages(Request $request, Product $product): void

@@ -31,6 +31,18 @@
                     @endif
                 </p>
             @endif
+            <p>Customer receipt:
+                @if ($order->customer_received_at)
+                    <span class="text-green-600 font-medium">
+                        Confirmed {{ $order->customer_received_at->format('M d, Y H:i') }}
+                        @if ($order->customerReceivedBy)
+                            by {{ $order->customerReceivedBy->name }}
+                        @endif
+                    </span>
+                @else
+                    <span class="text-gray-500 font-medium">Awaiting customer confirmation</span>
+                @endif
+            </p>
             <p>Placed: {{ $order->created_at?->format('M d, Y H:i') }}</p>
         </div>
     </div>

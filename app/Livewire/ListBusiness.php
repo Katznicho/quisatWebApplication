@@ -35,7 +35,7 @@ class ListBusiness extends Component implements HasForms, HasTable
 
     public function table(Table $table): Table
     {
-        $query = Business::query()->latest();
+        $query = Business::query()->withCount('registrationDocuments')->latest();
 
         if (Auth::check() && Auth::user()->business_id !== 1) {
             $query->where('id', Auth::user()->business_id);
@@ -169,6 +169,34 @@ class ListBusiness extends Component implements HasForms, HasTable
                     ->wrap()
                     ->searchable(false)
                     ->sortable(false),
+                Tables\Columns\TextColumn::make('registration_verified_at')
+                    ->label('KYC')
+                    ->badge()
+                    ->visible(fn (): bool => Auth::user()->business_id === 1)
+                    ->formatStateUsing(function ($state, Business $record): string {
+                        if ($record->id === 1) {
+                            return 'N/A';
+                        }
+
+                        if ($record->isRegistrationVerified()) {
+                            return 'Verified';
+                        }
+
+                        $count = (int) ($record->registration_documents_count ?? 0);
+
+                        return $count > 0 ? "{$count} doc(s) pending" : 'No docs';
+                    })
+                    ->color(function ($state, Business $record): string {
+                        if ($record->id === 1) {
+                            return 'gray';
+                        }
+
+                        if ($record->isRegistrationVerified()) {
+                            return 'success';
+                        }
+
+                        return ((int) ($record->registration_documents_count ?? 0)) > 0 ? 'warning' : 'gray';
+                    }),
                 Tables\Columns\TextColumn::make('stationery_verified_at')
                     ->label('Stationery')
                     ->badge()
@@ -298,6 +326,47 @@ class ListBusiness extends Component implements HasForms, HasTable
                     }),
             ])
             ->actions([
+                Tables\Actions\Action::make('review_registration_documents')
+                    ->label('Review KYC')
+                    ->icon('heroicon-o-document-text')
+                    ->color('info')
+                    ->visible(fn (Business $record): bool => Auth::user()->business_id === 1 && $record->id !== 1)
+                    ->modalHeading(fn (Business $record): string => 'Registration documents — '.$record->name)
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close')
+                    ->modalContent(fn (Business $record): View => view('businesses.partials.registration-documents', [
+                        'business' => $record->loadMissing([
+                            'registrationDocuments.documentType',
+                            'businessCategory',
+                            'users.role',
+                        ]),
+                    ])),
+                Tables\Actions\Action::make('toggle_registration_verification')
+                    ->label(fn (Business $record): string => $record->isRegistrationVerified()
+                        ? 'Revoke registration approval'
+                        : 'Approve registration')
+                    ->icon('heroicon-o-shield-check')
+                    ->color(fn (Business $record): string => $record->isRegistrationVerified() ? 'danger' : 'success')
+                    ->visible(fn (Business $record): bool => Auth::user()->business_id === 1 && $record->id !== 1)
+                    ->requiresConfirmation()
+                    ->modalHeading(fn (Business $record): string => $record->isRegistrationVerified()
+                        ? 'Revoke registration approval?'
+                        : 'Approve business registration?')
+                    ->modalDescription(fn (Business $record): string => $record->isRegistrationVerified()
+                        ? 'This business will be marked as pending document verification again.'
+                        : 'Confirm you have reviewed the submitted registration documents.')
+                    ->action(function (Business $record): void {
+                        $record->update([
+                            'registration_verified_at' => $record->isRegistrationVerified() ? null : now(),
+                        ]);
+
+                        Notification::make()
+                            ->title($record->fresh()->isRegistrationVerified()
+                                ? 'Registration approved'
+                                : 'Registration approval revoked')
+                            ->success()
+                            ->send();
+                    }),
                 Tables\Actions\ViewAction::make()
                     ->form([
                         \Filament\Forms\Components\TextInput::make('name')

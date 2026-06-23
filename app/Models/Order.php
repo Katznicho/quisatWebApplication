@@ -30,6 +30,8 @@ class Order extends Model
         'wallet_credit_amount',
         'funds_released_at',
         'funds_released_by',
+        'customer_received_at',
+        'customer_received_by',
         'subtotal',
         'total',
         'total_amount',
@@ -41,6 +43,7 @@ class Order extends Model
         'total_amount' => 'decimal:2',
         'wallet_credit_amount' => 'decimal:2',
         'funds_released_at' => 'datetime',
+        'customer_received_at' => 'datetime',
     ];
 
     protected static function booted()
@@ -106,6 +109,29 @@ class Order extends Model
     public function fundsReleasedBy()
     {
         return $this->belongsTo(\App\Models\User::class, 'funds_released_by');
+    }
+
+    public function customerReceivedBy()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'customer_received_by');
+    }
+
+    public function customerHasConfirmedReceipt(): bool
+    {
+        return $this->customer_received_at !== null;
+    }
+
+    public function customerCanConfirmReceipt(): bool
+    {
+        if ($this->customer_received_at || $this->status === 'cancelled') {
+            return false;
+        }
+
+        if ($this->payment_status === 'paid') {
+            return true;
+        }
+
+        return in_array($this->status, ['confirmed', 'processing', 'shipped', 'delivered'], true);
     }
 
     public function markMarzPayFailed(\App\Models\PaymentCollection $collection): void
