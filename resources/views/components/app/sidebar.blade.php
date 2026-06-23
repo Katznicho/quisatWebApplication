@@ -479,6 +479,9 @@
                                 <li><a href="{{ route('products.index') }}"
                                         class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Products</a>
                                 </li>
+                                <li><a href="{{ route('products.catalog.index') }}"
+                                        class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Products catalog</a>
+                                </li>
                                 <li><a href="{{ route('orders.index') }}"
                                         class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Orders</a>
                                 </li>

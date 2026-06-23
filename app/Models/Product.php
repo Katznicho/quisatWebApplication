@@ -98,6 +98,11 @@ class Product extends Model
         return $this->hasMany(ProductReview::class);
     }
 
+    public function orderItems()
+    {
+        return $this->hasMany(OrderItem::class);
+    }
+
     public function isStationery(): bool
     {
         return ($this->hub ?? StationeryHub::KIDZ_MART) === StationeryHub::HUB;

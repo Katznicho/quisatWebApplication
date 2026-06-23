@@ -318,6 +318,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('products/bulk-upload', [ProductController::class, 'bulkUploadPage'])->name('products.bulk-upload-page');
     Route::get('products/bulk-upload/template', [ProductController::class, 'downloadBulkTemplate'])->name('products.bulk-upload-template');
     Route::post('products/bulk-upload', [ProductController::class, 'bulkUpload'])->name('products.bulk-upload');
+    Route::get('products/catalog', [\App\Http\Controllers\ProductCatalogController::class, 'index'])->name('products.catalog.index');
+    Route::get('products/catalog/export', [\App\Http\Controllers\ProductCatalogController::class, 'export'])->name('products.catalog.export');
     Route::resource('products', ProductController::class);
     Route::get('orders', [OrderController::class, 'index'])->name('orders.index');
     Route::get('reviews', [\App\Http\Controllers\ReviewController::class, 'index'])->name('reviews.index');
