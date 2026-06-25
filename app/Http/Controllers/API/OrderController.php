@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\ParentGuardian;
 use App\Models\Product;
 use App\Models\ProductReview;
 use App\Models\BusinessReview;
@@ -527,21 +528,11 @@ class OrderController extends Controller
 
     private function customerOwnsOrder($user, Order $order): bool
     {
-        $email = strtolower(trim((string) ($user->email ?? '')));
-        $orderEmail = strtolower(trim((string) ($order->customer_email ?? '')));
-
-        if ($email !== '' && $orderEmail !== '' && $email === $orderEmail) {
-            return true;
+        if ($user instanceof ParentGuardian || $user instanceof \App\Models\User) {
+            return CustomerOrderMatcher::customerOwnsOrder($user, $order);
         }
 
-        $phoneSuffix = $this->phoneMatchSuffix($user->phone ?? null);
-        if ($phoneSuffix === null || ! $order->customer_phone) {
-            return false;
-        }
-
-        $orderDigits = preg_replace('/\D+/', '', (string) $order->customer_phone);
-
-        return $orderDigits !== '' && str_ends_with($orderDigits, $phoneSuffix);
+        return false;
     }
 
     private function phoneMatchSuffix(?string $phone): ?string
@@ -563,6 +554,11 @@ class OrderController extends Controller
     {
         if ((int) ($user->business_id ?? 0) === 1 && $user instanceof \App\Models\User) {
             return true;
+        }
+
+        // Parents belong to a school (business_id) but marketplace orders are from vendors.
+        if ($user instanceof ParentGuardian) {
+            return CustomerOrderMatcher::customerOwnsOrder($user, $order);
         }
 
         if ($this->isStaffOrBusinessUser($user)) {

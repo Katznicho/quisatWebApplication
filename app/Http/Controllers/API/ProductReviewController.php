@@ -119,7 +119,7 @@ class ProductReviewController extends Controller
             );
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('ProductReviewController@store - '.$e->getMessage());
 
             return response()->json(['success' => false, 'message' => 'Failed to submit review.'], 500);

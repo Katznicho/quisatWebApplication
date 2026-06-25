@@ -131,7 +131,7 @@ class BusinessReviewController extends Controller
             ], 201);
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('BusinessReviewController@store - '.$e->getMessage());
 
             return response()->json(['success' => false, 'message' => 'Failed to submit shop review.'], 500);
