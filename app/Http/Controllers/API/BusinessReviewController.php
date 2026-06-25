@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\User;
 use App\Services\ReviewAggregateService;
 use App\Support\CustomerOrderMatcher;
+use App\Support\ReviewAuthor;
 use App\Support\StationeryHub;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -98,21 +99,27 @@ class BusinessReviewController extends Controller
                 ], 422);
             }
 
-            if (BusinessReview::where('user_id', $user->id)->where('order_id', $order->id)->exists()) {
+            if (BusinessReview::query()
+                ->where('order_id', $order->id)
+                ->where(function ($q) use ($user) {
+                    ReviewAuthor::scopeForUser($q, $user);
+                })
+                ->exists()) {
                 return response()->json(['success' => false, 'message' => 'You have already reviewed this shop for this order.'], 422);
             }
 
             $review = BusinessReview::create([
                 'business_id' => $business->id,
                 'order_id' => $order->id,
-                'user_id' => $user->id,
+                'user_id' => ReviewAuthor::userId($user),
+                'parent_guardian_id' => ReviewAuthor::parentGuardianId($user),
                 'hub' => $order->hub ?? StationeryHub::KIDZ_MART,
                 'rating' => (int) $validated['rating'],
                 'title' => $validated['title'] ?? null,
                 'comment' => $validated['comment'] ?? null,
                 'status' => 'approved',
                 'verified_purchase' => true,
-                'reviewer_name' => $user->name,
+                'reviewer_name' => ReviewAuthor::displayName($user),
             ]);
 
             app(ReviewAggregateService::class)->refreshBusinessRating($business->id);

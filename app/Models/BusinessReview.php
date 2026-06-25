@@ -15,6 +15,7 @@ class BusinessReview extends Model
         'business_id',
         'order_id',
         'user_id',
+        'parent_guardian_id',
         'hub',
         'rating',
         'title',

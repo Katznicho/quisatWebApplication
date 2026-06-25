@@ -17,6 +17,7 @@ class ProductReview extends Model
         'order_id',
         'order_item_id',
         'user_id',
+        'parent_guardian_id',
         'hub',
         'rating',
         'title',

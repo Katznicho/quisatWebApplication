@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\ProductReview;
 use App\Models\BusinessReview;
 use App\Support\CustomerOrderMatcher;
+use App\Support\ReviewAuthor;
 use App\Services\MarzPayCheckoutService;
 use App\Services\BusinessWalletService;
 use App\Support\StationeryHub;
@@ -670,13 +671,17 @@ class OrderController extends Controller
     {
         $eligible = CustomerOrderMatcher::orderEligibleForReview($order);
         $reviewedItemIds = ProductReview::query()
-            ->where('user_id', $user->id)
             ->where('order_id', $order->id)
+            ->where(function ($q) use ($user) {
+                ReviewAuthor::scopeForUser($q, $user);
+            })
             ->pluck('order_item_id')
             ->all();
         $businessReviewed = BusinessReview::query()
-            ->where('user_id', $user->id)
             ->where('order_id', $order->id)
+            ->where(function ($q) use ($user) {
+                ReviewAuthor::scopeForUser($q, $user);
+            })
             ->exists();
 
         return [
