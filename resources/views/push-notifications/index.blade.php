@@ -25,6 +25,52 @@
                     </div>
                 @endif
 
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
+                    <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
+                        <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ $deviceStats['active'] }}</div>
+                        <div class="text-xs text-gray-500">Active devices</div>
+                    </div>
+                    <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
+                        <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ $deviceStats['ios'] }}</div>
+                        <div class="text-xs text-gray-500">iOS</div>
+                    </div>
+                    <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
+                        <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ $deviceStats['android'] }}</div>
+                        <div class="text-xs text-gray-500">Android</div>
+                    </div>
+                    <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-3 text-center">
+                        <div class="text-2xl font-bold text-gray-900 dark:text-white">{{ $deviceStats['web'] }}</div>
+                        <div class="text-xs text-gray-500">Web</div>
+                    </div>
+                    <div class="rounded-lg border border-blue-200 dark:border-blue-800 p-3 text-center bg-blue-50/50 dark:bg-blue-900/20">
+                        <a href="{{ route('push-notifications.devices') }}" class="text-sm font-semibold text-blue-700 hover:text-blue-900">
+                            View all devices →
+                        </a>
+                    </div>
+                </div>
+
+                @if ($isSuperAdmin && count($configChecks))
+                    <div class="mb-6 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                        <h3 class="text-sm font-semibold text-gray-800 dark:text-white mb-3">Push configuration</h3>
+                        <ul class="space-y-2 text-sm">
+                            @foreach ($configChecks as $check)
+                                <li class="flex items-start gap-2">
+                                    <span @class([
+                                        'mt-0.5 inline-block h-2.5 w-2.5 rounded-full shrink-0',
+                                        'bg-green-500' => $check['ok'],
+                                        'bg-amber-500' => ! $check['ok'] && $check['key'] !== 'expo_token',
+                                        'bg-gray-400' => ! $check['ok'] && $check['key'] === 'expo_token',
+                                    ])></span>
+                                    <div>
+                                        <span class="font-medium text-gray-800 dark:text-gray-200">{{ $check['label'] }}</span>
+                                        <span class="text-gray-600 dark:text-gray-400"> — {{ $check['detail'] }}</span>
+                                    </div>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
                         <thead class="bg-gray-50 dark:bg-gray-900">

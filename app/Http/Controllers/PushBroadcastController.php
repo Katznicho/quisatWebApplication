@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\AuthorizesPushAdmin;
 use App\Jobs\SendPushBroadcastJob;
 use App\Models\Business;
-use App\Models\DeviceToken;
 use App\Models\PushBroadcast;
+use App\Services\PushConfigurationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,9 +14,11 @@ use Illuminate\View\View;
 
 class PushBroadcastController extends Controller
 {
-    public function index(): View
+    use AuthorizesPushAdmin;
+
+    public function index(PushConfigurationService $config): View
     {
-        $this->authorizeAccess();
+        $this->authorizePushAdmin();
 
         $query = PushBroadcast::query()->with('creator')->latest();
 
@@ -24,13 +27,19 @@ class PushBroadcastController extends Controller
         }
 
         $broadcasts = $query->paginate(20);
+        $deviceStats = $config->deviceStats(fn () => $this->deviceTokensQuery());
 
-        return view('push-notifications.index', compact('broadcasts'));
+        return view('push-notifications.index', [
+            'broadcasts' => $broadcasts,
+            'deviceStats' => $deviceStats,
+            'configChecks' => $this->isSuperAdmin() ? $config->checks() : [],
+            'isSuperAdmin' => $this->isSuperAdmin(),
+        ]);
     }
 
     public function create(): View
     {
-        $this->authorizeAccess();
+        $this->authorizePushAdmin();
 
         $businesses = $this->isSuperAdmin()
             ? Business::query()->where('id', '!=', 1)->orderBy('name')->get(['id', 'name'])
@@ -41,7 +50,7 @@ class PushBroadcastController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $this->authorizeAccess();
+        $this->authorizePushAdmin();
 
         $validated = $this->validateBroadcast($request);
 
@@ -58,19 +67,14 @@ class PushBroadcastController extends Controller
             ->with('success', 'Notification queued for delivery.');
     }
 
-    public function show(PushBroadcast $pushNotification): View
+    public function show(PushBroadcast $pushNotification, PushConfigurationService $config): View
     {
-        $this->authorizeAccess();
+        $this->authorizePushAdmin();
         $this->authorizeBroadcast($pushNotification);
 
         $pushNotification->load('creator', 'business');
 
-        $deviceStats = [
-            'total_devices' => $this->deviceCountQuery()->count(),
-            'ios' => $this->deviceCountQuery()->where('platform', 'ios')->count(),
-            'android' => $this->deviceCountQuery()->where('platform', 'android')->count(),
-            'web' => $this->deviceCountQuery()->where('platform', 'web')->count(),
-        ];
+        $deviceStats = $config->deviceStats(fn () => $this->deviceTokensQuery()->where('is_active', true));
 
         return view('push-notifications.show', [
             'broadcast' => $pushNotification,
@@ -118,29 +122,6 @@ class PushBroadcastController extends Controller
         ];
     }
 
-    protected function deviceCountQuery()
-    {
-        $query = DeviceToken::query()->where('is_active', true);
-
-        if (! $this->isSuperAdmin()) {
-            $businessId = Auth::user()->business_id;
-
-            $query->where(function ($q) use ($businessId) {
-                $q->whereHasMorph('tokenable', [\App\Models\User::class], fn ($uq) => $uq->where('business_id', $businessId))
-                    ->orWhereHasMorph('tokenable', [\App\Models\ParentGuardian::class], fn ($pq) => $pq->where('business_id', $businessId));
-            });
-        }
-
-        return $query;
-    }
-
-    protected function authorizeAccess(): void
-    {
-        if (! Auth::check()) {
-            abort(403);
-        }
-    }
-
     protected function authorizeBroadcast(PushBroadcast $broadcast): void
     {
         if ($this->isSuperAdmin()) {
@@ -150,10 +131,5 @@ class PushBroadcastController extends Controller
         if ((int) $broadcast->business_id !== (int) Auth::user()->business_id) {
             abort(403);
         }
-    }
-
-    protected function isSuperAdmin(): bool
-    {
-        return Auth::check() && (int) Auth::user()->business_id === 1;
     }
 }

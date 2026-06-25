@@ -46,11 +46,14 @@
                 <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
                     <h3 class="font-semibold text-gray-800 dark:text-white mb-3">Registered devices (active)</h3>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                        <div>Total: <strong>{{ number_format($deviceStats['total_devices']) }}</strong></div>
+                        <div>Active: <strong>{{ number_format($deviceStats['active']) }}</strong></div>
                         <div>iOS: <strong>{{ number_format($deviceStats['ios']) }}</strong></div>
                         <div>Android: <strong>{{ number_format($deviceStats['android']) }}</strong></div>
                         <div>Web: <strong>{{ number_format($deviceStats['web']) }}</strong></div>
                     </div>
+                    <a href="{{ route('push-notifications.devices') }}" class="mt-3 inline-block text-sm text-blue-600 hover:text-blue-800">
+                        View registered devices →
+                    </a>
                 </div>
 
                 <dl class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
