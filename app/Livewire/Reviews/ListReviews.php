@@ -98,15 +98,15 @@ class ListReviews extends Component implements HasForms, HasTable
                     ->label('Hide')
                     ->icon('heroicon-o-eye-slash')
                     ->color('warning')
-                    ->visible(fn (array $record): bool => $record['status'] === 'approved')
+                    ->visible(fn (ProductReview $record): bool => $record->status === 'approved')
                     ->requiresConfirmation()
-                    ->action(fn (array $record) => $this->updateReviewStatus($record, 'hidden')),
+                    ->action(fn (ProductReview $record) => $this->updateReviewStatus($record, 'hidden')),
                 Action::make('approve')
                     ->label('Approve')
                     ->icon('heroicon-o-check')
                     ->color('success')
-                    ->visible(fn (array $record): bool => $record['status'] !== 'approved')
-                    ->action(fn (array $record) => $this->updateReviewStatus($record, 'approved')),
+                    ->visible(fn (ProductReview $record): bool => $record->status !== 'approved')
+                    ->action(fn (ProductReview $record) => $this->updateReviewStatus($record, 'approved')),
             ])
             ->defaultSort('created_at', 'desc')
             ->emptyStateHeading('No customer feedback yet')
@@ -180,16 +180,16 @@ class ListReviews extends Component implements HasForms, HasTable
             ");
     }
 
-    protected function updateReviewStatus(array $record, string $status): void
+    protected function updateReviewStatus(ProductReview $record, string $status): void
     {
-        if ($record['review_type'] === 'business') {
-            $review = BusinessReview::find($record['id']);
+        if ($record->review_type === 'business') {
+            $review = BusinessReview::find($record->id);
             if ($review && $this->canManageReview($review->business_id)) {
                 $review->update(['status' => $status]);
                 app(ReviewAggregateService::class)->refreshBusinessRating($review->business_id);
             }
         } else {
-            $review = ProductReview::find($record['id']);
+            $review = ProductReview::find($record->id);
             if ($review && $this->canManageReview($review->business_id)) {
                 $review->update(['status' => $status]);
                 app(ReviewAggregateService::class)->refreshProductRating($review->product_id);
