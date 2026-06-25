@@ -52,16 +52,15 @@ class OrderController extends Controller
             $productIds = collect($items)->pluck('product_id')->unique()->values();
             $products = Product::whereIn('id', $productIds)->get()->keyBy('id');
 
-            // Validate all products exist and belong to a single business (simple fulfillment model)
-            $businessIds = $products->pluck('business_id')->filter()->unique()->values();
-            if ($businessIds->count() > 1) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Please place orders from one shop at a time.',
-                ], 422);
+            foreach ($items as $item) {
+                if (! $products->has($item['product_id'])) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'One or more products are no longer available.',
+                    ], 422);
+                }
             }
 
-            $businessId = $businessIds->first();
             $hubs = $products->pluck('hub')->filter()->unique()->values();
             if ($hubs->count() > 1) {
                 return response()->json([
@@ -69,111 +68,72 @@ class OrderController extends Controller
                     'message' => 'Please place orders from one marketplace at a time.',
                 ], 422);
             }
+
             $hub = $hubs->first() ?? StationeryHub::KIDZ_MART;
 
-            return DB::transaction(function () use ($payload, $items, $products, $businessId, $hub, $request) {
-                // Calculate total first
-                $total = 0;
-                foreach ($items as $item) {
-                    /** @var Product $product */
-                    $product = $products->get($item['product_id']);
-                    if (!$product) {
-                        throw new \RuntimeException('Product not found: ' . $item['product_id']);
-                    }
+            $itemsByBusiness = collect($items)->groupBy(
+                fn (array $item) => (int) $products->get($item['product_id'])->business_id
+            );
 
-                    $qty = (int) $item['quantity'];
-                    $unit = $product->effectivePrice();
-                    $line = $unit * $qty;
-                    $total += $line;
+            return DB::transaction(function () use ($payload, $itemsByBusiness, $products, $hub) {
+                $createdOrders = [];
+                $payments = [];
+                $paymentErrors = [];
+                $anyPaymentInitiated = false;
+
+                foreach ($itemsByBusiness as $businessId => $businessItems) {
+                    $result = $this->createOrderForBusiness(
+                        $payload,
+                        $businessItems->values()->all(),
+                        $products,
+                        (int) $businessId,
+                        $hub
+                    );
+
+                    $createdOrders[] = $result['order'];
+                    if ($result['payment']) {
+                        $payments[] = $result['payment'];
+                    }
+                    if ($result['payment_error']) {
+                        $paymentErrors[] = $result['payment_error'];
+                    }
+                    if ($result['payment_initiated']) {
+                        $anyPaymentInitiated = true;
+                    }
                 }
 
+                $ordersCount = count($createdOrders);
+                $orderNumbers = collect($createdOrders)->pluck('order_number')->implode(', ');
                 $paymentMethod = $payload['payment_method'] ?? 'cash';
+                $isOnline = in_array($paymentMethod, ['card', 'mtn_mobile_money', 'airtel_money'], true);
 
-                // Create order with subtotal, total, and total_amount
-                $order = Order::create([
-                    'uuid' => (string) Str::uuid(),
-                    'business_id' => $businessId,
-                    'hub' => $hub,
-                    'customer_name' => $payload['customer_name'],
-                    'customer_email' => $payload['customer_email'] ?? null,
-                    'customer_phone' => $payload['customer_phone'],
-                    'customer_address' => $payload['customer_address'] ?? null,
-                    'notes' => $payload['notes'] ?? null,
-                    'status' => 'pending',
-                    'payment_method' => $paymentMethod,
-                    'payment_status' => 'pending',
-                    'subtotal' => $total,
-                    'total' => $total, // Set total
-                    'total_amount' => $total,
-                ]);
-
-                // Create order items
-                foreach ($items as $item) {
-                    /** @var Product $product */
-                    $product = $products->get($item['product_id']);
-                    if (!$product) {
-                        throw new \RuntimeException('Product not found: ' . $item['product_id']);
-                    }
-
-                    $qty = (int) $item['quantity'];
-                    $unit = $product->effectivePrice();
-                    $line = $unit * $qty;
-
-                    OrderItem::create([
-                        'order_id' => $order->id,
-                        'product_id' => $product->id,
-                        'product_name' => $product->name,
-                        'quantity' => $qty,
-                        'price' => $unit,
-                        'unit_price' => $unit,
-                        'subtotal' => $line, // Store subtotal (same as total_price for now)
-                        'total_price' => $line,
-                        'selected_size' => $item['selected_size'] ?? null,
-                    ]);
+                if ($ordersCount > 1) {
+                    $message = $isOnline
+                        ? "{$ordersCount} orders created (one per shop): {$orderNumbers}. Complete payment for each shop."
+                        : "{$ordersCount} orders placed (one per shop): {$orderNumbers}. Each seller will contact you.";
+                } elseif ($anyPaymentInitiated) {
+                    $message = 'Order created. '.($isOnline && $paymentMethod === 'card'
+                        ? 'Complete your card payment using the link provided.'
+                        : 'Approve the mobile money prompt on your phone to complete payment.');
+                } elseif (! empty($paymentErrors)) {
+                    $message = 'Order created, but online payment could not be started.';
+                } else {
+                    $message = 'Order placed successfully';
                 }
 
-                $payment = null;
-                $paymentMessage = null;
-                $paymentError = null;
-                $paymentInitiated = false;
-
-                /** @var MarzPayCheckoutService $checkout */
-                $checkout = app(MarzPayCheckoutService::class);
-                $paymentResult = $checkout->maybeInitiate($order, $paymentMethod);
-
-                if ($paymentResult) {
-                    if ($paymentResult['success']) {
-                        $payment = $paymentResult['data'];
-                        $paymentInitiated = true;
-                        $paymentMessage = $paymentMethod === 'card'
-                            ? 'Complete your card payment using the link provided.'
-                            : 'Approve the mobile money prompt on your phone to complete payment.';
-                    } else {
-                        $order->update(['payment_status' => 'failed']);
-                        $paymentError = $paymentResult['message'] ?? 'Payment could not be started.';
-                        $paymentMessage = $paymentError;
-                    }
-                }
+                $firstOrder = $createdOrders[0] ?? null;
 
                 return response()->json([
                     'success' => true,
-                    'message' => $payment
-                        ? 'Order created. '.$paymentMessage
-                        : ($paymentError ? 'Order created, but online payment could not be started.' : 'Order placed successfully'),
-                    'payment_initiated' => $paymentInitiated,
-                    'payment_error' => $paymentError,
+                    'message' => $message,
+                    'payment_initiated' => $anyPaymentInitiated,
+                    'payment_error' => $paymentErrors[0] ?? null,
+                    'orders_count' => $ordersCount,
                     'data' => [
-                        'order' => [
-                            'id' => $order->id,
-                            'uuid' => $order->uuid,
-                            'order_number' => $order->order_number,
-                            'hub' => $order->hub,
-                            'status' => $order->status,
-                            'payment_method' => $order->payment_method,
-                            'payment_status' => $order->payment_status,
-                            'total_amount' => (float) $order->total_amount,
-                        ],
-                        'payment' => $payment,
+                        'orders' => $createdOrders,
+                        'order' => $firstOrder,
+                        'payments' => $payments,
+                        'payment' => $payments[0] ?? null,
                     ],
                 ]);
             });
@@ -714,6 +674,111 @@ class OrderController extends Controller
                     'review_submitted' => in_array($item->id, $reviewedItemIds, true),
                 ];
             })->values()->all(),
+        ];
+    }
+
+    /**
+     * @param  array<int, array{product_id:int, quantity:int, selected_size?:string}>  $items
+     * @return array{
+     *     order: array<string, mixed>,
+     *     payment: ?array,
+     *     payment_error: ?string,
+     *     payment_initiated: bool,
+     * }
+     */
+    private function createOrderForBusiness(
+        array $payload,
+        array $items,
+        $products,
+        int $businessId,
+        string $hub
+    ): array {
+        $total = 0;
+
+        foreach ($items as $item) {
+            /** @var Product $product */
+            $product = $products->get($item['product_id']);
+            $qty = (int) $item['quantity'];
+            $total += $product->effectivePrice() * $qty;
+        }
+
+        $paymentMethod = $payload['payment_method'] ?? 'cash';
+
+        $order = Order::create([
+            'uuid' => (string) Str::uuid(),
+            'business_id' => $businessId,
+            'hub' => $hub,
+            'customer_name' => $payload['customer_name'],
+            'customer_email' => $payload['customer_email'] ?? null,
+            'customer_phone' => $payload['customer_phone'],
+            'customer_address' => $payload['customer_address'] ?? null,
+            'notes' => $payload['notes'] ?? null,
+            'status' => 'pending',
+            'payment_method' => $paymentMethod,
+            'payment_status' => 'pending',
+            'subtotal' => $total,
+            'total' => $total,
+            'total_amount' => $total,
+        ]);
+
+        foreach ($items as $item) {
+            /** @var Product $product */
+            $product = $products->get($item['product_id']);
+            $qty = (int) $item['quantity'];
+            $unit = $product->effectivePrice();
+            $line = $unit * $qty;
+
+            OrderItem::create([
+                'order_id' => $order->id,
+                'product_id' => $product->id,
+                'product_name' => $product->name,
+                'quantity' => $qty,
+                'price' => $unit,
+                'unit_price' => $unit,
+                'subtotal' => $line,
+                'total_price' => $line,
+                'selected_size' => $item['selected_size'] ?? null,
+            ]);
+        }
+
+        $payment = null;
+        $paymentError = null;
+        $paymentInitiated = false;
+
+        /** @var MarzPayCheckoutService $checkout */
+        $checkout = app(MarzPayCheckoutService::class);
+        $paymentResult = $checkout->maybeInitiate($order, $paymentMethod);
+
+        if ($paymentResult) {
+            if ($paymentResult['success']) {
+                $payment = $paymentResult['data'];
+                $paymentInitiated = true;
+            } else {
+                $order->update(['payment_status' => 'failed']);
+                $paymentError = $paymentResult['message'] ?? 'Payment could not be started.';
+            }
+        }
+
+        return [
+            'order' => $this->formatCreatedOrder($order),
+            'payment' => $payment,
+            'payment_error' => $paymentError,
+            'payment_initiated' => $paymentInitiated,
+        ];
+    }
+
+    private function formatCreatedOrder(Order $order): array
+    {
+        return [
+            'id' => $order->id,
+            'uuid' => $order->uuid,
+            'order_number' => $order->order_number,
+            'business_id' => $order->business_id,
+            'hub' => $order->hub,
+            'status' => $order->status,
+            'payment_method' => $order->payment_method,
+            'payment_status' => $order->payment_status,
+            'total_amount' => (float) $order->total_amount,
         ];
     }
 }

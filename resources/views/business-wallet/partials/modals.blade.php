@@ -87,7 +87,8 @@
 {{-- Withdraw --}}
 <div id="withdrawModal" class="hidden fixed inset-0 z-50 bg-gray-600 bg-opacity-50 overflow-y-auto">
     <div class="relative top-20 mx-auto w-full max-w-md rounded-md border bg-white p-6 shadow-lg">
-        <h3 class="text-lg font-semibold mb-4">Request Withdrawal</h3>
+        <h3 class="text-lg font-semibold mb-4">Withdraw to Mobile Money</h3>
+        <p class="text-sm text-gray-600 mb-4">Funds are sent instantly to your mobile money number when you have sufficient available balance.</p>
         <form method="POST" action="{{ route('business.wallet.withdraw') }}" class="space-y-4" id="withdrawForm">
             @csrf
             <div>
@@ -113,7 +114,7 @@
             <div class="flex justify-end gap-2">
                 <button type="button" onclick="document.getElementById('withdrawModal').classList.add('hidden')"
                     class="rounded border px-4 py-2 text-sm">Cancel</button>
-                <button type="submit" class="rounded bg-green-600 px-4 py-2 text-sm font-semibold text-white">Submit Request</button>
+                <button type="submit" class="rounded bg-green-600 px-4 py-2 text-sm font-semibold text-white">Withdraw now</button>
             </div>
         </form>
     </div>

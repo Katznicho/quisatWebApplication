@@ -109,7 +109,7 @@ class BusinessWalletController extends Controller
         ]);
 
         try {
-            $withdrawal = $this->walletService->requestWithdrawal(
+            $withdrawal = $this->walletService->processWithdrawal(
                 $business,
                 (float) $validated['amount'],
                 $validated['phone_number'],
@@ -120,7 +120,7 @@ class BusinessWalletController extends Controller
             return back()->withErrors($e->errors())->withInput();
         }
 
-        return back()->with('success', 'Withdrawal request submitted. Reference: '.$withdrawal->uuid);
+        return back()->with('success', 'Withdrawal of UGX '.number_format($withdrawal->amount, 0).' sent to '.$withdrawal->phone_number.'. Reference: '.$withdrawal->uuid);
     }
 
     public function updateTiers(Request $request)

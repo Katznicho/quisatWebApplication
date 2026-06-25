@@ -631,9 +631,6 @@
                                 <li><a href="{{ route('withdrawal.settings.edit') }}"
                                         class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Withdrawal Fee Tiers</a>
                                 </li>
-                                <li><a href="{{ route('withdrawal.requests.index') }}"
-                                        class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Withdrawal Requests</a>
-                                </li>
                                 <li><a href="{{ route('orders.index') }}"
                                         class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">All Marketplace Orders</a>
                                 </li>

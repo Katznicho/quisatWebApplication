@@ -156,8 +156,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('marzpay/transactions', [\App\Http\Controllers\MarzPayTransactionController::class, 'index'])->name('marzpay.transactions.index');
         Route::get('withdrawal/settings', [WithdrawalSettingsController::class, 'edit'])->name('withdrawal.settings.edit');
         Route::put('withdrawal/settings', [WithdrawalSettingsController::class, 'update'])->name('withdrawal.settings.update');
-        Route::get('withdrawal/requests', [WithdrawalSettingsController::class, 'withdrawals'])->name('withdrawal.requests.index');
-        Route::patch('withdrawal/requests/{withdrawal}', [WithdrawalSettingsController::class, 'updateWithdrawalStatus'])->name('withdrawal.requests.update');
     });
     
     // Advertisement routes

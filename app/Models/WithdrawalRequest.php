@@ -17,6 +17,8 @@ class WithdrawalRequest extends Model
         'total_debited',
         'phone_number',
         'status',
+        'marz_transaction_uuid',
+        'provider_reference',
         'notes',
         'admin_notes',
         'processed_at',

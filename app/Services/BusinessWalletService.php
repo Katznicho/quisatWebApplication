@@ -15,7 +15,8 @@ use Illuminate\Validation\ValidationException;
 class BusinessWalletService
 {
     public function __construct(
-        protected WithdrawalFeeService $feeService
+        protected WithdrawalFeeService $feeService,
+        protected MarzPayService $marzPayService
     ) {}
 
     public function hasPin(Business $business): bool
@@ -217,7 +218,7 @@ class BusinessWalletService
         return (float) ($collection?->base_amount ?? 0);
     }
 
-    public function requestWithdrawal(
+    public function processWithdrawal(
         Business $business,
         float $amount,
         string $phoneNumber,
@@ -226,7 +227,7 @@ class BusinessWalletService
     ): WithdrawalRequest {
         if (! $this->hasPin($business)) {
             throw ValidationException::withMessages([
-                'pin' => 'Please set up a withdrawal PIN before requesting a withdrawal.',
+                'pin' => 'Please set up a withdrawal PIN before withdrawing.',
             ]);
         }
 
@@ -245,7 +246,7 @@ class BusinessWalletService
         $fee = $this->feeService->calculateFee($business, $amount);
         $totalDebited = $amount + $fee;
 
-        return DB::transaction(function () use ($business, $amount, $fee, $totalDebited, $phoneNumber, $notes) {
+        $withdrawal = DB::transaction(function () use ($business, $amount, $fee, $totalDebited, $phoneNumber, $notes) {
             $lockedBusiness = Business::query()->lockForUpdate()->findOrFail($business->id);
 
             if ((float) $lockedBusiness->available_balance < $totalDebited) {
@@ -264,7 +265,7 @@ class BusinessWalletService
                 'fee_amount' => $fee,
                 'total_debited' => $totalDebited,
                 'phone_number' => $phoneNumber,
-                'status' => 'pending',
+                'status' => 'processing',
                 'notes' => $notes,
             ]);
 
@@ -276,7 +277,7 @@ class BusinessWalletService
                 'total_balance_after' => $lockedBusiness->total_balance,
                 'reference_type' => WithdrawalRequest::class,
                 'reference_id' => $withdrawal->id,
-                'description' => 'Withdrawal request to '.$phoneNumber,
+                'description' => 'Withdrawal to '.$phoneNumber,
                 'created_by' => auth()->id(),
             ]);
 
@@ -296,6 +297,92 @@ class BusinessWalletService
 
             return $withdrawal;
         });
+
+        $result = $this->marzPayService->sendMoney(
+            $withdrawal->uuid,
+            (float) $withdrawal->amount,
+            $withdrawal->phone_number,
+            'Wallet withdrawal: '.$withdrawal->uuid
+        );
+
+        if (! $result['success']) {
+            $this->refundFailedWithdrawal($withdrawal, $result['message'] ?? 'Withdrawal failed.');
+
+            throw ValidationException::withMessages([
+                'amount' => $result['message'] ?? 'Withdrawal could not be completed. Your balance has been restored.',
+            ]);
+        }
+
+        $withdrawal->update([
+            'status' => 'completed',
+            'marz_transaction_uuid' => $result['transaction_uuid'] ?? null,
+            'provider_reference' => $result['provider_reference'] ?? null,
+            'processed_at' => now(),
+        ]);
+
+        return $withdrawal->fresh();
+    }
+
+    public function refundFailedWithdrawal(WithdrawalRequest $withdrawal, ?string $reason = null): void
+    {
+        if (in_array($withdrawal->status, ['failed', 'cancelled'], true)) {
+            return;
+        }
+
+        DB::transaction(function () use ($withdrawal, $reason) {
+            $lockedBusiness = Business::query()->lockForUpdate()->findOrFail($withdrawal->business_id);
+            $lockedWithdrawal = WithdrawalRequest::query()->lockForUpdate()->findOrFail($withdrawal->id);
+
+            if (in_array($lockedWithdrawal->status, ['failed', 'cancelled'], true)) {
+                return;
+            }
+
+            $lockedBusiness->available_balance = (float) $lockedBusiness->available_balance + (float) $lockedWithdrawal->total_debited;
+            $lockedBusiness->save();
+
+            $lockedWithdrawal->update([
+                'status' => 'failed',
+                'admin_notes' => $reason,
+                'processed_at' => now(),
+            ]);
+
+            BusinessBalanceLedger::create([
+                'business_id' => $lockedBusiness->id,
+                'type' => 'credit',
+                'amount' => (float) $lockedWithdrawal->amount,
+                'available_balance_after' => $lockedBusiness->available_balance,
+                'total_balance_after' => $lockedBusiness->total_balance,
+                'reference_type' => WithdrawalRequest::class,
+                'reference_id' => $lockedWithdrawal->id,
+                'description' => 'Withdrawal refund: '.$lockedWithdrawal->phone_number,
+                'created_by' => null,
+            ]);
+
+            if ((float) $lockedWithdrawal->fee_amount > 0) {
+                BusinessBalanceLedger::create([
+                    'business_id' => $lockedBusiness->id,
+                    'type' => 'credit',
+                    'amount' => (float) $lockedWithdrawal->fee_amount,
+                    'available_balance_after' => $lockedBusiness->available_balance,
+                    'total_balance_after' => $lockedBusiness->total_balance,
+                    'reference_type' => WithdrawalRequest::class,
+                    'reference_id' => $lockedWithdrawal->id,
+                    'description' => 'Withdrawal fee refund',
+                    'created_by' => null,
+                ]);
+            }
+        });
+    }
+
+    /** @deprecated Use processWithdrawal() */
+    public function requestWithdrawal(
+        Business $business,
+        float $amount,
+        string $phoneNumber,
+        string $pin,
+        ?string $notes = null
+    ): WithdrawalRequest {
+        return $this->processWithdrawal($business, $amount, $phoneNumber, $pin, $notes);
     }
 
     protected function validatePinFormat(string $pin): void

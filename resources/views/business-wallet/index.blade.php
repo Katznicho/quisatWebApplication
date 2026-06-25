@@ -41,7 +41,7 @@
                             </button>
                             <button type="button" onclick="document.getElementById('withdrawModal').classList.remove('hidden')"
                                 class="rounded bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700">
-                                Request Withdrawal
+                                Withdraw
                             </button>
                         @endif
                     </div>
@@ -118,7 +118,7 @@
                                     </p>
                                 </div>
                             @empty
-                                <p class="text-gray-500 text-sm">No withdrawal requests yet.</p>
+                                <p class="text-gray-500 text-sm">No withdrawals yet.</p>
                             @endforelse
                         </div>
                     </div>

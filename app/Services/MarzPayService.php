@@ -231,11 +231,83 @@ class MarzPayService
 
         return [
             'success' => true,
-            'message' => $status === $previousStatus
-                ? 'Status confirmed as '.$status.'.'
-                : 'Status updated from '.$previousStatus.' to '.$status.'.',
+            'message' => data_get($body, 'message', 'Status updated.'),
             'changed' => $status !== $previousStatus,
             'status' => $status,
+        ];
+    }
+
+    /**
+     * Send money to a mobile money wallet (business withdrawal).
+     *
+     * @return array{success:bool,message:string,status?:string,transaction_uuid?:string,provider_reference?:string,body?:array}
+     */
+    public function sendMoney(string $reference, float $amount, string $phoneNumber, ?string $description = null): array
+    {
+        $payload = [
+            'amount' => (string) (int) round($amount),
+            'phone_number' => $this->normalizePhone($phoneNumber),
+            'country' => config('marzpay.country', 'UG'),
+            'reference' => $reference,
+            'description' => Str::limit($description ?? 'Quisat wallet withdrawal', 255, ''),
+            'callback_url' => $this->callbackUrl(),
+        ];
+
+        if (empty($payload['phone_number'])) {
+            return [
+                'success' => false,
+                'message' => 'A valid mobile money phone number is required.',
+            ];
+        }
+
+        if (! config('marzpay.api_key') || ! config('marzpay.api_secret')) {
+            return [
+                'success' => false,
+                'message' => 'Mobile money disbursement is not configured. Contact support.',
+            ];
+        }
+
+        $response = Http::withHeaders([
+            'Authorization' => $this->authorizationHeader(),
+            'Accept' => 'application/json',
+        ])->asForm()->post(rtrim((string) config('marzpay.base_url'), '/').'/send-money', $payload);
+
+        $body = $response->json() ?? [];
+        $status = data_get($body, 'data.transaction.status', data_get($body, 'transaction.status'));
+        $successful = $response->successful() && data_get($body, 'status') === 'success';
+
+        if (! $successful) {
+            Log::error('MarzPay send-money failed', [
+                'reference' => $reference,
+                'http_status' => $response->status(),
+                'body' => $body,
+            ]);
+
+            return [
+                'success' => false,
+                'message' => data_get($body, 'message', 'Unable to send money to mobile wallet.'),
+                'body' => $body,
+            ];
+        }
+
+        $completedStatuses = ['completed', 'sandbox', 'processing'];
+
+        if (! in_array($status, $completedStatuses, true)) {
+            return [
+                'success' => false,
+                'message' => data_get($body, 'message', 'Withdrawal could not be completed.'),
+                'status' => $status,
+                'body' => $body,
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => data_get($body, 'message', 'Withdrawal sent successfully.'),
+            'status' => $status,
+            'transaction_uuid' => data_get($body, 'data.transaction.uuid', data_get($body, 'transaction.uuid')),
+            'provider_reference' => data_get($body, 'data.transaction.provider_reference', data_get($body, 'transaction.provider_reference')),
+            'body' => $body,
         ];
     }
 }

@@ -32,6 +32,16 @@ class MarzPayWebhookController extends Controller
             ->first();
 
         if (! $collection) {
+            $withdrawal = \App\Models\WithdrawalRequest::query()
+                ->where('uuid', $reference)
+                ->first();
+
+            if ($withdrawal) {
+                $this->handleWithdrawalWebhook($withdrawal, $status, $payload);
+
+                return response()->json(['message' => 'Withdrawal updated'], 200);
+            }
+
             Log::warning('MarzPay webhook for unknown reference', ['reference' => $reference]);
 
             return response()->json(['message' => 'Unknown reference'], 200);
@@ -53,5 +63,26 @@ class MarzPayWebhookController extends Controller
         $resolver->applyCallback($collection);
 
         return response()->json(['message' => 'OK'], 200);
+    }
+
+    protected function handleWithdrawalWebhook(\App\Models\WithdrawalRequest $withdrawal, string $status, array $payload): void
+    {
+        if ($status === 'failed' && $withdrawal->status !== 'failed') {
+            app(\App\Services\BusinessWalletService::class)->refundFailedWithdrawal(
+                $withdrawal,
+                data_get($payload, 'message', 'Withdrawal failed at payment provider.')
+            );
+
+            return;
+        }
+
+        if (in_array($status, ['completed', 'sandbox'], true) && $withdrawal->status !== 'completed') {
+            $withdrawal->update([
+                'status' => 'completed',
+                'marz_transaction_uuid' => data_get($payload, 'transaction.uuid', $withdrawal->marz_transaction_uuid),
+                'provider_reference' => data_get($payload, 'transaction.provider_reference', $withdrawal->provider_reference),
+                'processed_at' => $withdrawal->processed_at ?? now(),
+            ]);
+        }
     }
 }
