@@ -3,6 +3,7 @@
 namespace App\Livewire\Reviews;
 
 use App\Models\BusinessReview;
+use App\Models\MarketplaceReview;
 use App\Models\ProductReview;
 use App\Services\ReviewAggregateService;
 use App\Support\StationeryHub;
@@ -81,7 +82,8 @@ class ListReviews extends Component implements HasForms, HasTable
             ->query($this->reviewsQuery())
             ->columns($columns)
             ->filters([
-                Tables\Filters\SelectFilter::make('type')
+                Tables\Filters\SelectFilter::make('review_type')
+                    ->label('Type')
                     ->options([
                         'product' => 'Product',
                         'business' => 'Shop',
@@ -98,15 +100,15 @@ class ListReviews extends Component implements HasForms, HasTable
                     ->label('Hide')
                     ->icon('heroicon-o-eye-slash')
                     ->color('warning')
-                    ->visible(fn (ProductReview $record): bool => $record->status === 'approved')
+                    ->visible(fn (MarketplaceReview $record): bool => $record->status === 'approved')
                     ->requiresConfirmation()
-                    ->action(fn (ProductReview $record) => $this->updateReviewStatus($record, 'hidden')),
+                    ->action(fn (MarketplaceReview $record) => $this->updateReviewStatus($record, 'hidden')),
                 Action::make('approve')
                     ->label('Approve')
                     ->icon('heroicon-o-check')
                     ->color('success')
-                    ->visible(fn (ProductReview $record): bool => $record->status !== 'approved')
-                    ->action(fn (ProductReview $record) => $this->updateReviewStatus($record, 'approved')),
+                    ->visible(fn (MarketplaceReview $record): bool => $record->status !== 'approved')
+                    ->action(fn (MarketplaceReview $record) => $this->updateReviewStatus($record, 'approved')),
             ])
             ->defaultSort('created_at', 'desc')
             ->emptyStateHeading('No customer feedback yet')
@@ -161,7 +163,7 @@ class ListReviews extends Component implements HasForms, HasTable
 
         $union = $productReviews->unionAll($businessReviews);
 
-        return ProductReview::query()
+        return MarketplaceReview::query()
             ->fromSub($union, 'marketplace_reviews')
             ->selectRaw("
                 id,
@@ -180,7 +182,7 @@ class ListReviews extends Component implements HasForms, HasTable
             ");
     }
 
-    protected function updateReviewStatus(ProductReview $record, string $status): void
+    protected function updateReviewStatus(MarketplaceReview $record, string $status): void
     {
         if ($record->review_type === 'business') {
             $review = BusinessReview::find($record->id);
