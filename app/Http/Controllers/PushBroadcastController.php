@@ -60,11 +60,11 @@ class PushBroadcastController extends Controller
             'created_by' => Auth::id(),
         ]);
 
-        SendPushBroadcastJob::dispatch($broadcast);
+        SendPushBroadcastJob::dispatchSync($broadcast);
 
         return redirect()
             ->route('push-notifications.show', $broadcast)
-            ->with('success', 'Notification queued for delivery.');
+            ->with('success', 'Notification sent.');
     }
 
     public function show(PushBroadcast $pushNotification, PushConfigurationService $config): View

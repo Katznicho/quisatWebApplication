@@ -14,11 +14,11 @@ class PushConfigurationService
         return [
             [
                 'key' => 'queue',
-                'label' => 'Queue worker',
-                'ok' => $queue !== 'sync',
+                'label' => 'Delivery mode',
+                'ok' => true,
                 'detail' => $queue === 'sync'
-                    ? 'QUEUE_CONNECTION=sync — broadcasts run inline. Use database or redis + php artisan queue:work on production.'
-                    : 'Queue driver: '.$queue,
+                    ? 'Sending immediately (no queue worker). Keep QUEUE_CONNECTION=sync.'
+                    : 'Queue driver: '.$queue.' — broadcasts still send immediately via dispatchSync.',
             ],
             [
                 'key' => 'vapid_public',
