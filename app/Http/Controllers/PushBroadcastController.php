@@ -87,6 +87,7 @@ class PushBroadcastController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:120',
             'body' => 'required|string|max:1000',
+            'image' => 'nullable|image|max:5120',
             'audience' => 'required|in:all,parents,staff,business',
             'business_id' => 'nullable|exists:businesses,id',
             'channels' => 'required|array|min:1',
@@ -112,9 +113,15 @@ class PushBroadcastController extends Controller
             $data = ['url' => $validated['deep_link']];
         }
 
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('push-notifications', 'public');
+        }
+
         return [
             'title' => $validated['title'],
             'body' => $validated['body'],
+            'image_path' => $imagePath,
             'audience' => $validated['audience'],
             'business_id' => $businessId,
             'channels' => array_values(array_unique($validated['channels'])),

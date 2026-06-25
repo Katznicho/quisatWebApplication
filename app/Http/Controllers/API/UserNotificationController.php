@@ -73,10 +73,13 @@ class UserNotificationController extends Controller
 
     protected function format(UserNotification $notification): array
     {
+        $imageUrl = $notification->data['imageUrl'] ?? null;
+
         return [
             'id' => $notification->uuid,
             'title' => $notification->title,
             'body' => $notification->body,
+            'image_url' => $imageUrl,
             'data' => $notification->data,
             'read' => $notification->read_at !== null,
             'read_at' => $notification->read_at?->toIso8601String(),

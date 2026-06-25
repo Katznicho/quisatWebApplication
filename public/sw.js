@@ -22,6 +22,10 @@ self.addEventListener('push', function (event) {
     badge: '/images/logo.png',
   };
 
+  if (payload.image) {
+    options.image = payload.image;
+  }
+
   event.waitUntil(self.registration.showNotification(title, options));
 });
 

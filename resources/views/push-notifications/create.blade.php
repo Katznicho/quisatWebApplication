@@ -10,7 +10,7 @@
                     </p>
                 </div>
 
-                <form method="POST" action="{{ route('push-notifications.store') }}" class="space-y-6">
+                <form method="POST" action="{{ route('push-notifications.store') }}" enctype="multipart/form-data" class="space-y-6">
                     @csrf
 
                     <div>
@@ -27,6 +27,14 @@
                             class="w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-900 px-3 py-2 text-sm"
                             placeholder="Write your notification message here...">{{ old('body') }}</textarea>
                         @error('body')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                    </div>
+
+                    <div>
+                        <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Image (optional)</label>
+                        <input type="file" name="image" accept="image/jpeg,image/png,image/webp,image/gif"
+                            class="w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-900 px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-blue-50 file:px-3 file:py-1 file:text-sm file:font-medium file:text-blue-700">
+                        <p class="mt-1 text-xs text-gray-500">JPEG, PNG, WebP or GIF. Max 5 MB. Shown on Android push and in-app inbox.</p>
+                        @error('image')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
                     </div>
 
                     <div>

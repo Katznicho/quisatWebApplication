@@ -30,17 +30,7 @@ class PushNotificationService
             return false;
         }
 
-        $payload = [
-            'to' => $expoToken,
-            'title' => $title,
-            'body' => $body,
-            'sound' => 'default',
-            'priority' => 'high',
-        ];
-
-        if ($data) {
-            $payload['data'] = $data;
-        }
+        $payload = $this->buildExpoPayload($expoToken, $title, $body, $data);
 
         $request = Http::acceptJson()->asJson();
 
@@ -103,6 +93,7 @@ class PushNotificationService
             $payload = json_encode([
                 'title' => $title,
                 'body' => $body,
+                'image' => $data['imageUrl'] ?? null,
                 'data' => $data ?? [],
             ], JSON_THROW_ON_ERROR);
 
@@ -144,19 +135,7 @@ class PushNotificationService
         }
 
         $messages = array_map(function (string $to) use ($title, $body, $data) {
-            $message = [
-                'to' => $to,
-                'title' => $title,
-                'body' => $body,
-                'sound' => 'default',
-                'priority' => 'high',
-            ];
-
-            if ($data) {
-                $message['data'] = $data;
-            }
-
-            return $message;
+            return $this->buildExpoPayload($to, $title, $body, $data);
         }, $expoTokens);
 
         $request = Http::acceptJson()->asJson();
@@ -203,5 +182,32 @@ class PushNotificationService
         }
 
         // Keep token active for transient failures; only Expo "DeviceNotRegistered" handled in broadcast job
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function buildExpoPayload(string $expoToken, string $title, string $body, ?array $data): array
+    {
+        $payload = [
+            'to' => $expoToken,
+            'title' => $title,
+            'body' => $body,
+            'sound' => 'default',
+            'priority' => 'high',
+        ];
+
+        $imageUrl = $data['imageUrl'] ?? null;
+
+        if ($imageUrl) {
+            $payload['richContent'] = ['image' => $imageUrl];
+            $payload['mutableContent'] = true;
+        }
+
+        if ($data) {
+            $payload['data'] = $data;
+        }
+
+        return $payload;
     }
 }

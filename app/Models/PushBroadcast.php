@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class PushBroadcast extends Model
@@ -31,6 +32,7 @@ class PushBroadcast extends Model
         'uuid',
         'title',
         'body',
+        'image_path',
         'data',
         'audience',
         'business_id',
@@ -85,6 +87,33 @@ class PushBroadcast extends Model
     public function sendsInApp(): bool
     {
         return in_array('in_app', $this->channels ?? [], true);
+    }
+
+    public function imageUrl(): ?string
+    {
+        if (! $this->image_path) {
+            return null;
+        }
+
+        if (Str::startsWith($this->image_path, ['http://', 'https://'])) {
+            return $this->image_path;
+        }
+
+        return url(Storage::url($this->image_path));
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function notificationData(): ?array
+    {
+        $data = $this->data ?? [];
+
+        if ($imageUrl = $this->imageUrl()) {
+            $data['imageUrl'] = $imageUrl;
+        }
+
+        return $data === [] ? null : $data;
     }
 
     public function getRouteKeyName(): string

@@ -16,6 +16,10 @@
 
                 <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-6">
                     <p class="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{{ $broadcast->body }}</p>
+                    @if ($broadcast->imageUrl())
+                        <img src="{{ $broadcast->imageUrl() }}" alt="Notification image"
+                            class="mt-4 max-h-64 rounded-lg border border-gray-200 dark:border-gray-700 object-contain">
+                    @endif
                 </div>
 
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

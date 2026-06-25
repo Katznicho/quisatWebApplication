@@ -89,6 +89,9 @@
                                     <td class="px-4 py-3">
                                         <div class="font-medium text-gray-900 dark:text-white">{{ $broadcast->title }}</div>
                                         <div class="text-xs text-gray-500 truncate max-w-xs">{{ $broadcast->body }}</div>
+                                        @if ($broadcast->image_path)
+                                            <span class="mt-1 inline-flex text-xs text-blue-600">Has image</span>
+                                        @endif
                                     </td>
                                     <td class="px-4 py-3 capitalize">{{ str_replace('_', ' ', $broadcast->audience) }}</td>
                                     <td class="px-4 py-3">{{ implode(', ', $broadcast->channels ?? []) }}</td>

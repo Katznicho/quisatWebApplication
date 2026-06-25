@@ -55,7 +55,7 @@ class SendPushBroadcastJob
                         $token,
                         $broadcast->title,
                         $broadcast->body,
-                        $broadcast->data
+                        $broadcast->notificationData()
                     );
 
                     if ($success) {

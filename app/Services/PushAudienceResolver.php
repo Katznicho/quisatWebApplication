@@ -92,7 +92,7 @@ class PushAudienceResolver
             'push_broadcast_id' => $broadcast->id,
             'title' => $broadcast->title,
             'body' => $broadcast->body,
-            'data' => $broadcast->data,
+            'data' => $broadcast->notificationData(),
         ]);
     }
 }
