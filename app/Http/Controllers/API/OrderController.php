@@ -391,6 +391,7 @@ class OrderController extends Controller
             }
 
             $isCustomer = $this->customerOwnsOrder($user, $order) && ! $this->isStaffOrBusinessUser($user);
+            $auditUserId = $this->auditUserId($user);
 
             if ($isCustomer) {
                 if ($order->customerHasConfirmedReceipt()) {
@@ -409,7 +410,7 @@ class OrderController extends Controller
 
                 $order->update([
                     'customer_received_at' => now(),
-                    'customer_received_by' => $user->id,
+                    'customer_received_by' => $auditUserId,
                     'status' => 'delivered',
                     'fulfillment_status' => ($order->hub ?? StationeryHub::KIDZ_MART) === StationeryHub::HUB
                         ? 'delivered'
@@ -417,7 +418,7 @@ class OrderController extends Controller
                 ]);
 
                 if ($order->fundsAreHeld()) {
-                    app(BusinessWalletService::class)->releaseOrderFunds($order->fresh(), $user->id);
+                    app(BusinessWalletService::class)->releaseOrderFunds($order->fresh(), $auditUserId);
                 }
 
                 return response()->json([
@@ -443,7 +444,7 @@ class OrderController extends Controller
                 ], 422);
             }
 
-            app(BusinessWalletService::class)->releaseOrderFunds($order, $user->id);
+            app(BusinessWalletService::class)->releaseOrderFunds($order, $auditUserId);
             $order->update(['status' => 'delivered']);
 
             return response()->json([
@@ -453,8 +454,17 @@ class OrderController extends Controller
                     'order' => $this->formatOrderSummary($order->fresh()->load(['items.product', 'business']), true, $user),
                 ],
             ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->flatten()->first() ?: 'Unable to confirm order receipt.',
+                'errors' => $e->errors(),
+            ], 422);
         } catch (\Exception $e) {
-            Log::error('OrderController@confirmReceived - '.$e->getMessage());
+            Log::error('OrderController@confirmReceived - '.$e->getMessage(), [
+                'order' => $id,
+                'user_type' => isset($user) ? $user::class : null,
+            ]);
 
             return response()->json([
                 'success' => false,
@@ -462,6 +472,14 @@ class OrderController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Audit columns on orders/ledgers reference users.id (parents use ParentGuardian tokens).
+     */
+    private function auditUserId($user): ?int
+    {
+        return $user instanceof \App\Models\User ? $user->id : null;
     }
 
     private function isStaffOrBusinessUser($user): bool

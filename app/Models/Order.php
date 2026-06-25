@@ -127,6 +127,10 @@ class Order extends Model
             return false;
         }
 
+        if ($this->payment_method === 'cash') {
+            return true;
+        }
+
         if ($this->payment_status === 'paid') {
             return true;
         }

@@ -3,11 +3,12 @@
 namespace App\Support;
 
 use App\Models\Order;
+use App\Models\ParentGuardian;
 use App\Models\User;
 
 class CustomerOrderMatcher
 {
-    public static function customerOwnsOrder(User $user, Order $order): bool
+    public static function customerOwnsOrder(User|ParentGuardian $user, Order $order): bool
     {
         $email = strtolower(trim((string) ($user->email ?? '')));
         $orderEmail = strtolower(trim((string) ($order->customer_email ?? '')));
