@@ -353,27 +353,29 @@
                     <p class="mb-4 inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-800">
                         Submitted — pending Quisat review
                     </p>
+                @else
+                    <p class="mb-4 text-sm text-gray-600">
+                        Upload your supporting registration documents below. Quisat will review them for verification.
+                    </p>
                 @endif
 
-                @if ($business->registrationDocuments->isEmpty())
-                    <p class="text-gray-500 text-sm">No registration documents on file. Documents uploaded during signup will appear here.</p>
-                @else
-                    <div class="space-y-3">
-                        @foreach ($business->registrationDocuments->sortBy(fn ($doc) => $doc->documentType?->sort_order ?? 0) as $document)
-                            <div class="flex flex-col gap-2 rounded-lg border border-gray-200 p-4 sm:flex-row sm:items-center sm:justify-between">
-                                <div>
-                                    <p class="font-medium text-gray-900">{{ $document->documentType?->name ?? 'Document' }}</p>
-                                    <p class="text-sm text-gray-500">{{ $document->original_filename }}</p>
-                                    <p class="text-xs text-gray-400">Uploaded {{ $document->created_at?->format('M d, Y') }}</p>
-                                </div>
-                                <a href="{{ route('businesses.registration-documents.download', [$business, $document]) }}"
-                                    class="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-                                    Download
-                                </a>
-                            </div>
-                        @endforeach
-                    </div>
+                @if ($business->isRegistrationVerified())
+                    <p class="mb-4 text-sm text-gray-600">
+                        You can still view your documents below. Uploading new or replacement files will require Quisat to review again.
+                    </p>
+                @elseif ($business->registrationDocuments->isNotEmpty())
+                    <p class="mb-4 text-sm text-gray-600">
+                        View your documents on file below. You can download them or upload additional and replacement files at any time.
+                    </p>
                 @endif
+
+                @include('businesses.partials.registration-documents-list', ['business' => $business])
+
+                <p class="mb-4 text-sm font-medium text-gray-900">
+                    {{ $business->registrationDocuments->isEmpty() ? 'Upload documents' : 'Upload or replace documents' }}
+                </p>
+
+                @include('businesses.partials.registration-documents-form', ['business' => $business])
             </div>
 
             <!-- Account Information -->

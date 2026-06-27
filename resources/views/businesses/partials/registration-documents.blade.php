@@ -93,4 +93,14 @@
             </div>
         </div>
     @endif
+
+    @if (auth()->user()?->business_id === 1)
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-5">
+            <p class="mb-3 font-semibold text-gray-900 dark:text-white">Upload or replace documents on behalf of this business</p>
+            @include('businesses.partials.registration-documents-form', [
+                'business' => $business,
+                'forAdmin' => true,
+            ])
+        </div>
+    @endif
 </div>

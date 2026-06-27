@@ -326,6 +326,21 @@ class ListBusiness extends Component implements HasForms, HasTable
                     }),
             ])
             ->actions([
+                Tables\Actions\Action::make('upload_registration_documents')
+                    ->label('Upload documents')
+                    ->icon('heroicon-o-arrow-up-tray')
+                    ->color('warning')
+                    ->visible(fn (Business $record): bool => Auth::user()->business_id === 1 && $record->id !== 1)
+                    ->modalHeading(fn (Business $record): string => 'Upload registration documents — '.$record->name)
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close')
+                    ->modalContent(fn (Business $record): View => view('businesses.partials.registration-documents-form', [
+                        'business' => $record->loadMissing([
+                            'registrationDocuments.documentType',
+                            'businessCategory',
+                        ]),
+                        'forAdmin' => true,
+                    ])),
                 Tables\Actions\Action::make('review_registration_documents')
                     ->label('Review KYC')
                     ->icon('heroicon-o-document-text')

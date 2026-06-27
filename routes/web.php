@@ -122,6 +122,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::patch('businesses/{business}/update-social-media', [BusinessController::class, 'updateSocialMedia'])->name('businesses.update-social-media');
     Route::get('businesses/{business}/registration-documents/{document}', [BusinessRegistrationDocumentController::class, 'download'])
         ->name('businesses.registration-documents.download');
+    Route::post('businesses/{business}/registration-documents', [BusinessRegistrationDocumentController::class, 'store'])
+        ->name('businesses.registration-documents.store');
 
     Route::prefix('business/wallet')->name('business.wallet.')->group(function () {
         Route::get('/', [BusinessWalletController::class, 'index'])->name('index');
