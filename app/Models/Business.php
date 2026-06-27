@@ -34,6 +34,7 @@ class Business extends Model
         'registration_verified_at',
         'rating',
         'total_ratings',
+        'views_count',
         'mode',
         'date',
         'country',

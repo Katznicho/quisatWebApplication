@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\KidsEvent;
+use App\Services\ContentViewService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -87,6 +88,9 @@ class PublicKidsEventsController extends Controller
                 ], 404);
             }
 
+            app(ContentViewService::class)->record($event);
+            $event->refresh();
+
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -133,6 +137,7 @@ class PublicKidsEventsController extends Controller
             'is_external' => (bool) $event->is_external,
             'spots_available' => $event->spots_available ?? 999,
             'is_full' => (bool) ($event->is_full ?? false),
+            'views_count' => (int) ($event->views_count ?? 0),
             'business' => $event->business ? [
                 'id' => $event->business->id,
                 'name' => $event->business->name,

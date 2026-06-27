@@ -34,6 +34,7 @@ class Product extends Model
         'status',
         'rating',
         'total_ratings',
+        'views_count',
         'is_on_sale',
         'sale_price',
         'promotion_label',
@@ -54,6 +55,7 @@ class Product extends Model
         'delivery_days' => 'integer',
         'rating' => 'decimal:2',
         'total_ratings' => 'integer',
+        'views_count' => 'integer',
     ];
 
     protected static function booted()

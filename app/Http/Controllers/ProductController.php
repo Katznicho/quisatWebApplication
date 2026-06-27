@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Services\ContentViewService;
 use App\Services\ProductCsvImportService;
 use App\Support\MarketplaceHub;
 use App\Support\ProductCategory;
@@ -125,6 +126,7 @@ class ProductController extends Controller
     public function show(Product $product)
     {
         $this->authorizeProduct($product);
+        app(ContentViewService::class)->record($product);
         $product->load('images', 'business');
 
         return view('products.show', [

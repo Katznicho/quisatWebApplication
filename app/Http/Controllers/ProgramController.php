@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\AuthorizesBusinessResource;
 use App\Models\Program;
 use App\Models\ProgramEvent;
+use App\Services\ContentViewService;
 use App\Models\Currency;
 use App\Models\EventAttendee;
 use App\Models\Payment;
@@ -131,6 +132,8 @@ class ProgramController extends Controller
      */
     public function show(Program $program)
     {
+        app(ContentViewService::class)->record($program);
+
         // NOTE: Program->events is implemented as an accessor querying JSON, so we fetch events explicitly
         // (including relationships) and pass them to the view.
         $eventsQuery = ProgramEvent::whereJsonContains('program_ids', $program->id);
@@ -316,6 +319,8 @@ class ProgramController extends Controller
     {
         $event = $this->findOwnedProgramEvent($eventUuid)
             ->load(['attendees', 'currency', 'business']);
+
+        app(ContentViewService::class)->record($event);
 
         // Get the program that this event belongs to
         $program = Program::find($event->program_ids[0] ?? null);

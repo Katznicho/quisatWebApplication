@@ -133,6 +133,7 @@ Route::prefix('v1')->group(function () {
         
         // Christian Kids Hub Programs (public)
         Route::get('programmes', [PublicProgramsController::class, 'index']);
+        Route::get('programmes/events/{id}', [PublicProgramsController::class, 'showEvent']);
         Route::get('programmes/{id}', [PublicProgramsController::class, 'show']);
         
         // Program Event Registration (requires auth)

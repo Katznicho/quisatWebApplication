@@ -46,6 +46,10 @@ class ListProgramEvents extends Component implements HasForms, HasTable
                     ->searchable(),
                 Tables\Columns\TextColumn::make('location')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('views_count')
+                    ->label('Views')
+                    ->numeric()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('currency_id')
                     ->numeric()
                     ->sortable(),

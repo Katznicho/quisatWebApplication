@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
+use App\Services\ContentViewService;
 use App\Support\ProductCategory;
 use App\Support\StationeryHub;
 use Illuminate\Database\Eloquent\Builder;
@@ -115,6 +116,9 @@ class ProductController extends Controller
                 ], 404);
             }
 
+            app(ContentViewService::class)->record($product);
+            $product->refresh();
+
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -195,6 +199,7 @@ class ProductController extends Controller
             'status' => $product->status ?? 'active',
             'rating' => $product->rating !== null ? (float) $product->rating : null,
             'total_ratings' => (int) ($product->total_ratings ?? 0),
+            'views_count' => (int) ($product->views_count ?? 0),
             'business' => $product->business ? [
                 'id' => $product->business->id,
                 'name' => $product->business->name,
@@ -207,6 +212,7 @@ class ProductController extends Controller
                 'stationery_verified' => $product->business->stationery_verified_at !== null,
                 'rating' => $product->business->rating !== null ? (float) $product->business->rating : null,
                 'total_ratings' => (int) ($product->business->total_ratings ?? 0),
+                'views_count' => (int) ($product->business->views_count ?? 0),
             ] : null,
         ];
     }

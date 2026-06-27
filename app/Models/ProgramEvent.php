@@ -21,6 +21,7 @@ class ProgramEvent extends Model
         'end_date',
         'price',
         'status',
+        'views_count',
         'location',
         'currency_id',
         'business_id',

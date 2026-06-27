@@ -20,6 +20,7 @@ class Program extends Model
         'status',
         'image',
         'video',
+        'views_count',
         'social_media_handles',
         'contact_email',
         'contact_phone',

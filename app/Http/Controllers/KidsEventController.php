@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\AuthorizesBusinessResource;
 use App\Models\KidsEvent;
+use App\Services\ContentViewService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -117,6 +118,7 @@ class KidsEventController extends Controller
     public function show(KidsEvent $kidsEvent)
     {
         $this->authorizeBusinessResource($kidsEvent);
+        app(ContentViewService::class)->record($kidsEvent);
         $kidsEvent->load(['business', 'creator', 'registrations']);
         return view('kids-events.show', compact('kidsEvent'));
     }

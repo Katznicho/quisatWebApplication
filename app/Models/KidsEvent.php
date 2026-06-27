@@ -33,6 +33,7 @@ class KidsEvent extends Model
         'total_ratings',
         'is_featured',
         'is_external',
+        'views_count',
         'business_id',
         'created_by',
         'registration_method',

@@ -203,6 +203,7 @@
                                         <th class="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Host</th>
                                         <th class="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Date</th>
                                         <th class="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Spots</th>
+                                        <th class="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Views</th>
                                         <th class="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Action</th>
                                     </tr>
                                 </thead>
@@ -227,6 +228,9 @@
                                             @else
                                                 <span class="text-gray-900 dark:text-white">{{ $event->current_participants }}/{{ $event->max_participants ?? '∞' }}</span>
                                             @endif
+                                        </td>
+                                        <td class="py-3 px-4 text-gray-900 dark:text-white">
+                                            {{ number_format($event->views_count ?? 0) }}
                                         </td>
                                         <td class="py-3 px-4">
                                             <div class="flex items-center space-x-2">

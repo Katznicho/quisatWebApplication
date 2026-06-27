@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Program;
 use App\Models\ProgramEvent;
 use App\Models\Business;
+use App\Services\ContentViewService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -75,6 +76,9 @@ class PublicProgramsController extends Controller
                 ], 404);
             }
 
+            app(ContentViewService::class)->record($program);
+            $program->refresh();
+
             Log::info('PublicProgramsController::show - Program found:', [
                 'id' => $program->id,
                 'name' => $program->name,
@@ -123,6 +127,46 @@ class PublicProgramsController extends Controller
         }
     }
 
+    /**
+     * Show a single program event (Christian Kids Hub).
+     */
+    public function showEvent($id)
+    {
+        try {
+            $event = ProgramEvent::query()
+                ->with('business')
+                ->where(function ($q) use ($id) {
+                    $q->where('uuid', $id)->orWhere('id', $id);
+                })
+                ->first();
+
+            if (! $event) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Event not found',
+                ], 404);
+            }
+
+            app(ContentViewService::class)->record($event);
+            $event->refresh();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'event' => $this->transformProgramEvent($event),
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('PublicProgramsController::showEvent - '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching event',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     private function transformProgram(Program $program, bool $includeDetails = false): array
     {
         $resolveUrl = function (?string $pathOrUrl): ?string {
@@ -164,6 +208,7 @@ class PublicProgramsController extends Controller
             'spots_available' => 999,
             'is_full' => false,
             'status' => $program->status,
+            'views_count' => (int) ($program->views_count ?? 0),
         ];
 
         if ($includeDetails) {
@@ -177,31 +222,7 @@ class PublicProgramsController extends Controller
 
             // Transform events
             $transformedEvents = $events->map(function (ProgramEvent $event) {
-                return [
-                    'id' => $event->id,
-                    'uuid' => $event->uuid,
-                    'name' => $event->name,
-                    'title' => $event->name,
-                    'description' => $event->description,
-                    'image_url' => $event->image ? Storage::url($event->image) : null,
-                    'video_url' => $event->video ? Storage::url($event->video) : null,
-                    'price' => $event->price !== null ? (float) $event->price : null,
-                    'formatted_price' => $event->price !== null && (float) $event->price > 0 ? ('UGX ' . number_format((float) $event->price, 0)) : 'Free',
-                    'start_date' => $event->start_date?->toISOString(),
-                    'end_date' => $event->end_date?->toISOString(),
-                    'location' => $event->location,
-                    'status' => $event->status,
-                    'registration_method' => $event->registration_method,
-                    'registration_link' => $event->registration_link,
-                    'registration_list' => $event->registration_list,
-                    'organizer' => [
-                        'name' => $event->organizer_name,
-                        'email' => $event->organizer_email,
-                        'phone' => $event->organizer_phone,
-                        'address' => $event->organizer_address,
-                    ],
-                    'social_media_handles' => $event->social_media_handles,
-                ];
+                return $this->transformProgramEvent($event);
             });
 
             $eventsCount = $transformedEvents->count();
@@ -279,6 +300,47 @@ class PublicProgramsController extends Controller
         }
 
         return $data;
+    }
+
+    private function transformProgramEvent(ProgramEvent $event): array
+    {
+        $resolveUrl = function (?string $pathOrUrl): ?string {
+            if (! $pathOrUrl) {
+                return null;
+            }
+            if (Str::startsWith($pathOrUrl, ['http://', 'https://'])) {
+                return $pathOrUrl;
+            }
+
+            return Storage::url($pathOrUrl);
+        };
+
+        return [
+            'id' => $event->id,
+            'uuid' => $event->uuid,
+            'name' => $event->name,
+            'title' => $event->name,
+            'description' => $event->description,
+            'image_url' => $resolveUrl($event->image),
+            'video_url' => $resolveUrl($event->video),
+            'price' => $event->price !== null ? (float) $event->price : null,
+            'formatted_price' => $event->price !== null && (float) $event->price > 0 ? ('UGX '.number_format((float) $event->price, 0)) : 'Free',
+            'start_date' => $event->start_date?->toISOString(),
+            'end_date' => $event->end_date?->toISOString(),
+            'location' => $event->location,
+            'status' => $event->status,
+            'views_count' => (int) ($event->views_count ?? 0),
+            'registration_method' => $event->registration_method,
+            'registration_link' => $event->registration_link,
+            'registration_list' => $event->registration_list,
+            'organizer' => [
+                'name' => $event->organizer_name,
+                'email' => $event->organizer_email,
+                'phone' => $event->organizer_phone,
+                'address' => $event->organizer_address,
+            ],
+            'social_media_handles' => $event->social_media_handles,
+        ];
     }
 }
 

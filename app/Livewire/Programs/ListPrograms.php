@@ -67,6 +67,10 @@ class ListPrograms extends Component implements HasForms, HasTable
                     ->counts('events')
                     ->badge()
                     ->color('info'),
+                Tables\Columns\TextColumn::make('views_count')
+                    ->label('Views')
+                    ->numeric()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {

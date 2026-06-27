@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\KidsEvent;
+use App\Services\ContentViewService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -86,6 +87,9 @@ class KidsProgramController extends Controller
             ], 404);
         }
 
+        app(ContentViewService::class)->record($event);
+        $event->refresh();
+
         return response()->json([
             'success' => true,
             'message' => 'Program retrieved successfully.',
@@ -124,6 +128,7 @@ class KidsProgramController extends Controller
             'is_full' => $event->is_full,
             'rating' => $event->rating,
             'total_ratings' => $event->total_ratings,
+            'views_count' => (int) ($event->views_count ?? 0),
             'requires_parent_permission' => (bool) $event->requires_parent_permission,
         ];
 

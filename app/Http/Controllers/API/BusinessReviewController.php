@@ -7,6 +7,7 @@ use App\Models\Business;
 use App\Models\BusinessReview;
 use App\Models\Order;
 use App\Models\User;
+use App\Services\ContentViewService;
 use App\Services\ReviewAggregateService;
 use App\Support\CustomerOrderMatcher;
 use App\Support\ReviewAuthor;
@@ -29,6 +30,11 @@ class BusinessReviewController extends Controller
                 return response()->json(['success' => false, 'message' => 'Shop not found.'], 404);
             }
 
+            if ((int) $request->query('page', 1) === 1) {
+                app(ContentViewService::class)->record($business);
+                $business->refresh();
+            }
+
             $reviews = BusinessReview::query()
                 ->where('business_id', $business->id)
                 ->where('status', 'approved')
@@ -43,6 +49,7 @@ class BusinessReviewController extends Controller
                     'business_name' => $business->name,
                     'rating' => $business->rating !== null ? (float) $business->rating : null,
                     'total_ratings' => (int) ($business->total_ratings ?? 0),
+                    'views_count' => (int) ($business->views_count ?? 0),
                     'reviews' => $reviews->getCollection()->map(fn (BusinessReview $r) => $this->formatReview($r)),
                     'pagination' => [
                         'current_page' => $reviews->currentPage(),
