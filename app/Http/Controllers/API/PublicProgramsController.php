@@ -21,6 +21,11 @@ class PublicProgramsController extends Controller
     {
         try {
             $query = Program::query()
+                ->where(function ($q) {
+                    $q->whereNull('status')
+                        ->orWhere('status', 'published')
+                        ->orWhere('status', 'active');
+                })
                 ->orderBy('created_at', 'desc');
 
             if ($search = trim((string) $request->query('search'))) {
@@ -63,7 +68,13 @@ class PublicProgramsController extends Controller
             Log::info('PublicProgramsController::show - START');
             Log::info('Requested ID:', ['id' => $id]);
             
-            $program = Program::where(function ($q) use ($id) {
+            $program = Program::query()
+                ->where(function ($q) {
+                    $q->whereNull('status')
+                        ->orWhere('status', 'published')
+                        ->orWhere('status', 'active');
+                })
+                ->where(function ($q) use ($id) {
                     $q->where('uuid', $id)->orWhere('id', $id);
                 })
                 ->first();

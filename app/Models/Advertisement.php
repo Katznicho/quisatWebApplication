@@ -60,6 +60,11 @@ class Advertisement extends Model
         return $this->hasMany(AdvertisementAnalytics::class);
     }
 
+    public function scopePubliclyVisible($query)
+    {
+        return $query->where('status', 'published');
+    }
+
     // Helper methods
     public function isActive()
     {

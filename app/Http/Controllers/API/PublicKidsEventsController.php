@@ -22,9 +22,11 @@ class PublicKidsEventsController extends Controller
                 ->with('business:id,name,email,phone,address,website_link,social_media_handles')
                 ->where('is_external', true);
 
-            // Filters
+            // Public app should only see published events unless a status filter is explicitly passed.
             if ($status = $request->query('status')) {
                 $query->where('status', $status);
+            } else {
+                $query->where('status', 'published');
             }
 
             if ($category = $request->query('category')) {
@@ -76,7 +78,9 @@ class PublicKidsEventsController extends Controller
     public function show($id)
     {
         try {
-            $event = KidsEvent::with('business:id,name,email,phone,address,website_link,social_media_handles')
+            $event = KidsEvent::query()
+                ->where('status', 'published')
+                ->with('business:id,name,email,phone,address,website_link,social_media_handles')
                 ->where(function ($q) use ($id) {
                     $q->where('id', $id)->orWhere('id', intval($id));
                 })->first();

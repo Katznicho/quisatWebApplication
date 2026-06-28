@@ -12,18 +12,16 @@ use Illuminate\Support\Str;
 class PublicAdvertisementsController extends Controller
 {
     /**
-     * List advertisements (public)
+     * List advertisements visible to the mobile app and public users.
      */
     public function index(Request $request)
     {
         try {
-            $query = Advertisement::withTrashed()
+            $query = Advertisement::query()
+                ->publiclyVisible()
+                ->whereHas('business')
                 ->with('business:id,name,email,phone,address,website_link,social_media_handles');
 
-            // IMPORTANT: Per requirements, return ALL adverts (even draft/scheduled/paused/expired).
-            // We only exclude soft-deleted records.
-
-            // Filters
             if ($mediaType = $request->query('media_type')) {
                 $query->where('media_type', $mediaType);
             }
@@ -60,18 +58,21 @@ class PublicAdvertisementsController extends Controller
     }
 
     /**
-     * Show a single advertisement
+     * Show a single published advertisement.
      */
     public function show($id)
     {
         try {
-            $ad = Advertisement::with('business:id,name,email,phone,address,website_link,social_media_handles')
+            $ad = Advertisement::query()
+                ->publiclyVisible()
+                ->whereHas('business')
+                ->with('business:id,name,email,phone,address,website_link,social_media_handles')
                 ->where(function ($q) use ($id) {
                     $q->where('id', $id)->orWhere('uuid', $id);
                 })
                 ->first();
 
-            if (!$ad) {
+            if (! $ad) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Advertisement not found',
@@ -137,4 +138,3 @@ class PublicAdvertisementsController extends Controller
         return $data;
     }
 }
-

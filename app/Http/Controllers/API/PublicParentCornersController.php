@@ -18,7 +18,12 @@ class PublicParentCornersController extends Controller
     {
         try {
             $query = ParentCorner::query()
+                ->where('status', 'published')
                 ->with('business:id,name,email,phone,address,website_link,social_media_handles');
+
+            if (filter_var($request->query('upcoming_only'), FILTER_VALIDATE_BOOL)) {
+                $query->where('start_date', '>=', now());
+            }
 
             $events = $query->orderBy('start_date', 'asc')->get();
 
@@ -48,7 +53,9 @@ class PublicParentCornersController extends Controller
     public function show($id)
     {
         try {
-            $event = ParentCorner::with('business:id,name,email,phone,address,website_link,social_media_handles')
+            $event = ParentCorner::query()
+                ->where('status', 'published')
+                ->with('business:id,name,email,phone,address,website_link,social_media_handles')
                 ->where(function ($q) use ($id) {
                     $q->where('id', $id)->orWhere('id', intval($id));
                 })
