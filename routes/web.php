@@ -131,6 +131,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/change-pin', [BusinessWalletController::class, 'changePin'])->name('change-pin');
         Route::post('/reset-pin', [BusinessWalletController::class, 'resetPin'])->name('reset-pin');
         Route::post('/withdraw', [BusinessWalletController::class, 'withdraw'])->name('withdraw');
+        Route::post('/withdraw-bank', [BusinessWalletController::class, 'withdrawToBank'])->name('withdraw-bank');
         Route::post('/tiers', [BusinessWalletController::class, 'updateTiers'])->name('tiers');
         Route::get('/estimate-fee', [BusinessWalletController::class, 'estimateFee'])->name('estimate-fee');
     });

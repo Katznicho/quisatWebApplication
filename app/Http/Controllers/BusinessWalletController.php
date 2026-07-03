@@ -35,12 +35,14 @@ class BusinessWalletController extends Controller
             ->get();
 
         $tiers = $this->feeService->globalTiers();
+        $bankTiers = $this->feeService->globalTiers(WithdrawalFeeService::CHANNEL_BANK_TRANSFER);
 
         return view('business-wallet.index', compact(
             'business',
             'ledgers',
             'withdrawals',
             'tiers',
+            'bankTiers',
         ));
     }
 
@@ -123,6 +125,38 @@ class BusinessWalletController extends Controller
         return back()->with('success', 'Withdrawal of UGX '.number_format($withdrawal->amount, 0).' sent to '.$withdrawal->phone_number.'. Reference: '.$withdrawal->uuid);
     }
 
+    public function withdrawToBank(Request $request)
+    {
+        $business = $this->authorizedBusiness();
+
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:2500',
+            'bank_name' => 'required|string|max:120',
+            'bank_account_number' => 'required|string|max:40',
+            'bank_account_name' => 'nullable|string|max:120',
+            'bank_branch' => 'nullable|string|max:120',
+            'pin' => 'required|digits_between:4,6',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        try {
+            $withdrawal = $this->walletService->processBankWithdrawal(
+                $business,
+                (float) $validated['amount'],
+                $validated['bank_name'],
+                $validated['bank_account_number'],
+                $validated['pin'],
+                $validated['bank_account_name'] ?? null,
+                $validated['bank_branch'] ?? null,
+                $validated['notes'] ?? null
+            );
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors())->withInput();
+        }
+
+        return back()->with('success', 'Bank transfer of UGX '.number_format($withdrawal->amount, 0).' to '.$withdrawal->bank_name.' initiated. Reference: '.$withdrawal->uuid);
+    }
+
     public function updateTiers(Request $request)
     {
         abort(403, 'Withdrawal fee tiers are managed by the platform administrator.');
@@ -134,16 +168,22 @@ class BusinessWalletController extends Controller
 
         $validated = $request->validate([
             'amount' => 'required|numeric|min:0',
+            'channel' => 'nullable|in:mobile_money,bank_transfer',
         ]);
 
         $amount = (float) $validated['amount'];
-        $fee = $this->feeService->calculateFee($business, $amount);
+        $channel = $validated['channel'] ?? WithdrawalFeeService::CHANNEL_MOBILE_MONEY;
+        $fee = $this->feeService->calculateFee($business, $amount, $channel);
+        $availableBalance = $channel === WithdrawalFeeService::CHANNEL_BANK_TRANSFER
+            ? (float) $business->card_available_balance
+            : (float) $business->available_balance;
 
         return response()->json([
             'amount' => $amount,
             'fee' => $fee,
             'total' => $amount + $fee,
-            'available_balance' => (float) $business->available_balance,
+            'available_balance' => $availableBalance,
+            'channel' => $channel,
         ]);
     }
 

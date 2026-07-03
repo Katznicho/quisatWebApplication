@@ -17,7 +17,7 @@
                     <div>
                         <h2 class="text-xl font-bold text-gray-800 dark:text-white">Business Wallet</h2>
                         <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                            Manage your online payment balance and withdraw funds to mobile money.
+                            Mobile money collections withdraw to phone. Card collections withdraw to bank only.
                         </p>
                     </div>
                     <div class="flex flex-wrap gap-2">
@@ -41,33 +41,59 @@
                             </button>
                             <button type="button" onclick="document.getElementById('withdrawModal').classList.remove('hidden')"
                                 class="rounded bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700">
-                                Withdraw
+                                Withdraw to Mobile Money
+                            </button>
+                            <button type="button" onclick="document.getElementById('bankWithdrawModal').classList.remove('hidden')"
+                                class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+                                Withdraw Card to Bank
                             </button>
                         @endif
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div class="rounded-lg border border-blue-200 bg-blue-50 p-5">
-                        <p class="text-sm font-medium text-blue-700">Available Balance</p>
+                        <p class="text-sm font-medium text-blue-700">Mobile Money · Available</p>
                         <p class="text-3xl font-bold text-blue-900 mt-1">
                             UGX {{ number_format($business->available_balance, 0) }}
                         </p>
-                        <p class="text-xs text-blue-600 mt-2">Ready to withdraw</p>
+                        <p class="text-xs text-blue-600 mt-2">Withdraw to MTN/Airtel</p>
                     </div>
                     <div class="rounded-lg border border-amber-200 bg-amber-50 p-5">
-                        <p class="text-sm font-medium text-amber-700">Held Balance</p>
+                        <p class="text-sm font-medium text-amber-700">Mobile Money · Held</p>
                         <p class="text-3xl font-bold text-amber-900 mt-1">
                             UGX {{ number_format($business->held_balance ?? 0, 0) }}
                         </p>
-                        <p class="text-xs text-amber-600 mt-2">Paid online, pending order delivery confirmation</p>
+                        <p class="text-xs text-amber-600 mt-2">Pending order delivery confirmation</p>
                     </div>
                     <div class="rounded-lg border border-gray-200 bg-gray-50 p-5">
-                        <p class="text-sm font-medium text-gray-700">Total Balance</p>
+                        <p class="text-sm font-medium text-gray-700">Mobile Money · Total</p>
                         <p class="text-3xl font-bold text-gray-900 mt-1">
                             UGX {{ number_format($business->total_balance, 0) }}
                         </p>
-                        <p class="text-xs text-gray-600 mt-2">Lifetime online payments received</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                    <div class="rounded-lg border border-indigo-200 bg-indigo-50 p-5">
+                        <p class="text-sm font-medium text-indigo-700">Card Payments · Available</p>
+                        <p class="text-3xl font-bold text-indigo-900 mt-1">
+                            UGX {{ number_format($business->card_available_balance ?? 0, 0) }}
+                        </p>
+                        <p class="text-xs text-indigo-600 mt-2">Withdraw to bank account only</p>
+                    </div>
+                    <div class="rounded-lg border border-violet-200 bg-violet-50 p-5">
+                        <p class="text-sm font-medium text-violet-700">Card Payments · Held</p>
+                        <p class="text-3xl font-bold text-violet-900 mt-1">
+                            UGX {{ number_format($business->card_held_balance ?? 0, 0) }}
+                        </p>
+                        <p class="text-xs text-violet-600 mt-2">Card orders pending delivery confirmation</p>
+                    </div>
+                    <div class="rounded-lg border border-gray-200 bg-gray-50 p-5">
+                        <p class="text-sm font-medium text-gray-700">Card Payments · Total</p>
+                        <p class="text-3xl font-bold text-gray-900 mt-1">
+                            UGX {{ number_format($business->card_total_balance ?? 0, 0) }}
+                        </p>
                     </div>
                 </div>
 
@@ -79,9 +105,9 @@
 
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div>
-                        <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-3">Withdrawal Fee Tiers</h3>
+                        <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-3">Mobile Money Withdrawal Fees</h3>
                         <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                            Standard platform fees apply to every withdrawal. These are set by Quisat and are the same for all businesses.
+                            Applies when withdrawing MTN/Airtel collections to a phone number.
                         </p>
                         <div class="overflow-x-auto rounded-lg border border-gray-200">
                             <table class="min-w-full text-sm">
@@ -104,23 +130,49 @@
                     </div>
 
                     <div>
-                        <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-3">Recent Withdrawals</h3>
-                        <div class="space-y-2">
-                            @forelse ($withdrawals as $withdrawal)
-                                <div class="rounded border border-gray-200 p-3 text-sm">
-                                    <div class="flex justify-between">
-                                        <span class="font-semibold">UGX {{ number_format($withdrawal->amount, 0) }}</span>
-                                        <span class="capitalize text-gray-600">{{ $withdrawal->status }}</span>
-                                    </div>
-                                    <p class="text-gray-500 mt-1">
-                                        Fee: UGX {{ number_format($withdrawal->fee_amount, 0) }} ·
-                                        {{ $withdrawal->created_at->format('M j, Y H:i') }}
-                                    </p>
-                                </div>
-                            @empty
-                                <p class="text-gray-500 text-sm">No withdrawals yet.</p>
-                            @endforelse
+                        <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-3">Card → Bank Transfer Fees</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                            Card payments are settled in a separate MarzPay card wallet and can only be pushed to a bank account.
+                        </p>
+                        <div class="overflow-x-auto rounded-lg border border-gray-200">
+                            <table class="min-w-full text-sm">
+                                <thead class="bg-indigo-900 text-white">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left">Range (UGX)</th>
+                                        <th class="px-4 py-2 text-left">Charge (UGX)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($bankTiers as $index => $tier)
+                                        <tr class="{{ $index % 2 === 0 ? 'bg-white' : 'bg-gray-50' }}">
+                                            <td class="px-4 py-2">{{ $tier->rangeLabel() }}</td>
+                                            <td class="px-4 py-2 font-semibold">{{ number_format($tier->charge_amount) }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
                         </div>
+                    </div>
+                </div>
+
+                <div class="mt-6">
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-3">Recent Withdrawals</h3>
+                    <div class="space-y-2">
+                        @forelse ($withdrawals as $withdrawal)
+                            <div class="rounded border border-gray-200 p-3 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="font-semibold">UGX {{ number_format($withdrawal->amount, 0) }}</span>
+                                    <span class="capitalize text-gray-600">{{ $withdrawal->status }}</span>
+                                </div>
+                                <p class="text-gray-500 mt-1">
+                                    {{ $withdrawal->wallet_source === 'card' ? 'Bank: '.$withdrawal->bank_name.' · '.$withdrawal->bank_account_number : 'Mobile: '.$withdrawal->phone_number }}
+                                    · Fee: UGX {{ number_format($withdrawal->fee_amount, 0) }}
+                                    · {{ $withdrawal->created_at->format('M j, Y H:i') }}
+                                </p>
+                            </div>
+                        @empty
+                            <p class="text-gray-500 text-sm">No withdrawals yet.</p>
+                        @endforelse
                     </div>
                 </div>
             </div>

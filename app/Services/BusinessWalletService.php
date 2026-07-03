@@ -14,6 +14,9 @@ use Illuminate\Validation\ValidationException;
 
 class BusinessWalletService
 {
+    public const WALLET_MOBILE_MONEY = 'mobile_money';
+
+    public const WALLET_CARD = 'card';
     public function __construct(
         protected WithdrawalFeeService $feeService,
         protected MarzPayService $marzPayService
@@ -95,11 +98,18 @@ class BusinessWalletService
             return;
         }
 
-        DB::transaction(function () use ($business, $collection, $order, $amount) {
+        $walletChannel = $this->walletChannelForCollection($collection);
+
+        DB::transaction(function () use ($business, $collection, $order, $amount, $walletChannel) {
             $lockedBusiness = Business::query()->lockForUpdate()->findOrFail($business->id);
 
-            $lockedBusiness->total_balance = (float) $lockedBusiness->total_balance + $amount;
-            $lockedBusiness->held_balance = (float) $lockedBusiness->held_balance + $amount;
+            if ($walletChannel === self::WALLET_CARD) {
+                $lockedBusiness->card_total_balance = (float) $lockedBusiness->card_total_balance + $amount;
+                $lockedBusiness->card_held_balance = (float) $lockedBusiness->card_held_balance + $amount;
+            } else {
+                $lockedBusiness->total_balance = (float) $lockedBusiness->total_balance + $amount;
+                $lockedBusiness->held_balance = (float) $lockedBusiness->held_balance + $amount;
+            }
             $lockedBusiness->save();
 
             $order->update([
@@ -109,9 +119,14 @@ class BusinessWalletService
             BusinessBalanceLedger::create([
                 'business_id' => $lockedBusiness->id,
                 'type' => 'pending_credit',
+                'wallet_channel' => $walletChannel,
                 'amount' => $amount,
-                'available_balance_after' => $lockedBusiness->available_balance,
-                'total_balance_after' => $lockedBusiness->total_balance,
+                'available_balance_after' => $walletChannel === self::WALLET_CARD
+                    ? (float) $lockedBusiness->card_available_balance
+                    : (float) $lockedBusiness->available_balance,
+                'total_balance_after' => $walletChannel === self::WALLET_CARD
+                    ? (float) $lockedBusiness->card_total_balance
+                    : (float) $lockedBusiness->total_balance,
                 'reference_type' => Order::class,
                 'reference_id' => $order->id,
                 'description' => 'Online payment held pending delivery: '.$order->order_number,
@@ -137,17 +152,30 @@ class BusinessWalletService
             return false;
         }
 
-        DB::transaction(function () use ($order, $amount, $releasedBy) {
+        $walletChannel = $this->walletChannelForOrder($order);
+
+        DB::transaction(function () use ($order, $amount, $releasedBy, $walletChannel) {
             $lockedBusiness = Business::query()->lockForUpdate()->findOrFail($order->business_id);
 
-            if ((float) $lockedBusiness->held_balance < $amount) {
-                throw ValidationException::withMessages([
-                    'order' => 'Insufficient held balance to release funds for this order.',
-                ]);
-            }
+            if ($walletChannel === self::WALLET_CARD) {
+                if ((float) $lockedBusiness->card_held_balance < $amount) {
+                    throw ValidationException::withMessages([
+                        'order' => 'Insufficient held card balance to release funds for this order.',
+                    ]);
+                }
 
-            $lockedBusiness->held_balance = (float) $lockedBusiness->held_balance - $amount;
-            $lockedBusiness->available_balance = (float) $lockedBusiness->available_balance + $amount;
+                $lockedBusiness->card_held_balance = (float) $lockedBusiness->card_held_balance - $amount;
+                $lockedBusiness->card_available_balance = (float) $lockedBusiness->card_available_balance + $amount;
+            } else {
+                if ((float) $lockedBusiness->held_balance < $amount) {
+                    throw ValidationException::withMessages([
+                        'order' => 'Insufficient held balance to release funds for this order.',
+                    ]);
+                }
+
+                $lockedBusiness->held_balance = (float) $lockedBusiness->held_balance - $amount;
+                $lockedBusiness->available_balance = (float) $lockedBusiness->available_balance + $amount;
+            }
             $lockedBusiness->save();
 
             $order->update([
@@ -159,9 +187,14 @@ class BusinessWalletService
             BusinessBalanceLedger::create([
                 'business_id' => $lockedBusiness->id,
                 'type' => 'fund_release',
+                'wallet_channel' => $walletChannel,
                 'amount' => $amount,
-                'available_balance_after' => $lockedBusiness->available_balance,
-                'total_balance_after' => $lockedBusiness->total_balance,
+                'available_balance_after' => $walletChannel === self::WALLET_CARD
+                    ? (float) $lockedBusiness->card_available_balance
+                    : (float) $lockedBusiness->available_balance,
+                'total_balance_after' => $walletChannel === self::WALLET_CARD
+                    ? (float) $lockedBusiness->card_total_balance
+                    : (float) $lockedBusiness->total_balance,
                 'reference_type' => Order::class,
                 'reference_id' => $order->id,
                 'description' => 'Order received — funds released: '.$order->order_number,
@@ -180,19 +213,31 @@ class BusinessWalletService
             return;
         }
 
-        DB::transaction(function () use ($business, $collection, $amount) {
+        $walletChannel = $this->walletChannelForCollection($collection);
+
+        DB::transaction(function () use ($business, $collection, $amount, $walletChannel) {
             $lockedBusiness = Business::query()->lockForUpdate()->findOrFail($business->id);
 
-            $lockedBusiness->available_balance = (float) $lockedBusiness->available_balance + $amount;
-            $lockedBusiness->total_balance = (float) $lockedBusiness->total_balance + $amount;
+            if ($walletChannel === self::WALLET_CARD) {
+                $lockedBusiness->card_available_balance = (float) $lockedBusiness->card_available_balance + $amount;
+                $lockedBusiness->card_total_balance = (float) $lockedBusiness->card_total_balance + $amount;
+            } else {
+                $lockedBusiness->available_balance = (float) $lockedBusiness->available_balance + $amount;
+                $lockedBusiness->total_balance = (float) $lockedBusiness->total_balance + $amount;
+            }
             $lockedBusiness->save();
 
             BusinessBalanceLedger::create([
                 'business_id' => $lockedBusiness->id,
                 'type' => 'credit',
+                'wallet_channel' => $walletChannel,
                 'amount' => $amount,
-                'available_balance_after' => $lockedBusiness->available_balance,
-                'total_balance_after' => $lockedBusiness->total_balance,
+                'available_balance_after' => $walletChannel === self::WALLET_CARD
+                    ? (float) $lockedBusiness->card_available_balance
+                    : (float) $lockedBusiness->available_balance,
+                'total_balance_after' => $walletChannel === self::WALLET_CARD
+                    ? (float) $lockedBusiness->card_total_balance
+                    : (float) $lockedBusiness->total_balance,
                 'reference_type' => PaymentCollection::class,
                 'reference_id' => $collection->id,
                 'description' => 'Online payment received: '.$collection->description,
@@ -243,7 +288,7 @@ class BusinessWalletService
             ]);
         }
 
-        $fee = $this->feeService->calculateFee($business, $amount);
+        $fee = $this->feeService->calculateFee($business, $amount, WithdrawalFeeService::CHANNEL_MOBILE_MONEY);
         $totalDebited = $amount + $fee;
 
         $withdrawal = DB::transaction(function () use ($business, $amount, $fee, $totalDebited, $phoneNumber, $notes) {
@@ -251,7 +296,7 @@ class BusinessWalletService
 
             if ((float) $lockedBusiness->available_balance < $totalDebited) {
                 throw ValidationException::withMessages([
-                    'amount' => 'Insufficient available balance for this withdrawal (including fees).',
+                    'amount' => 'Insufficient mobile money wallet balance for this withdrawal (including fees).',
                 ]);
             }
 
@@ -264,6 +309,7 @@ class BusinessWalletService
                 'amount' => $amount,
                 'fee_amount' => $fee,
                 'total_debited' => $totalDebited,
+                'wallet_source' => 'main',
                 'phone_number' => $phoneNumber,
                 'status' => 'processing',
                 'notes' => $notes,
@@ -272,6 +318,7 @@ class BusinessWalletService
             BusinessBalanceLedger::create([
                 'business_id' => $lockedBusiness->id,
                 'type' => 'debit',
+                'wallet_channel' => self::WALLET_MOBILE_MONEY,
                 'amount' => $amount,
                 'available_balance_after' => $lockedBusiness->available_balance,
                 'total_balance_after' => $lockedBusiness->total_balance,
@@ -285,12 +332,13 @@ class BusinessWalletService
                 BusinessBalanceLedger::create([
                     'business_id' => $lockedBusiness->id,
                     'type' => 'withdrawal_fee',
+                    'wallet_channel' => self::WALLET_MOBILE_MONEY,
                     'amount' => $fee,
                     'available_balance_after' => $lockedBusiness->available_balance,
                     'total_balance_after' => $lockedBusiness->total_balance,
                     'reference_type' => WithdrawalRequest::class,
                     'reference_id' => $withdrawal->id,
-                    'description' => 'Withdrawal processing fee',
+                    'description' => 'Mobile money withdrawal processing fee',
                     'created_by' => auth()->id(),
                 ]);
             }
@@ -323,6 +371,142 @@ class BusinessWalletService
         return $withdrawal->fresh();
     }
 
+    public function processBankWithdrawal(
+        Business $business,
+        float $amount,
+        string $bankName,
+        string $accountNumber,
+        string $pin,
+        ?string $accountName = null,
+        ?string $bankBranch = null,
+        ?string $notes = null,
+    ): WithdrawalRequest {
+        if (! $this->hasPin($business)) {
+            throw ValidationException::withMessages([
+                'pin' => 'Please set up a withdrawal PIN before withdrawing.',
+            ]);
+        }
+
+        if (! $this->verifyPin($business, $pin)) {
+            throw ValidationException::withMessages([
+                'pin' => 'The withdrawal PIN is incorrect.',
+            ]);
+        }
+
+        if ($amount < 2500) {
+            throw ValidationException::withMessages([
+                'amount' => 'Minimum bank transfer amount is UGX 2,500.',
+            ]);
+        }
+
+        $fee = $this->feeService->calculateFee($business, $amount, WithdrawalFeeService::CHANNEL_BANK_TRANSFER);
+        $totalDebited = $amount + $fee;
+
+        $withdrawal = DB::transaction(function () use (
+            $business,
+            $amount,
+            $fee,
+            $totalDebited,
+            $bankName,
+            $accountNumber,
+            $accountName,
+            $bankBranch,
+            $notes
+        ) {
+            $lockedBusiness = Business::query()->lockForUpdate()->findOrFail($business->id);
+
+            if ((float) $lockedBusiness->card_available_balance < $totalDebited) {
+                throw ValidationException::withMessages([
+                    'amount' => 'Insufficient card wallet balance for this bank transfer (including fees).',
+                ]);
+            }
+
+            $lockedBusiness->card_available_balance = (float) $lockedBusiness->card_available_balance - $totalDebited;
+            $lockedBusiness->save();
+
+            $withdrawal = WithdrawalRequest::create([
+                'business_id' => $lockedBusiness->id,
+                'requested_by' => auth()->id(),
+                'amount' => $amount,
+                'fee_amount' => $fee,
+                'total_debited' => $totalDebited,
+                'wallet_source' => 'card',
+                'bank_name' => $bankName,
+                'bank_account_number' => $accountNumber,
+                'bank_account_name' => $accountName,
+                'bank_branch' => $bankBranch,
+                'status' => 'processing',
+                'notes' => $notes,
+            ]);
+
+            BusinessBalanceLedger::create([
+                'business_id' => $lockedBusiness->id,
+                'type' => 'debit',
+                'wallet_channel' => self::WALLET_CARD,
+                'amount' => $amount,
+                'available_balance_after' => $lockedBusiness->card_available_balance,
+                'total_balance_after' => $lockedBusiness->card_total_balance,
+                'reference_type' => WithdrawalRequest::class,
+                'reference_id' => $withdrawal->id,
+                'description' => 'Bank transfer to '.$bankName.' '.$accountNumber,
+                'created_by' => auth()->id(),
+            ]);
+
+            if ($fee > 0) {
+                BusinessBalanceLedger::create([
+                    'business_id' => $lockedBusiness->id,
+                    'type' => 'withdrawal_fee',
+                    'wallet_channel' => self::WALLET_CARD,
+                    'amount' => $fee,
+                    'available_balance_after' => $lockedBusiness->card_available_balance,
+                    'total_balance_after' => $lockedBusiness->card_total_balance,
+                    'reference_type' => WithdrawalRequest::class,
+                    'reference_id' => $withdrawal->id,
+                    'description' => 'Bank transfer processing fee',
+                    'created_by' => auth()->id(),
+                ]);
+            }
+
+            return $withdrawal;
+        });
+
+        $result = $this->marzPayService->createBankTransfer(
+            $withdrawal->uuid,
+            (float) $withdrawal->amount,
+            $withdrawal->bank_name,
+            $withdrawal->bank_account_number,
+            'card',
+            $withdrawal->bank_account_name,
+            $withdrawal->bank_branch,
+            'Card wallet bank withdrawal: '.$withdrawal->uuid
+        );
+
+        if (! $result['success']) {
+            $this->refundFailedWithdrawal($withdrawal, $result['message'] ?? 'Bank transfer failed.');
+
+            throw ValidationException::withMessages([
+                'amount' => $result['message'] ?? 'Bank transfer could not be completed. Your balance has been restored.',
+            ]);
+        }
+
+        $providerStatus = $result['status'] ?? 'processing';
+        $withdrawal->update([
+            'status' => in_array($providerStatus, ['completed', 'processing', 'pending'], true) ? 'processing' : 'failed',
+            'marz_transaction_uuid' => $result['transaction_uuid'] ?? $result['reference'] ?? null,
+            'provider_reference' => $result['reference'] ?? null,
+            'processed_at' => $providerStatus === 'completed' ? now() : null,
+        ]);
+
+        if ($providerStatus === 'completed') {
+            $withdrawal->update([
+                'status' => 'completed',
+                'processed_at' => now(),
+            ]);
+        }
+
+        return $withdrawal->fresh();
+    }
+
     public function refundFailedWithdrawal(WithdrawalRequest $withdrawal, ?string $reason = null): void
     {
         if (in_array($withdrawal->status, ['failed', 'cancelled'], true)) {
@@ -337,7 +521,11 @@ class BusinessWalletService
                 return;
             }
 
-            $lockedBusiness->available_balance = (float) $lockedBusiness->available_balance + (float) $lockedWithdrawal->total_debited;
+            if ($lockedWithdrawal->wallet_source === 'card') {
+                $lockedBusiness->card_available_balance = (float) $lockedBusiness->card_available_balance + (float) $lockedWithdrawal->total_debited;
+            } else {
+                $lockedBusiness->available_balance = (float) $lockedBusiness->available_balance + (float) $lockedWithdrawal->total_debited;
+            }
             $lockedBusiness->save();
 
             $lockedWithdrawal->update([
@@ -346,15 +534,26 @@ class BusinessWalletService
                 'processed_at' => now(),
             ]);
 
+            $walletChannel = $lockedWithdrawal->wallet_source === 'card'
+                ? self::WALLET_CARD
+                : self::WALLET_MOBILE_MONEY;
+
             BusinessBalanceLedger::create([
                 'business_id' => $lockedBusiness->id,
                 'type' => 'credit',
+                'wallet_channel' => $walletChannel,
                 'amount' => (float) $lockedWithdrawal->amount,
-                'available_balance_after' => $lockedBusiness->available_balance,
-                'total_balance_after' => $lockedBusiness->total_balance,
+                'available_balance_after' => $walletChannel === self::WALLET_CARD
+                    ? $lockedBusiness->card_available_balance
+                    : $lockedBusiness->available_balance,
+                'total_balance_after' => $walletChannel === self::WALLET_CARD
+                    ? $lockedBusiness->card_total_balance
+                    : $lockedBusiness->total_balance,
                 'reference_type' => WithdrawalRequest::class,
                 'reference_id' => $lockedWithdrawal->id,
-                'description' => 'Withdrawal refund: '.$lockedWithdrawal->phone_number,
+                'description' => $walletChannel === self::WALLET_CARD
+                    ? 'Bank transfer refund: '.$lockedWithdrawal->bank_account_number
+                    : 'Withdrawal refund: '.$lockedWithdrawal->phone_number,
                 'created_by' => null,
             ]);
 
@@ -362,9 +561,14 @@ class BusinessWalletService
                 BusinessBalanceLedger::create([
                     'business_id' => $lockedBusiness->id,
                     'type' => 'credit',
+                    'wallet_channel' => $walletChannel,
                     'amount' => (float) $lockedWithdrawal->fee_amount,
-                    'available_balance_after' => $lockedBusiness->available_balance,
-                    'total_balance_after' => $lockedBusiness->total_balance,
+                    'available_balance_after' => $walletChannel === self::WALLET_CARD
+                        ? $lockedBusiness->card_available_balance
+                        : $lockedBusiness->available_balance,
+                    'total_balance_after' => $walletChannel === self::WALLET_CARD
+                        ? $lockedBusiness->card_total_balance
+                        : $lockedBusiness->total_balance,
                     'reference_type' => WithdrawalRequest::class,
                     'reference_id' => $lockedWithdrawal->id,
                     'description' => 'Withdrawal fee refund',
@@ -372,6 +576,27 @@ class BusinessWalletService
                 ]);
             }
         });
+    }
+
+    protected function walletChannelForCollection(PaymentCollection $collection): string
+    {
+        return $collection->method === 'card' ? self::WALLET_CARD : self::WALLET_MOBILE_MONEY;
+    }
+
+    protected function walletChannelForOrder(Order $order): string
+    {
+        if ($order->payment_method === 'card') {
+            return self::WALLET_CARD;
+        }
+
+        $collection = PaymentCollection::query()
+            ->where('payable_type', Order::class)
+            ->where('payable_id', $order->id)
+            ->where('status', 'completed')
+            ->latest('id')
+            ->first();
+
+        return $collection ? $this->walletChannelForCollection($collection) : self::WALLET_MOBILE_MONEY;
     }
 
     /** @deprecated Use processWithdrawal() */

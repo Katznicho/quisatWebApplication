@@ -17,8 +17,9 @@ class WithdrawalSettingsController extends Controller
         $this->authorizeSuperAdmin();
 
         $tiers = $this->feeService->globalTiers();
+        $bankTiers = $this->feeService->globalTiers(WithdrawalFeeService::CHANNEL_BANK_TRANSFER);
 
-        return view('withdrawal.settings', compact('tiers'));
+        return view('withdrawal.settings', compact('tiers', 'bankTiers'));
     }
 
     public function update(Request $request)
@@ -30,9 +31,14 @@ class WithdrawalSettingsController extends Controller
             'tiers.*.min_amount' => 'required|integer|min:0',
             'tiers.*.max_amount' => 'nullable|integer|min:0',
             'tiers.*.charge_amount' => 'required|integer|min:0',
+            'bank_tiers' => 'required|array|min:1',
+            'bank_tiers.*.min_amount' => 'required|integer|min:0',
+            'bank_tiers.*.max_amount' => 'nullable|integer|min:0',
+            'bank_tiers.*.charge_amount' => 'required|integer|min:0',
         ]);
 
-        $this->feeService->syncGlobalTiers($validated['tiers']);
+        $this->feeService->syncGlobalTiers($validated['tiers'], WithdrawalFeeService::CHANNEL_MOBILE_MONEY);
+        $this->feeService->syncGlobalTiers($validated['bank_tiers'], WithdrawalFeeService::CHANNEL_BANK_TRANSFER);
 
         return redirect()
             ->route('withdrawal.settings.edit')

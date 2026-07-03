@@ -164,7 +164,7 @@ Route::prefix('v1')->group(function () {
         // MarzPay payments (public)
         Route::post('payments/marzpay/collect', [MarzPayPaymentController::class, 'collect']);
         Route::get('payments/marzpay/{reference}/status', [MarzPayPaymentController::class, 'status']);
-        Route::post('webhooks/marzpay', [MarzPayWebhookController::class, 'handle']);
+        Route::match(['get', 'post'], 'webhooks/marzpay', [MarzPayWebhookController::class, 'handle']);
 
         // Support Child (public list & detail + enquiries)
         Route::get('support-children', [SupportChildController::class, 'index']);

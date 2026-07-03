@@ -13,6 +13,7 @@ class BusinessBalanceLedger extends Model
         'uuid',
         'business_id',
         'type',
+        'wallet_channel',
         'amount',
         'available_balance_after',
         'total_balance_after',

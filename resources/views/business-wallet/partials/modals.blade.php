@@ -132,13 +132,91 @@
                 return;
             }
             try {
-                const response = await fetch('{{ route('business.wallet.estimate-fee') }}?amount=' + encodeURIComponent(amount), {
+                const response = await fetch('{{ route('business.wallet.estimate-fee') }}?amount=' + encodeURIComponent(amount) + '&channel=mobile_money', {
                     headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
                 });
                 const data = await response.json();
                 feeEstimate.textContent = `Fee: UGX ${Number(data.fee).toLocaleString()} · Total debited: UGX ${Number(data.total).toLocaleString()}`;
             } catch (e) {
                 feeEstimate.textContent = 'Could not estimate fee.';
+            }
+        });
+    }
+</script>
+
+{{-- Bank withdraw (card wallet) --}}
+<div id="bankWithdrawModal" class="hidden fixed inset-0 z-50 bg-gray-600 bg-opacity-50 overflow-y-auto">
+    <div class="relative top-20 mx-auto w-full max-w-md rounded-md border bg-white p-6 shadow-lg">
+        <h3 class="text-lg font-semibold mb-2">Withdraw Card Payments to Bank</h3>
+        <p class="text-sm text-gray-600 mb-4">
+            Card collections are held in a separate MarzPay card wallet and can only be pushed to a bank account.
+            Bank transfer fees are higher than mobile money withdrawals.
+        </p>
+        <form method="POST" action="{{ route('business.wallet.withdraw-bank') }}" class="space-y-4" id="bankWithdrawForm">
+            @csrf
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Amount to receive (UGX)</label>
+                <input type="number" name="amount" id="bankWithdrawAmount" min="2500" step="1" required
+                    class="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm">
+                <p class="text-xs text-gray-500 mt-1" id="bankFeeEstimate">Fee: — · Total debited: —</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Bank name</label>
+                <input type="text" name="bank_name" value="{{ $business->account_number ? '' : '' }}" placeholder="e.g. Stanbic Bank" required
+                    class="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Account number</label>
+                <input type="text" name="bank_account_number" required
+                    class="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Account name (optional)</label>
+                <input type="text" name="bank_account_name"
+                    class="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Branch (optional)</label>
+                <input type="text" name="bank_branch"
+                    class="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Withdrawal PIN</label>
+                <input type="password" name="pin" inputmode="numeric" maxlength="6" required
+                    class="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Notes (optional)</label>
+                <textarea name="notes" rows="2" class="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"></textarea>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="document.getElementById('bankWithdrawModal').classList.add('hidden')"
+                    class="rounded border px-4 py-2 text-sm">Cancel</button>
+                <button type="submit" class="rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">Send to bank</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const bankWithdrawAmountInput = document.getElementById('bankWithdrawAmount');
+    const bankFeeEstimate = document.getElementById('bankFeeEstimate');
+
+    if (bankWithdrawAmountInput) {
+        bankWithdrawAmountInput.addEventListener('input', async function () {
+            const amount = this.value;
+            if (!amount || amount < 2500) {
+                bankFeeEstimate.textContent = 'Fee: — · Total debited: —';
+                return;
+            }
+            try {
+                const response = await fetch('{{ route('business.wallet.estimate-fee') }}?amount=' + encodeURIComponent(amount) + '&channel=bank_transfer', {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                const data = await response.json();
+                bankFeeEstimate.textContent = `Fee: UGX ${Number(data.fee).toLocaleString()} · Total debited: UGX ${Number(data.total).toLocaleString()}`;
+            } catch (e) {
+                bankFeeEstimate.textContent = 'Could not estimate fee.';
             }
         });
     }

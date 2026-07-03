@@ -310,4 +310,70 @@ class MarzPayService
             'body' => $body,
         ];
     }
+
+    /**
+     * Push funds from the main or card wallet to a bank account.
+     *
+     * @return array{success:bool,message:string,status?:string,reference?:string,transaction_uuid?:string,body?:array}
+     */
+    public function createBankTransfer(
+        string $reference,
+        float $amount,
+        string $bankName,
+        string $accountNumber,
+        string $walletSource = 'card',
+        ?string $accountName = null,
+        ?string $bankBranch = null,
+        ?string $description = null,
+    ): array {
+        $payload = array_filter([
+            'amount' => (int) round($amount),
+            'description' => Str::limit($description ?? 'Quisat bank withdrawal', 500, ''),
+            'bank_name' => $bankName,
+            'bank_account_number' => $accountNumber,
+            'bank_account_name' => $accountName,
+            'bank_branch' => $bankBranch,
+            'wallet_source' => $walletSource,
+        ], fn ($value) => $value !== null && $value !== '');
+
+        if (! config('marzpay.api_key') || ! config('marzpay.api_secret')) {
+            return [
+                'success' => false,
+                'message' => 'Bank transfer is not configured. Contact support.',
+            ];
+        }
+
+        $response = Http::withHeaders([
+            'Authorization' => $this->authorizationHeader(),
+            'Accept' => 'application/json',
+            'Content-Type' => 'application/json',
+        ])->post(rtrim((string) config('marzpay.base_url'), '/').'/bank-transfer', $payload);
+
+        $body = $response->json() ?? [];
+        $status = data_get($body, 'data.bank_transfer.status', data_get($body, 'bank_transfer.status'));
+        $successful = $response->successful() && data_get($body, 'status') === 'success';
+
+        if (! $successful) {
+            Log::error('MarzPay bank transfer failed', [
+                'reference' => $reference,
+                'http_status' => $response->status(),
+                'body' => $body,
+            ]);
+
+            return [
+                'success' => false,
+                'message' => data_get($body, 'message', 'Unable to process bank transfer.'),
+                'body' => $body,
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => data_get($body, 'message', 'Bank transfer initiated.'),
+            'status' => $status,
+            'reference' => data_get($body, 'data.bank_transfer.reference', data_get($body, 'bank_transfer.reference')),
+            'transaction_uuid' => data_get($body, 'data.bank_transfer.transaction_uuid', data_get($body, 'bank_transfer.transaction_uuid')),
+            'body' => $body,
+        ];
+    }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Models\PaymentCollection;
 use App\Services\MarzPayPayableResolver;
 use App\Services\MarzPayService;
 use Illuminate\Http\Request;
@@ -10,7 +11,16 @@ use Illuminate\Support\Facades\Log;
 
 class MarzPayWebhookController extends Controller
 {
-    public function handle(Request $request, MarzPayPayableResolver $resolver)
+    public function handle(Request $request, MarzPayPayableResolver $resolver, MarzPayService $marzPay)
+    {
+        if ($request->isMethod('GET')) {
+            return $this->handleBrowserReturn($request, $resolver, $marzPay);
+        }
+
+        return $this->handleWebhook($request, $resolver);
+    }
+
+    public function handleWebhook(Request $request, MarzPayPayableResolver $resolver)
     {
         $payload = $request->all();
 
@@ -27,7 +37,7 @@ class MarzPayWebhookController extends Controller
             return response()->json(['message' => 'Ignored'], 200);
         }
 
-        $collection = \App\Models\PaymentCollection::query()
+        $collection = PaymentCollection::query()
             ->where('reference', $reference)
             ->first();
 
@@ -63,6 +73,99 @@ class MarzPayWebhookController extends Controller
         $resolver->applyCallback($collection);
 
         return response()->json(['message' => 'OK'], 200);
+    }
+
+    public function handleBrowserReturn(Request $request, MarzPayPayableResolver $resolver, MarzPayService $marzPay)
+    {
+        $query = $request->query();
+
+        Log::info('MarzPay browser return received', $query);
+
+        $vendorId = (string) ($query['VendorID'] ?? $query['vendor_id'] ?? '');
+        $tranId = (string) ($query['TranID'] ?? $query['tran_id'] ?? '');
+        $gatewayStatus = strtoupper((string) ($query['Status'] ?? ''));
+        $gatewayReason = (string) ($query['Reason'] ?? '');
+
+        $collection = $this->findCollectionFromBrowserReturn($vendorId, $tranId);
+
+        if ($collection) {
+            $sync = $marzPay->syncCollectionStatus($collection);
+            $collection->refresh();
+
+            if (! $sync['success'] && $this->isGatewaySuccess($gatewayStatus)) {
+                $this->applyBrowserReturnFallback($collection, $resolver, $query, $tranId);
+                $collection->refresh();
+            }
+        }
+
+        $success = $collection && $collection->status === 'completed';
+        $pending = ! $success && ($this->isGatewaySuccess($gatewayStatus) || ($collection && ! $collection->isFinal()));
+
+        return response()->view('marzpay.return', [
+            'success' => $success,
+            'pending' => $pending,
+            'message' => $success
+                ? null
+                : ($gatewayReason ?: 'Your card payment could not be completed.'),
+            'reference' => $collection?->reference ?: ($vendorId ?: null),
+            'amount' => $collection?->amount,
+            'currency' => $collection?->currency ?? 'UGX',
+            'tranId' => $tranId ?: $collection?->provider_transaction_id,
+        ]);
+    }
+
+    protected function findCollectionFromBrowserReturn(string $vendorId, string $tranId): ?PaymentCollection
+    {
+        if ($vendorId !== '') {
+            $byVendor = PaymentCollection::query()
+                ->where(function ($query) use ($vendorId) {
+                    $query->where('marz_transaction_uuid', $vendorId)
+                        ->orWhere('reference', $vendorId);
+                })
+                ->latest('id')
+                ->first();
+
+            if ($byVendor) {
+                return $byVendor;
+            }
+        }
+
+        if ($tranId === '') {
+            return null;
+        }
+
+        return PaymentCollection::query()
+            ->where('provider_transaction_id', $tranId)
+            ->latest('id')
+            ->first();
+    }
+
+    protected function applyBrowserReturnFallback(
+        PaymentCollection $collection,
+        MarzPayPayableResolver $resolver,
+        array $query,
+        string $tranId,
+    ): void {
+        if ($collection->isFinal()) {
+            return;
+        }
+
+        $collection->update([
+            'status' => 'completed',
+            'provider' => $collection->provider ?: 'card payments',
+            'provider_transaction_id' => $tranId ?: $collection->provider_transaction_id,
+            'callback_payload' => array_merge($collection->callback_payload ?? [], [
+                'browser_return' => $query,
+            ]),
+            'completed_at' => now(),
+        ]);
+
+        $resolver->applyCallback($collection->fresh());
+    }
+
+    protected function isGatewaySuccess(string $gatewayStatus): bool
+    {
+        return in_array($gatewayStatus, ['SUCCESS', 'COMPLETED'], true);
     }
 
     protected function handleWithdrawalWebhook(\App\Models\WithdrawalRequest $withdrawal, string $status, array $payload): void
