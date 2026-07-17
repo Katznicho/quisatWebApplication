@@ -1,63 +1,64 @@
 <?php
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\API\AuthController;
-use App\Http\Controllers\API\StudentController;
 use App\Http\Controllers\API\AcademicCalendarController;
-use App\Http\Controllers\API\ParentGuardianController;
-use App\Http\Controllers\API\KidsProgramController;
 use App\Http\Controllers\API\AnnouncementController;
-use App\Http\Controllers\API\ClassAssignmentController;
 use App\Http\Controllers\API\AssignmentSubmissionController;
-use App\Http\Controllers\API\ConversationController;
-use App\Http\Controllers\API\StaffDashboardController;
-use App\Http\Controllers\API\ParentDashboardController;
 use App\Http\Controllers\API\AttendanceController;
-use App\Http\Controllers\API\StudentProgressController;
-use App\Http\Controllers\API\DocumentController;
-use App\Http\Controllers\API\TimetableController;
-use App\Http\Controllers\API\StudentCharacterController;
-use App\Http\Controllers\API\StudentAcademicEntryController;
-use App\Http\Controllers\API\StudentDocumentController;
-use App\Http\Controllers\API\PublicKidsEventsController;
-use App\Http\Controllers\API\PublicParentCornersController;
-use App\Http\Controllers\API\PublicKidsFunVenuesController;
-use App\Http\Controllers\API\PublicAdvertisementsController;
-use App\Http\Controllers\API\PublicProgramsController;
-use App\Http\Controllers\API\SupportChildController;
-use App\Http\Controllers\API\ClinicController;
-use App\Http\Controllers\API\ProgramRegistrationController;
-use App\Http\Controllers\API\ProductController;
-use App\Http\Controllers\API\OrderController;
-use App\Http\Controllers\API\ProductReviewController;
+use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\BusinessReviewController;
-use App\Http\Controllers\API\MarzPayWebhookController;
+use App\Http\Controllers\API\CalendarEventRegistrationController;
+use App\Http\Controllers\API\ClassAssignmentController;
+use App\Http\Controllers\API\ClinicController;
+use App\Http\Controllers\API\ConversationController;
+use App\Http\Controllers\API\DocumentController;
+use App\Http\Controllers\API\KidsProgramController;
 use App\Http\Controllers\API\MarzPayPaymentController;
+use App\Http\Controllers\API\MarzPayWebhookController;
+use App\Http\Controllers\API\OrderController;
+use App\Http\Controllers\API\ParentDashboardController;
+use App\Http\Controllers\API\ParentGuardianController;
+use App\Http\Controllers\API\ParentUniversalAccountController;
+use App\Http\Controllers\API\ProductController;
+use App\Http\Controllers\API\ProductReviewController;
+use App\Http\Controllers\API\ProgramRegistrationController;
+use App\Http\Controllers\API\PublicAdvertisementsController;
+use App\Http\Controllers\API\PublicKidsEventsController;
+use App\Http\Controllers\API\PublicKidsFunVenuesController;
+use App\Http\Controllers\API\PublicParentCornersController;
+use App\Http\Controllers\API\PublicProgramsController;
+use App\Http\Controllers\API\PublicStatsController;
+use App\Http\Controllers\API\StaffDashboardController;
+use App\Http\Controllers\API\StudentAcademicEntryController;
+use App\Http\Controllers\API\StudentCharacterController;
+use App\Http\Controllers\API\StudentController;
+use App\Http\Controllers\API\StudentDocumentController;
+use App\Http\Controllers\API\StudentProgressController;
+use App\Http\Controllers\API\SupportChildController;
+use App\Http\Controllers\API\TimetableController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
-
-
 
 // API Routes
 Route::prefix('v1')->group(function () {
-    
+
     // Public Routes (No Authentication Required)
     // Exclude Sanctum middleware to allow public access
     Route::withoutMiddleware([
-        \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class
+        \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
     ])->group(function () {
         // Test route
-        Route::get('test', function() {
+        Route::get('test', function () {
             return response()->json([
                 'success' => true,
                 'message' => 'Test route works!',
                 'timestamp' => now()->toIso8601String(),
             ]);
         });
-        
+
         // Diagnostic route
-        Route::get('diagnostic', function() {
+        Route::get('diagnostic', function () {
             try {
                 $checks = [
                     'php_version' => PHP_VERSION,
@@ -67,19 +68,19 @@ Route::prefix('v1')->group(function () {
                     'kids_events_table_exists' => false,
                     'programs_table_exists' => false,
                 ];
-                
+
                 try {
                     DB::connection()->getPdo();
                     $checks['database_connected'] = true;
                 } catch (\Exception $e) {
                     $checks['database_error'] = $e->getMessage();
                 }
-                
+
                 try {
                     $checks['advertisements_table_exists'] = Schema::hasTable('advertisements');
                     $checks['kids_events_table_exists'] = Schema::hasTable('kids_events');
                     $checks['programs_table_exists'] = Schema::hasTable('programs');
-                    
+
                     // Check product tables structure
                     if (Schema::hasTable('products')) {
                         $checks['products_columns'] = Schema::getColumnListing('products');
@@ -95,7 +96,7 @@ Route::prefix('v1')->group(function () {
                 } catch (\Exception $e) {
                     $checks['schema_error'] = $e->getMessage();
                 }
-                
+
                 return response()->json([
                     'success' => true,
                     'message' => 'Diagnostic information',
@@ -109,55 +110,57 @@ Route::prefix('v1')->group(function () {
                 ], 500);
             }
         });
-        
+
         // Kids Events
         Route::get('kids-events', [PublicKidsEventsController::class, 'index']);
         Route::get('kids-events/{id}', [PublicKidsEventsController::class, 'show']);
-        
+
         // Kids Event Registration (public - supports guest registration)
         Route::post('kids-events/{eventId}/register', [\App\Http\Controllers\API\KidsEventRegistrationController::class, 'store']);
-        
+
         // Parent Corner Events
         Route::get('parent-corners', [PublicParentCornersController::class, 'index']);
         Route::get('parent-corners/{id}', [PublicParentCornersController::class, 'show']);
-        
+
         // Parent Corner Registration (public - supports guest registration)
         Route::post('parent-corners/{eventId}/register', [\App\Http\Controllers\API\ParentCornerRegistrationController::class, 'store']);
-        
+
         // Kids Fun Venues
         Route::get('kids-fun-venues', [PublicKidsFunVenuesController::class, 'index']);
         Route::get('kids-fun-venues/{id}', [PublicKidsFunVenuesController::class, 'show']);
-        
-        
+
         // Business Advertisements
         Route::get('advertisements', [PublicAdvertisementsController::class, 'index']);
         Route::get('advertisements/{id}', [PublicAdvertisementsController::class, 'show']);
-        
+
         // Christian Kids Hub Programs (public)
         Route::get('programmes', [PublicProgramsController::class, 'index']);
         Route::get('programmes/events/{id}', [PublicProgramsController::class, 'showEvent']);
         Route::get('programmes/{id}', [PublicProgramsController::class, 'show']);
-        
+
+        // Platform stats (businesses, schools, parents)
+        Route::get('stats', [PublicStatsController::class, 'index']);
+
         // Program Event Registration (requires auth)
         Route::middleware('auth:sanctum')->group(function () {
             Route::post('programmes/events/{eventId}/register', [ProgramRegistrationController::class, 'store']);
             Route::get('programmes/events/{eventId}/registrations', [ProgramRegistrationController::class, 'index']);
-            
+
             // Kids Event Registrations (authenticated)
             Route::get('kids-events/{eventId}/registrations', [\App\Http\Controllers\API\KidsEventRegistrationController::class, 'index']);
             Route::get('my-kids-event-registrations', [\App\Http\Controllers\API\KidsEventRegistrationController::class, 'myRegistrations']);
-            
+
             // Parent Corner Registrations (authenticated)
             Route::get('parent-corners/{eventId}/registrations', [\App\Http\Controllers\API\ParentCornerRegistrationController::class, 'index']);
             Route::get('my-parent-corner-registrations', [\App\Http\Controllers\API\ParentCornerRegistrationController::class, 'myRegistrations']);
         });
-        
+
         // KidsMart Products (public)
         Route::get('products', [ProductController::class, 'index']);
         Route::get('products/{id}', [ProductController::class, 'show']);
         Route::get('products/{id}/reviews', [ProductReviewController::class, 'index']);
         Route::get('businesses/{id}/reviews', [BusinessReviewController::class, 'index']);
-        
+
         // KidsMart Orders - Allow guest ordering (public)
         Route::post('orders', [OrderController::class, 'store']);
 
@@ -174,11 +177,11 @@ Route::prefix('v1')->group(function () {
         Route::get('clinics', [ClinicController::class, 'index']);
         Route::get('clinics/{id}', [ClinicController::class, 'show']);
     });
-    
-    
+
     // Authentication Routes (Public)
     Route::prefix('auth')->group(function () {
         Route::post('login', [AuthController::class, 'login']);
+        Route::post('parent-register', [AuthController::class, 'parentRegister']);
         Route::post('parent-login', [AuthController::class, 'parentLogin']);
         Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
         Route::post('reset-password', [AuthController::class, 'resetPassword']);
@@ -189,7 +192,7 @@ Route::prefix('v1')->group(function () {
 
     // Protected Routes (Require Authentication)
     Route::middleware('auth:sanctum')->group(function () {
-        
+
         // Authentication Routes (Protected)
         Route::prefix('auth')->group(function () {
             Route::post('logout', [AuthController::class, 'logout']);
@@ -199,6 +202,21 @@ Route::prefix('v1')->group(function () {
             Route::post('delete-account', [AuthController::class, 'deleteAccount']);
             Route::post('refresh', [AuthController::class, 'refresh']);
         });
+
+        // Parent universal account (outside business.scope — guests have no business yet)
+        Route::prefix('parent')->group(function () {
+            Route::get('me', [ParentUniversalAccountController::class, 'me']);
+            Route::get('universal-code', [ParentUniversalAccountController::class, 'universalCode']);
+            Route::post('universal-code/regenerate', [ParentUniversalAccountController::class, 'regenerate']);
+            Route::get('businesses', [ParentUniversalAccountController::class, 'businesses']);
+            Route::post('join-business', [ParentUniversalAccountController::class, 'joinBusiness']);
+        });
+
+        // Staff: accept parent universal code (business scoping enforced in controller)
+        Route::post(
+            'businesses/{business}/parents/accept-universal-code',
+            [ParentUniversalAccountController::class, 'acceptUniversalCode']
+        );
 
         // Marketplace orders — auth only; OrderController enforces per-order access
         Route::prefix('orders')->group(function () {
@@ -252,7 +270,7 @@ Route::prefix('v1')->group(function () {
                 $subjects = $query
                     ->orderBy('name')
                     ->get(['id', 'name', 'code']);
-                
+
                 return response()->json([
                     'success' => true,
                     'message' => 'Subjects retrieved successfully.',
@@ -263,6 +281,7 @@ Route::prefix('v1')->group(function () {
             Route::prefix('calendar')->group(function () {
                 Route::get('events', [AcademicCalendarController::class, 'index']);
                 Route::get('events/{event}', [AcademicCalendarController::class, 'show']);
+                Route::post('events/{eventId}/register', [CalendarEventRegistrationController::class, 'store']);
             });
 
             Route::prefix('timetable')->group(function () {
@@ -331,6 +350,6 @@ Route::prefix('v1')->group(function () {
     });
 
     // Payment Routes
-    include_once __DIR__ . '/custom/airtel_routes.php';
-    include_once __DIR__ . '/custom/mtn_routes.php';
+    include_once __DIR__.'/custom/airtel_routes.php';
+    include_once __DIR__.'/custom/mtn_routes.php';
 });

@@ -3,28 +3,27 @@
 namespace App\Livewire\SchoolManagement;
 
 use App\Models\CalendarEvent;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\TimePicker;
+use Filament\Forms\Components\Toggle;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\TimePicker;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Toggle;
-use Filament\Forms\Components\FileUpload;
 use Filament\Notifications\Notification;
 use Filament\Tables;
+use Filament\Tables\Actions\CreateAction;
+use Filament\Tables\Actions\DeleteAction;
+use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
-use Filament\Tables\Table;
-use Filament\Tables\Actions\CreateAction;
-use Filament\Tables\Actions\EditAction;
-use Filament\Tables\Actions\DeleteAction;
 use Filament\Tables\Filters\TrashedFilter;
-use Livewire\Component;
+use Filament\Tables\Table;
 use Illuminate\Contracts\View\View;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Component;
 
 class CalendarEventsManagement extends Component implements HasForms, HasTable
 {
@@ -59,6 +58,15 @@ class CalendarEventsManagement extends Component implements HasForms, HasTable
                     ->sortable(),
                 Tables\Columns\TextColumn::make('location')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('price')
+                    ->label('Price')
+                    ->formatStateUsing(fn ($state) => $state === null || (float) $state <= 0
+                        ? 'Free'
+                        : 'UGX '.number_format((float) $state, 0))
+                    ->sortable(),
+                Tables\Columns\IconColumn::make('accepts_registrations')
+                    ->label('Register')
+                    ->boolean(),
                 Tables\Columns\IconColumn::make('is_all_day')
                     ->boolean(),
                 Tables\Columns\TextColumn::make('created_at')
@@ -101,6 +109,20 @@ class CalendarEventsManagement extends Component implements HasForms, HasTable
                         TextInput::make('location')
                             ->maxLength(255)
                             ->placeholder('Enter event location'),
+                        TextInput::make('price')
+                            ->label('Registration fee (UGX)')
+                            ->numeric()
+                            ->minValue(0)
+                            ->default(0)
+                            ->helperText('Set 0 for free events. Parents pay via MarzPay when registering.'),
+                        Toggle::make('accepts_registrations')
+                            ->label('Accept registrations in the app')
+                            ->default(true),
+                        TextInput::make('max_participants')
+                            ->label('Max participants')
+                            ->numeric()
+                            ->minValue(1)
+                            ->helperText('Leave empty for unlimited.'),
                         FileUpload::make('cover_image')
                             ->label('Event cover image')
                             ->image()
@@ -125,30 +147,34 @@ class CalendarEventsManagement extends Component implements HasForms, HasTable
                     ->using(function (array $data, CalendarEvent $record): CalendarEvent {
                         $data['business_id'] = Auth::user()->business_id;
                         $data['created_by'] = Auth::id();
-                        
+
                         // Combine date and time for start_date
                         if (isset($data['start_date'])) {
                             if (isset($data['start_time'])) {
-                                $data['start_date'] = $data['start_date'] . ' ' . $data['start_time'];
+                                $data['start_date'] = $data['start_date'].' '.$data['start_time'];
                                 unset($data['start_time']);
                             } else {
-                                $data['start_date'] = $data['start_date'] . ' 00:00:00';
+                                $data['start_date'] = $data['start_date'].' 00:00:00';
                             }
                         }
-                        
+
                         // Combine date and time for end_date
                         if (isset($data['end_date'])) {
                             if (isset($data['end_time'])) {
-                                $data['end_date'] = $data['end_date'] . ' ' . $data['end_time'];
+                                $data['end_date'] = $data['end_date'].' '.$data['end_time'];
                                 unset($data['end_time']);
                             } else {
-                                $data['end_date'] = $data['end_date'] . ' 23:59:59';
+                                $data['end_date'] = $data['end_date'].' 23:59:59';
                             }
                         }
-                        
+
+                        if (array_key_exists('max_participants', $data) && $data['max_participants'] === '') {
+                            $data['max_participants'] = null;
+                        }
+
                         $record->fill($data);
                         $record->save();
-                        
+
                         return $record;
                     })
                     ->successNotificationTitle('Event updated successfully.'),
@@ -196,6 +222,20 @@ class CalendarEventsManagement extends Component implements HasForms, HasTable
                         TextInput::make('location')
                             ->maxLength(255)
                             ->placeholder('Enter event location'),
+                        TextInput::make('price')
+                            ->label('Registration fee (UGX)')
+                            ->numeric()
+                            ->minValue(0)
+                            ->default(0)
+                            ->helperText('Set 0 for free events. Parents pay via MarzPay when registering.'),
+                        Toggle::make('accepts_registrations')
+                            ->label('Accept registrations in the app')
+                            ->default(true),
+                        TextInput::make('max_participants')
+                            ->label('Max participants')
+                            ->numeric()
+                            ->minValue(1)
+                            ->helperText('Leave empty for unlimited.'),
                         FileUpload::make('cover_image')
                             ->label('Event cover image')
                             ->image()
@@ -222,27 +262,31 @@ class CalendarEventsManagement extends Component implements HasForms, HasTable
                         $data['business_id'] = Auth::user()->business_id;
                         $data['created_by'] = Auth::id();
                         $data['status'] = 'published';
-                        
+
                         // Combine date and time for start_date
                         if (isset($data['start_date'])) {
                             if (isset($data['start_time'])) {
-                                $data['start_date'] = $data['start_date'] . ' ' . $data['start_time'];
+                                $data['start_date'] = $data['start_date'].' '.$data['start_time'];
                                 unset($data['start_time']);
                             } else {
-                                $data['start_date'] = $data['start_date'] . ' 00:00:00';
+                                $data['start_date'] = $data['start_date'].' 00:00:00';
                             }
                         }
-                        
+
                         // Combine date and time for end_date
                         if (isset($data['end_date'])) {
                             if (isset($data['end_time'])) {
-                                $data['end_date'] = $data['end_date'] . ' ' . $data['end_time'];
+                                $data['end_date'] = $data['end_date'].' '.$data['end_time'];
                                 unset($data['end_time']);
                             } else {
-                                $data['end_date'] = $data['end_date'] . ' 23:59:59';
+                                $data['end_date'] = $data['end_date'].' 23:59:59';
                             }
                         }
-                        
+
+                        if (array_key_exists('max_participants', $data) && $data['max_participants'] === '') {
+                            $data['max_participants'] = null;
+                        }
+
                         return CalendarEvent::create($data);
                     })
                     ->after(function (CalendarEvent $record) {

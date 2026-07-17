@@ -17,7 +17,7 @@ class MarzPayPaymentController extends Controller
         MarzPayPayableResolver $resolver,
     ) {
         $validated = $request->validate([
-            'payable_type' => 'required|in:order,kids_event_registration,parent_corner_registration,program_registration',
+            'payable_type' => 'required|in:order,kids_event_registration,parent_corner_registration,program_registration,clinic_appointment,calendar_event_registration',
             'payable_id' => 'required|string',
             'payment_method' => 'required|in:mtn_mobile_money,airtel_money,card',
             'phone_number' => 'nullable|string|max:30',

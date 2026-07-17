@@ -1,38 +1,37 @@
 <?php
 
-
-use App\Http\Controllers\BusinessController;
+use App\Http\Controllers\AdminManagementController;
+use App\Http\Controllers\AdvertisementController;
+use App\Http\Controllers\BusinessAccountStatementController;
 use App\Http\Controllers\BusinessCategoryController;
+use App\Http\Controllers\BusinessController;
 use App\Http\Controllers\BusinessRegistrationController;
 use App\Http\Controllers\BusinessRegistrationDocumentController;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\SupportController;
-use App\Http\Controllers\TransactionController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\RoleController;
-use App\Http\Controllers\FeatureController;
-use App\Http\Controllers\CurrencyController;
-use App\Http\Controllers\CountryController;
-use App\Http\Controllers\DocumentTypeController;
-use App\Http\Controllers\ProgramController;
-use App\Http\Controllers\PaymentController;
-use App\Http\Controllers\AdminManagementController;
+use App\Http\Controllers\BusinessWalletController;
 use App\Http\Controllers\CalendarEventController;
-use App\Http\Controllers\TermController;
 use App\Http\Controllers\ChatController;
-use App\Http\Controllers\AdvertisementController;
+use App\Http\Controllers\ClinicPatientController;
+use App\Http\Controllers\CountryController;
+use App\Http\Controllers\CurrencyController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DocumentTypeController;
+use App\Http\Controllers\FeatureController;
 use App\Http\Controllers\KidsEventController;
 use App\Http\Controllers\KidsFunVenueController;
-use App\Http\Controllers\SupportChildController;
-use App\Http\Controllers\ClinicPatientController;
-use App\Http\Controllers\ParentCornerController;
-use App\Http\Controllers\ProductController;
 use App\Http\Controllers\OrderController;
-use App\Http\Controllers\BusinessWalletController;
-use App\Http\Controllers\BusinessAccountStatementController;
-use App\Http\Controllers\WithdrawalSettingsController;
+use App\Http\Controllers\ParentCornerController;
+use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProgramController;
+use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SchoolManagement\ParentGuardianController;
 use App\Http\Controllers\SchoolManagement\StudentController;
+use App\Http\Controllers\SupportChildController;
+use App\Http\Controllers\SupportController;
+use App\Http\Controllers\TermController;
+use App\Http\Controllers\TransactionController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\WithdrawalSettingsController;
 
 // Test route for chat functionality (no auth required)
 Route::get('/chat-test', function () {
@@ -42,37 +41,33 @@ Route::get('/chat-test', function () {
 // Test route with real contacts (no auth required)
 Route::get('/chat-demo', function () {
     $contacts = \App\Models\User::whereNotNull('business_id')->take(5)->get();
+
     return view('chat.demo', compact('contacts'));
 })->name('chat.demo');
 
 // Test route that mimics the main chat page (no auth required)
 Route::get('/chat-test-main', function () {
     $user = \App\Models\User::first(); // Get first user for testing
-    if (!$user) {
+    if (! $user) {
         return 'No users found in database';
     }
-    
+
     // Get contacts for this user
     $contacts = \App\Models\User::where('business_id', $user->business_id)
         ->where('id', '!=', $user->id)
         ->with('role')
         ->get();
-    
+
     // Get conversations (empty for testing)
     $conversations = collect();
-    
+
     // Mock the authenticated user for the view
     auth()->login($user);
-    
+
     return view('chat.index', compact('conversations', 'contacts'));
 })->name('chat.test-main');
 
 use Illuminate\Support\Facades\Route;
-
-
-
-
-
 
 /*
 |--------------------------------------------------------------------------
@@ -94,7 +89,7 @@ Route::get('/business/register/categories/{categoryId}/documents', [BusinessRegi
 Route::get('/business/registration/success', [BusinessRegistrationController::class, 'registrationSuccess'])->name('business.registration.success');
 Route::post('/business/resend-verification', [BusinessRegistrationController::class, 'resendVerification'])->name('business.resend.verification');
 
-// Route::get("makePayment",[PaymentController::class,"makePayment"])->name("makePayment");    
+// Route::get("makePayment",[PaymentController::class,"makePayment"])->name("makePayment");
 
 Route::middleware(['auth:sanctum'])->group(function () {
 
@@ -115,9 +110,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::impersonate();
 
-
-
-    Route::resource("businesses", BusinessController::class);
+    Route::resource('businesses', BusinessController::class);
     Route::patch('businesses/{business}/update-logo', [BusinessController::class, 'updateLogo'])->name('businesses.update-logo');
     Route::patch('businesses/{business}/update-social-media', [BusinessController::class, 'updateSocialMedia'])->name('businesses.update-social-media');
     Route::get('businesses/{business}/registration-documents/{document}', [BusinessRegistrationDocumentController::class, 'download'])
@@ -141,14 +134,14 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/download', [BusinessAccountStatementController::class, 'download'])->name('download');
         Route::post('/email', [BusinessAccountStatementController::class, 'email'])->name('email');
     });
-    Route::resource("support", SupportController::class);
-    Route::resource("transactions", TransactionController::class);
+    Route::resource('support', SupportController::class);
+    Route::resource('transactions', TransactionController::class);
     // User routes - custom routes must come before resource route to avoid conflicts
     Route::get('/users/bulk-upload', [UserController::class, 'bulkUploadPage'])->name('users.bulk-upload-page');
     Route::get('/users/download-template', [UserController::class, 'downloadTemplate'])->name('users.download-template');
     Route::post('/users/bulk-upload', [UserController::class, 'bulkUpload'])->name('users.bulk-upload');
-    Route::resource("users", UserController::class);
-    Route::resource("roles", RoleController::class);
+    Route::resource('users', UserController::class);
+    Route::resource('roles', RoleController::class);
     Route::middleware('super.admin')->group(function () {
         Route::resource('features', FeatureController::class);
         Route::resource('currency', CurrencyController::class);
@@ -161,28 +154,28 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('withdrawal/settings', [WithdrawalSettingsController::class, 'edit'])->name('withdrawal.settings.edit');
         Route::put('withdrawal/settings', [WithdrawalSettingsController::class, 'update'])->name('withdrawal.settings.update');
     });
-    
+
     // Advertisement routes
-    Route::resource("advertisements", AdvertisementController::class);
+    Route::resource('advertisements', AdvertisementController::class);
     Route::get('advertisements/{advertisement}/analytics', [AdvertisementController::class, 'analytics'])->name('advertisements.analytics');
     Route::post('advertisements/{advertisement}/track', [AdvertisementController::class, 'track'])->name('advertisements.track');
     Route::get('advertisements/export/report', [AdvertisementController::class, 'export'])->name('advertisements.export');
     Route::post('advertisements/publish-selected', [AdvertisementController::class, 'publishSelected'])->name('advertisements.publish-selected');
-    
+
     // Kids Events routes
-    Route::resource("kids-events", KidsEventController::class);
+    Route::resource('kids-events', KidsEventController::class);
     Route::post('kids-events/{kidsEvent}/toggle-featured', [KidsEventController::class, 'toggleFeatured'])->name('kids-events.toggle-featured');
     Route::post('kids-events/{kidsEvent}/update-status', [KidsEventController::class, 'updateStatus'])->name('kids-events.update-status');
-    
+
     // Kids Fun Venues routes
-    Route::resource("kids-fun-venues", KidsFunVenueController::class);
-    
+    Route::resource('kids-fun-venues', KidsFunVenueController::class);
+
     // Parent Corner routes
-    Route::resource("parent-corners", ParentCornerController::class);
+    Route::resource('parent-corners', ParentCornerController::class);
     Route::post('parent-corners/{id}/registrations', [ParentCornerController::class, 'storeRegistration'])->name('parent-corner-registrations.store');
     Route::delete('parent-corner-registrations/{uuid}', [ParentCornerController::class, 'destroyRegistration'])->name('parent-corner-registrations.destroy')->where('uuid', '[a-f0-9\-]+');
-    
-    Route::resource("programs", ProgramController::class);
+
+    Route::resource('programs', ProgramController::class);
 
     // Support Child management (web)
     Route::resource('support-children', SupportChildController::class)->except(['show']);
@@ -192,6 +185,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::resource('clinic-patients', ClinicPatientController::class);
     Route::post('clinic-patients/{clinic_patient}/appointments', [\App\Http\Controllers\ClinicAppointmentController::class, 'store'])
         ->name('clinic-patients.appointments.store');
+    Route::post('clinic-appointments/{clinic_appointment}/mark-paid', [\App\Http\Controllers\ClinicAppointmentController::class, 'markPaid'])
+        ->name('clinic-appointments.mark-paid');
+    Route::post('clinic-appointments/{clinic_appointment}/waive', [\App\Http\Controllers\ClinicAppointmentController::class, 'waive'])
+        ->name('clinic-appointments.waive');
 
     // Admin Management Routes
     Route::prefix('admin')->name('admin.')->middleware('super.admin')->group(function () {
@@ -215,15 +212,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::delete('/attendees/{attendee}', [ProgramController::class, 'destroyAttendee'])->name('attendees.destroy')->where('attendee', '[a-f0-9\-]+');
     Route::post('/attendees/{attendee}/payments', [ProgramController::class, 'storePayment'])->name('attendees.payments.store')->where('attendee', '[a-f0-9\-]+');
     Route::get('/attendees/{attendee}/payments', [ProgramController::class, 'getAttendeePayments'])->name('attendees.payments.index')->where('attendee', '[a-f0-9\-]+');
-    
+
     // Payment management routes
     Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
     Route::get('/payments/pending', [PaymentController::class, 'pending'])->name('payments.pending');
     Route::get('/payments/reports', [PaymentController::class, 'reports'])->name('payments.reports');
-
-
-
-
 
     Route::put('/users/{user}', [UserController::class, 'update']);
     // routes/web.php
@@ -247,7 +240,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/students', function () {
             return view('school-management.students');
         })->name('students');
-        
+
         Route::get('/students/create', [StudentController::class, 'create'])->name('students.create');
         Route::post('/students', [StudentController::class, 'store'])->name('students.store');
         Route::get('/students/{student}/edit', [StudentController::class, 'edit'])->name('students.edit');
@@ -255,43 +248,43 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/students/bulk-upload', [StudentController::class, 'bulkUploadPage'])->name('students.bulk-upload-page');
         Route::get('/students/download-template', [StudentController::class, 'downloadTemplate'])->name('students.download-template');
         Route::post('/students/bulk-upload', [StudentController::class, 'bulkUpload'])->name('students.bulk-upload');
-        
+
         Route::get('/attendance', function () {
             return view('school-management.attendance');
         })->name('attendance');
-        
+
         Route::get('/calendar-events', function () {
             return view('school-management.calendar-events');
         })->name('calendar-events');
-        
+
         Route::get('/classrooms', function () {
             return view('school-management.classrooms');
         })->name('classrooms');
-        
+
         Route::get('/subjects', function () {
             return view('school-management.subjects');
         })->name('subjects');
-        
+
         Route::get('/grades', function () {
             return view('school-management.grades');
         })->name('grades');
-        
+
         Route::get('/exams', function () {
             return view('school-management.exams');
         })->name('exams');
-        
+
         Route::get('/fees', function () {
             return view('school-management.fees');
         })->name('fees');
-        
+
         Route::get('/timetable', function () {
             return view('school-management.timetable');
         })->name('timetable');
-        
+
         Route::get('/parents', function () {
             return view('school-management.parents');
         })->name('parents');
-        
+
         Route::get('/parents/create', [ParentGuardianController::class, 'create'])->name('parents.create');
         Route::post('/parents', [ParentGuardianController::class, 'store'])->name('parents.store');
         Route::get('/parents/{parent}/edit', [ParentGuardianController::class, 'edit'])->name('parents.edit');
@@ -299,14 +292,14 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/parents/bulk-upload', [ParentGuardianController::class, 'bulkUploadPage'])->name('parents.bulk-upload-page');
         Route::get('/parents/download-template', [ParentGuardianController::class, 'downloadTemplate'])->name('parents.download-template');
         Route::post('/parents/bulk-upload', [ParentGuardianController::class, 'bulkUpload'])->name('parents.bulk-upload');
-        
+
         Route::get('/terms', function () {
             return view('school-management.terms');
         })->name('terms');
     });
 
     Route::get('/test-mail-view', function () {
-        return view('mail.bot'); // 
+        return view('mail.bot'); //
     });
 
     // Chat & Communications Routes

@@ -3,19 +3,20 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Mail\PasswordResetCodeMail;
 use App\Models\Business;
 use App\Models\ParentGuardian;
+use App\Models\User;
+use App\Services\ParentUniversalCodeService;
+use App\Support\SafeHash;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Password;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
-use Laravel\Sanctum\HasApiTokens;
-use App\Mail\PasswordResetCodeMail;
 
 class AuthController extends Controller
 {
@@ -36,27 +37,28 @@ class AuthController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
             $credentials = $request->only('email', 'password');
 
-            if (!Auth::attempt($credentials)) {
+            if (! Auth::attempt($credentials)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Invalid credentials'
+                    'message' => 'Invalid credentials',
                 ], 401);
             }
 
             $user = Auth::user();
-            
+
             // Check if user is active
             if ($user->status !== 'active') {
                 Auth::logout();
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Account is not active. Please contact support.'
+                    'message' => 'Account is not active. Please contact support.',
                 ], 403);
             }
 
@@ -67,11 +69,12 @@ class AuthController extends Controller
             $user->load(['business', 'role', 'branch']);
 
             // Ensure user has a business association
-            if (!$user->business) {
+            if (! $user->business) {
                 Auth::logout();
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'User is not associated with any business. Please contact support.'
+                    'message' => 'User is not associated with any business. Please contact support.',
                 ], 403);
             }
 
@@ -114,15 +117,16 @@ class AuthController extends Controller
                         'user_type' => $this->getUserType($user),
                     ],
                     'token' => $token,
-                    'token_type' => 'Bearer'
-                ]
+                    'token_type' => 'Bearer',
+                ],
             ], 200);
 
         } catch (\Exception $e) {
-            Log::error('Login API Error: ' . $e->getMessage());
+            Log::error('Login API Error: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'An error occurred during login'
+                'message' => 'An error occurred during login',
             ], 500);
         }
     }
@@ -138,14 +142,15 @@ class AuthController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Logout successful'
+                'message' => 'Logout successful',
             ], 200);
 
         } catch (\Exception $e) {
-            Log::error('Logout API Error: ' . $e->getMessage());
+            Log::error('Logout API Error: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'An error occurred during logout'
+                'message' => 'An error occurred during logout',
             ], 500);
         }
     }
@@ -161,10 +166,10 @@ class AuthController extends Controller
             $user->load(['business', 'role', 'branch']);
 
             // Ensure user has a business association
-            if (!$user->business) {
+            if (! $user->business) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'User is not associated with any business. Please contact support.'
+                    'message' => 'User is not associated with any business. Please contact support.',
                 ], 403);
             }
 
@@ -204,15 +209,16 @@ class AuthController extends Controller
                             'code' => $user->branch->code,
                         ] : null,
                         'user_type' => $this->getUserType($user),
-                    ]
-                ]
+                    ],
+                ],
             ], 200);
 
         } catch (\Exception $e) {
-            Log::error('Profile API Error: ' . $e->getMessage());
+            Log::error('Profile API Error: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'An error occurred while fetching profile'
+                'message' => 'An error occurred while fetching profile',
             ], 500);
         }
     }
@@ -229,14 +235,14 @@ class AuthController extends Controller
             $validator = Validator::make($request->all(), [
                 'name' => 'sometimes|required|string|max:255',
                 'phone' => 'sometimes|required|string|max:20',
-                'email' => 'sometimes|required|email|unique:users,email,' . $user->id,
+                'email' => 'sometimes|required|email|unique:users,email,'.$user->id,
             ]);
 
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -252,15 +258,16 @@ class AuthController extends Controller
                         'email' => $user->email,
                         'phone' => $user->phone,
                         'status' => $user->status,
-                    ]
-                ]
+                    ],
+                ],
             ], 200);
 
         } catch (\Exception $e) {
-            Log::error('Update Profile API Error: ' . $e->getMessage());
+            Log::error('Update Profile API Error: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'An error occurred while updating profile'
+                'message' => 'An error occurred while updating profile',
             ], 500);
         }
     }
@@ -286,7 +293,7 @@ class AuthController extends Controller
 
             $account = $request->user();
 
-            if (! $account || ! Hash::check($request->password, $account->password)) {
+            if (! $account || ! SafeHash::check($request->password, $account->password)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Password is incorrect',
@@ -354,35 +361,36 @@ class AuthController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
             $user = $request->user();
 
             // Check current password
-            if (!Hash::check($request->current_password, $user->password)) {
+            if (! SafeHash::check($request->current_password, $user->password)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Current password is incorrect'
+                    'message' => 'Current password is incorrect',
                 ], 400);
             }
 
             // Update password
             $user->update([
-                'password' => Hash::make($request->new_password)
+                'password' => Hash::make($request->new_password),
             ]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Password changed successfully'
+                'message' => 'Password changed successfully',
             ], 200);
 
         } catch (\Exception $e) {
-            Log::error('Change Password API Error: ' . $e->getMessage());
+            Log::error('Change Password API Error: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'An error occurred while changing password'
+                'message' => 'An error occurred while changing password',
             ], 500);
         }
     }
@@ -402,51 +410,53 @@ class AuthController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
             $user = User::where('email', $request->email)->first();
-            
-            if (!$user) {
+
+            if (! $user) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Email address not found'
+                    'message' => 'Email address not found',
                 ], 404);
             }
 
             // Generate 6-digit code
             $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-            
+
             // Store code in cache for 10 minutes
             cache()->put("password_reset_code_{$user->id}", $code, 600);
-            
+
             // Send email with code
             try {
                 Mail::to($user->email)->send(new PasswordResetCodeMail($code, $user->name));
             } catch (\Exception $e) {
-                Log::error('Failed to send password reset email: ' . $e->getMessage());
+                Log::error('Failed to send password reset email: '.$e->getMessage());
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Failed to send reset code. Please try again.'
+                    'message' => 'Failed to send reset code. Please try again.',
                 ], 500);
             }
-            
+
             return response()->json([
                 'success' => true,
                 'message' => 'Password reset code sent to your email',
                 'data' => [
                     'user_id' => $user->id,
                     'email' => $user->email,
-                    'expires_in' => 600 // 10 minutes
-                ]
+                    'expires_in' => 600, // 10 minutes
+                ],
             ], 200);
 
         } catch (\Exception $e) {
-            Log::error('Forgot Password API Error: ' . $e->getMessage());
+            Log::error('Forgot Password API Error: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'An error occurred while processing forgot password'
+                'message' => 'An error occurred while processing forgot password',
             ], 500);
         }
     }
@@ -468,39 +478,39 @@ class AuthController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
             $user = User::find($request->user_id);
-            
-            if (!$user) {
+
+            if (! $user) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'User not found'
+                    'message' => 'User not found',
                 ], 404);
             }
 
             // Verify the code
             $storedCode = cache()->get("password_reset_code_{$user->id}");
-            
-            if (!$storedCode) {
+
+            if (! $storedCode) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Reset code has expired or is invalid'
+                    'message' => 'Reset code has expired or is invalid',
                 ], 400);
             }
 
             if ($storedCode !== $request->code) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Invalid reset code'
+                    'message' => 'Invalid reset code',
                 ], 400);
             }
 
             // Update password
             $user->update([
-                'password' => Hash::make($request->password)
+                'password' => Hash::make($request->password),
             ]);
 
             // Clear the reset code
@@ -508,14 +518,127 @@ class AuthController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Password reset successfully'
+                'message' => 'Password reset successfully',
             ], 200);
 
         } catch (\Exception $e) {
-            Log::error('Reset Password API Error: ' . $e->getMessage());
+            Log::error('Reset Password API Error: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'An error occurred while resetting password'
+                'message' => 'An error occurred while resetting password',
+            ], 500);
+        }
+    }
+
+    /**
+     * Guest Parent Register
+     * POST /api/v1/auth/parent-register
+     */
+    public function parentRegister(Request $request, ParentUniversalCodeService $codes)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'first_name' => 'required|string|max:255',
+                'last_name' => 'required|string|max:255',
+                'email' => 'required|email|max:255',
+                'phone' => 'required|string|max:255',
+                'password' => 'required|string|min:8|confirmed',
+                'relationship' => 'nullable|in:father,mother,guardian,other',
+                'device_name' => 'nullable|string|max:255',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $email = $codes->normalizeEmail($request->email);
+            $phone = $request->phone;
+
+            $existingByEmail = $codes->findByNormalizedEmail($email, true);
+            if ($existingByEmail) {
+                if ($existingByEmail->trashed() && empty($existingByEmail->password)) {
+                    $existingByEmail->restore();
+                    $existingByEmail->forceFill([
+                        'first_name' => $request->first_name,
+                        'last_name' => $request->last_name,
+                        'email' => $email,
+                        'phone' => $phone,
+                        'password' => Hash::make($request->password),
+                        'relationship' => $request->relationship ?? $existingByEmail->relationship ?? 'guardian',
+                        'status' => 'active',
+                        'account_type' => $existingByEmail->business_id || $existingByEmail->memberships()->exists()
+                            ? 'linked'
+                            : 'guest',
+                        'business_id' => $existingByEmail->business_id,
+                    ])->save();
+                    $codes->ensureCode($existingByEmail);
+
+                    $token = $existingByEmail->createToken($request->device_name ?? 'mobile-app')->plainTextToken;
+                    $existingByEmail->load(['business', 'students', 'memberships.business']);
+
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Account restored successfully',
+                        'data' => [
+                            'parent' => $this->formatParentAuthPayload($existingByEmail, $codes),
+                            'token' => $token,
+                            'token_type' => 'Bearer',
+                        ],
+                    ], 201);
+                }
+
+                return response()->json([
+                    'success' => false,
+                    'code' => 'ACCOUNT_EXISTS',
+                    'message' => 'An account with this email already exists. Please log in or reset your password.',
+                ], 409);
+            }
+
+            $existingByPhone = $codes->findByNormalizedPhone($phone, true);
+            if ($existingByPhone) {
+                return response()->json([
+                    'success' => false,
+                    'code' => 'PHONE_IN_USE',
+                    'message' => 'This phone number is already linked to another parent account. Please log in with that account or contact support.',
+                ], 409);
+            }
+
+            $parent = ParentGuardian::create([
+                'first_name' => $request->first_name,
+                'last_name' => $request->last_name,
+                'email' => $email,
+                'phone' => $phone,
+                'password' => Hash::make($request->password),
+                'relationship' => $request->relationship ?? 'guardian',
+                'business_id' => null,
+                'account_type' => 'guest',
+                'status' => 'active',
+            ]);
+
+            $codes->ensureCode($parent);
+            $token = $parent->createToken($request->device_name ?? 'mobile-app')->plainTextToken;
+            $parent->load(['business', 'students', 'memberships.business']);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Parent account created successfully',
+                'data' => [
+                    'parent' => $this->formatParentAuthPayload($parent, $codes),
+                    'token' => $token,
+                    'token_type' => 'Bearer',
+                ],
+            ], 201);
+        } catch (\Exception $e) {
+            Log::error('Parent Register API Error: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred during parent registration',
             ], 500);
         }
     }
@@ -524,12 +647,12 @@ class AuthController extends Controller
      * Parent/Guardian Login
      * POST /api/v1/auth/parent-login
      */
-    public function parentLogin(Request $request)
+    public function parentLogin(Request $request, ParentUniversalCodeService $codes)
     {
         try {
             Log::info('===== PARENT LOGIN START =====');
-            Log::info('Email: ' . $request->email);
-            
+            Log::info('Email: '.$request->email);
+
             $validator = Validator::make($request->all(), [
                 'email' => 'required|email',
                 'password' => 'required|string',
@@ -540,121 +663,80 @@ class AuthController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
-            // Normalize email (trim and lowercase)
-            $email = strtolower(trim($request->email));
-            
+            $email = $codes->normalizeEmail($request->email);
+
             $parent = ParentGuardian::whereRaw('LOWER(TRIM(email)) = ?', [$email])->first();
 
-            if (!$parent) {
-                Log::info('Parent login failed - not found with email: ' . $email);
+            if (! $parent) {
+                Log::info('Parent login failed - not found with email: '.$email);
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Parent/Guardian not found'
+                    'message' => 'Parent/Guardian not found',
                 ], 404);
             }
 
-            Log::info('Parent found: ID=' . $parent->id . ', Email=' . $parent->email);
-            Log::info('Has password: ' . ($parent->password ? 'YES' : 'NO'));
+            Log::info('Parent found: ID='.$parent->id.', Email='.$parent->email);
+            Log::info('Has password: '.($parent->password ? 'YES' : 'NO'));
 
             // Check if parent has a password set
-            if (!$parent->password) {
-                Log::warning('Parent has no password set: ' . $parent->email);
+            if (! $parent->password) {
+                Log::warning('Parent has no password set: '.$parent->email);
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'No password set. Please use the forgot password feature to set your password, or contact your school administrator.'
+                    'message' => 'No password set. Please use the forgot password feature to set your password, or contact your school administrator.',
                 ], 400);
             }
 
             // Check password
-            if (!Hash::check($request->password, $parent->password)) {
-                Log::warning('Password mismatch for parent: ' . $parent->email);
+            if (! SafeHash::check($request->password, $parent->password)) {
+                Log::warning('Password mismatch for parent: '.$parent->email);
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Invalid credentials'
+                    'message' => 'Invalid credentials',
                 ], 401);
             }
-            
-            Log::info('Password verified for parent: ' . $parent->email);
+
+            Log::info('Password verified for parent: '.$parent->email);
 
             // Check if parent is active
             if ($parent->status !== 'active') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Account is not active. Please contact support.'
+                    'message' => 'Account is not active. Please contact support.',
                 ], 403);
             }
+
+            $codes->ensureCode($parent);
 
             // Create token for parent
             $token = $parent->createToken($request->device_name ?? 'mobile-app')->plainTextToken;
 
-            // Load parent relationships with business context
-            $parent->load(['business', 'students']);
-
-            // Ensure parent has a business association
-            if (!$parent->business) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Parent/Guardian is not associated with any business. Please contact support.'
-                ], 403);
-            }
+            // Load parent relationships (business may be null for guest parents)
+            $parent->load(['business', 'students', 'memberships.business']);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Login successful',
                 'data' => [
-                    'parent' => [
-                        'id' => $parent->id,
-                        'first_name' => $parent->first_name,
-                        'last_name' => $parent->last_name,
-                        'full_name' => $parent->full_name,
-                        'email' => $parent->email,
-                        'phone' => $parent->phone,
-                        'relationship' => $parent->relationship,
-                        'status' => $parent->status,
-                        'business_id' => $parent->business_id,
-                        'photo_url' => $this->resolvePhotoUrl($parent->photo),
-                        'business' => [
-                            'id' => $parent->business->id,
-                            'uuid' => $parent->business->uuid,
-                            'name' => $parent->business->name,
-                            'email' => $parent->business->email,
-                            'phone' => $parent->business->phone,
-                            'address' => $parent->business->address,
-                            'city' => $parent->business->city,
-                            'country' => $parent->business->country,
-                            'logo' => $parent->business->logo,
-                            'type' => $parent->business->type,
-                            'mode' => $parent->business->mode,
-                            'enabled_features' => $parent->business->enabled_feature_ids,
-                        ],
-                        'students' => $parent->students->map(function ($student) {
-                            return [
-                                'id' => $student->id,
-                                'first_name' => $student->first_name,
-                                'last_name' => $student->last_name,
-                                'full_name' => $student->full_name,
-                                'student_id' => $student->student_id,
-                                'class' => $student->class,
-                                'status' => $student->status,
-                                'photo_url' => $this->resolvePhotoUrl($student->photo),
-                            ];
-                        }),
-                        'user_type' => 'parent_guardian',
-                    ],
+                    'parent' => $this->formatParentAuthPayload($parent, $codes),
                     'token' => $token,
-                    'token_type' => 'Bearer'
-                ]
+                    'token_type' => 'Bearer',
+                ],
             ], 200);
 
         } catch (\Exception $e) {
-            Log::error('Parent Login API Error: ' . $e->getMessage());
+            Log::error('Parent Login API Error: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'An error occurred during parent login'
+                'message' => 'An error occurred during parent login',
             ], 500);
         }
     }
@@ -669,66 +751,68 @@ class AuthController extends Controller
             // Log everything
             Log::info('===== PARENT FORGOT PASSWORD START =====');
             Log::info('Request all: ', $request->all());
-            Log::info('Request email: ' . $request->input('email', 'NOT SET'));
-            
+            Log::info('Request email: '.$request->input('email', 'NOT SET'));
+
             // Simple validation - just check if email exists
-            if (!$request->has('email') || empty($request->email)) {
+            if (! $request->has('email') || empty($request->email)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Email is required'
+                    'message' => 'Email is required',
                 ], 422);
             }
-            
+
             // Normalize email (trim and lowercase)
             $email = strtolower(trim($request->email));
-            
-            Log::info('Normalized email: ' . $email);
-            
+
+            Log::info('Normalized email: '.$email);
+
             // Try to find parent with case-insensitive search
             $parent = ParentGuardian::whereRaw('LOWER(TRIM(email)) = ?', [$email])->first();
-            
-            Log::info('Parent query result: ' . ($parent ? 'FOUND' : 'NOT FOUND'));
-            
-            if (!$parent) {
-                Log::info('Parent not found with email: ' . $email);
+
+            Log::info('Parent query result: '.($parent ? 'FOUND' : 'NOT FOUND'));
+
+            if (! $parent) {
+                Log::info('Parent not found with email: '.$email);
                 // Check if any parent exists
                 $count = ParentGuardian::count();
-                Log::info('Total parents in database: ' . $count);
+                Log::info('Total parents in database: '.$count);
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Email address not found in parent records'
+                    'message' => 'Email address not found in parent records',
                 ], 404);
             }
-            
-            Log::info('Parent found: ' . $parent->id . ' - ' . $parent->email);
+
+            Log::info('Parent found: '.$parent->id.' - '.$parent->email);
 
             // Generate 6-digit code
             $code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-            
+
             // Store code in cache for 10 minutes
             cache()->put("parent_password_reset_code_{$parent->id}", $code, 600);
-            
-            Log::info('Code generated and cached for parent: ' . $parent->id . ' - Code: ' . $code);
-            
+
+            Log::info('Code generated and cached for parent: '.$parent->id.' - Code: '.$code);
+
             // Send email with code
             try {
                 Mail::to($parent->email)->send(new PasswordResetCodeMail($code, $parent->full_name));
-                Log::info('Password reset email sent successfully to: ' . $parent->email);
+                Log::info('Password reset email sent successfully to: '.$parent->email);
             } catch (\Exception $e) {
-                Log::error('Failed to send parent password reset email: ' . $e->getMessage());
+                Log::error('Failed to send parent password reset email: '.$e->getMessage());
+
                 // Still return success with code for testing
                 return response()->json([
                     'success' => true,
-                    'message' => 'Code generated but email failed. Code: ' . $code,
+                    'message' => 'Code generated but email failed. Code: '.$code,
                     'data' => [
                         'parent_id' => $parent->id,
                         'email' => $parent->email,
                         'code' => $code, // For debugging
-                        'expires_in' => 600
-                    ]
+                        'expires_in' => 600,
+                    ],
                 ], 200);
             }
-            
+
             return response()->json([
                 'success' => true,
                 'message' => 'Password reset code sent to your email',
@@ -736,15 +820,16 @@ class AuthController extends Controller
                     'parent_id' => $parent->id,
                     'email' => $parent->email,
                     'code' => $code, // For debugging - remove in production
-                    'expires_in' => 600 // 10 minutes
-                ]
+                    'expires_in' => 600, // 10 minutes
+                ],
             ], 200);
 
         } catch (\Exception $e) {
-            Log::error('Parent Forgot Password API Error: ' . $e->getMessage());
+            Log::error('Parent Forgot Password API Error: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'An error occurred while processing forgot password'
+                'message' => 'An error occurred while processing forgot password',
             ], 500);
         }
     }
@@ -757,7 +842,7 @@ class AuthController extends Controller
     {
         try {
             Log::info('Parent Reset Password Request: ', $request->all());
-            
+
             $validator = Validator::make($request->all(), [
                 'parent_id' => 'required|integer|exists:parent_guardians,id',
                 'code' => 'required|string|size:6',
@@ -766,64 +851,69 @@ class AuthController extends Controller
 
             if ($validator->fails()) {
                 Log::error('Validation failed: ', $validator->errors()->toArray());
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
             $parent = ParentGuardian::find($request->parent_id);
-            
-            if (!$parent) {
-                Log::error('Parent not found with ID: ' . $request->parent_id);
+
+            if (! $parent) {
+                Log::error('Parent not found with ID: '.$request->parent_id);
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Parent/Guardian not found'
+                    'message' => 'Parent/Guardian not found',
                 ], 404);
             }
 
             // Verify the code
             $storedCode = cache()->get("parent_password_reset_code_{$parent->id}");
-            
-            Log::info('Stored code: ' . $storedCode . ' | Received code: ' . $request->code);
-            
-            if (!$storedCode) {
-                Log::error('No code found in cache for parent: ' . $parent->id);
+
+            Log::info('Stored code: '.$storedCode.' | Received code: '.$request->code);
+
+            if (! $storedCode) {
+                Log::error('No code found in cache for parent: '.$parent->id);
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Reset code has expired or is invalid'
+                    'message' => 'Reset code has expired or is invalid',
                 ], 400);
             }
 
             if ($storedCode !== $request->code) {
-                Log::error('Code mismatch. Stored: ' . $storedCode . ' | Received: ' . $request->code);
+                Log::error('Code mismatch. Stored: '.$storedCode.' | Received: '.$request->code);
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Invalid reset code'
+                    'message' => 'Invalid reset code',
                 ], 400);
             }
 
             // Update password
             $parent->update([
-                'password' => Hash::make($request->password)
+                'password' => Hash::make($request->password),
             ]);
-            
-            Log::info('Password updated successfully for parent: ' . $parent->id);
+
+            Log::info('Password updated successfully for parent: '.$parent->id);
 
             // Clear the reset code
             cache()->forget("parent_password_reset_code_{$parent->id}");
 
             return response()->json([
                 'success' => true,
-                'message' => 'Password reset successfully'
+                'message' => 'Password reset successfully',
             ], 200);
 
         } catch (\Exception $e) {
-            Log::error('Parent Reset Password API Error: ' . $e->getMessage());
+            Log::error('Parent Reset Password API Error: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'An error occurred while resetting password'
+                'message' => 'An error occurred while resetting password',
             ], 500);
         }
     }
@@ -836,10 +926,10 @@ class AuthController extends Controller
     {
         try {
             $user = $request->user();
-            
+
             // Delete current token
             $request->user()->currentAccessToken()->delete();
-            
+
             // Create new token
             $token = $user->createToken('mobile-app')->plainTextToken;
 
@@ -848,15 +938,16 @@ class AuthController extends Controller
                 'message' => 'Token refreshed successfully',
                 'data' => [
                     'token' => $token,
-                    'token_type' => 'Bearer'
-                ]
+                    'token_type' => 'Bearer',
+                ],
             ], 200);
 
         } catch (\Exception $e) {
-            Log::error('Refresh Token API Error: ' . $e->getMessage());
+            Log::error('Refresh Token API Error: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'An error occurred while refreshing token'
+                'message' => 'An error occurred while refreshing token',
             ], 500);
         }
     }
@@ -870,7 +961,7 @@ class AuthController extends Controller
         try {
             $email = strtolower(trim($request->email));
             $parent = ParentGuardian::whereRaw('LOWER(email) = ?', [$email])->first();
-            
+
             if ($parent) {
                 return response()->json([
                     'success' => true,
@@ -879,8 +970,8 @@ class AuthController extends Controller
                         'parent_id' => $parent->id,
                         'email' => $parent->email,
                         'name' => $parent->full_name,
-                        'has_password' => !empty($parent->password)
-                    ]
+                        'has_password' => ! empty($parent->password),
+                    ],
                 ], 200);
             } else {
                 return response()->json([
@@ -888,14 +979,14 @@ class AuthController extends Controller
                     'message' => 'Parent not found with this email',
                     'data' => [
                         'searched_email' => $email,
-                        'total_parents' => ParentGuardian::count()
-                    ]
+                        'total_parents' => ParentGuardian::count(),
+                    ],
                 ], 404);
             }
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -926,6 +1017,88 @@ class AuthController extends Controller
             return $path;
         }
 
-        return asset('storage/' . ltrim($path, '/'));
+        return asset('storage/'.ltrim($path, '/'));
+    }
+
+    private function formatParentAuthPayload(ParentGuardian $parent, ParentUniversalCodeService $codes): array
+    {
+        if (! $parent->relationLoaded('memberships')) {
+            $parent->load('memberships.business');
+        }
+
+        $businesses = $parent->memberships
+            ->filter(fn ($m) => $m->status === 'active' && $m->business)
+            ->map(function ($membership) {
+                $business = $membership->business;
+
+                return [
+                    'id' => $business->id,
+                    'uuid' => $business->uuid,
+                    'name' => $business->name,
+                    'email' => $business->email,
+                    'phone' => $business->phone,
+                    'address' => $business->address,
+                    'city' => $business->city,
+                    'country' => $business->country,
+                    'logo' => $business->logo,
+                    'type' => $business->type,
+                    'mode' => $business->mode,
+                    'enabled_features' => $business->enabled_feature_ids,
+                    'joined_via' => $membership->joined_via,
+                    'joined_at' => optional($membership->joined_at)->toIso8601String(),
+                    'membership_status' => $membership->status,
+                ];
+            })
+            ->values();
+
+        $primaryBusiness = $businesses->first();
+        if (! $primaryBusiness && $parent->business) {
+            $b = $parent->business;
+            $primaryBusiness = [
+                'id' => $b->id,
+                'uuid' => $b->uuid,
+                'name' => $b->name,
+                'email' => $b->email,
+                'phone' => $b->phone,
+                'address' => $b->address,
+                'city' => $b->city,
+                'country' => $b->country,
+                'logo' => $b->logo,
+                'type' => $b->type,
+                'mode' => $b->mode,
+                'enabled_features' => $b->enabled_feature_ids,
+            ];
+        }
+
+        return [
+            'id' => $parent->id,
+            'first_name' => $parent->first_name,
+            'last_name' => $parent->last_name,
+            'full_name' => $parent->full_name,
+            'email' => $parent->email,
+            'phone' => $parent->phone,
+            'relationship' => $parent->relationship,
+            'status' => $parent->status,
+            'account_type' => $parent->account_type ?? ($parent->business_id ? 'linked' : 'guest'),
+            'universal_code' => $parent->universal_code,
+            'universal_link' => $codes->universalLink($parent->universal_code),
+            'business_id' => $primaryBusiness['id'] ?? $parent->business_id,
+            'photo_url' => $this->resolvePhotoUrl($parent->photo),
+            'business' => $primaryBusiness,
+            'businesses' => $businesses->all(),
+            'students' => $parent->students->map(function ($student) {
+                return [
+                    'id' => $student->id,
+                    'first_name' => $student->first_name,
+                    'last_name' => $student->last_name,
+                    'full_name' => $student->full_name,
+                    'student_id' => $student->student_id,
+                    'class' => $student->class,
+                    'status' => $student->status,
+                    'photo_url' => $this->resolvePhotoUrl($student->photo),
+                ];
+            }),
+            'user_type' => 'parent_guardian',
+        ];
     }
 }

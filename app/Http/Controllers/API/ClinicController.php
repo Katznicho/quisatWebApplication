@@ -7,21 +7,23 @@ use App\Models\Business;
 use App\Models\ClinicAppointment;
 use App\Models\ClinicAppointmentType;
 use App\Models\ClinicDoctor;
-use App\Models\ClinicService;
 use App\Models\ClinicPatient;
 use App\Models\ClinicPatientDocument;
 use App\Models\ClinicPatientGrowthRecord;
 use App\Models\ClinicPatientVaccination;
 use App\Models\ClinicPatientVisit;
+use App\Models\ClinicService;
 use App\Models\Feature;
 use App\Models\ParentGuardian;
 use App\Models\Student;
 use App\Services\ClinicPatientImportService;
+use App\Services\MarzPayCheckoutService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class ClinicController extends Controller
 {
@@ -302,11 +304,23 @@ class ClinicController extends Controller
                     $query->where('business_id', $clinic->id)->where('status', 'active');
                 }),
             ],
+            'clinic_service_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('clinic_services', 'id')->where(function ($query) use ($clinic) {
+                    $query->where('business_id', $clinic->id)->where('status', 'active');
+                }),
+            ],
             'appointment_type' => [
-                'required',
+                'nullable',
+                'required_without:clinic_service_id',
                 'string',
                 'max:120',
-                function ($attribute, $value, $fail) use ($clinic) {
+                function ($attribute, $value, $fail) use ($clinic, $request) {
+                    if ($request->filled('clinic_service_id')) {
+                        return;
+                    }
+
                     if (! $this->isValidClinicBookingType($clinic->id, (string) $value)) {
                         $fail('Please choose a valid service from this clinic.');
                     }
@@ -314,29 +328,90 @@ class ClinicController extends Controller
             ],
             'scheduled_at' => 'required|date|after:now',
             'notes' => 'nullable|string|max:2000',
+            'payment_method' => 'nullable|in:cash,card,bank_transfer,airtel_money,mtn_mobile_money,other',
         ], [
             'doctor_name.exists' => 'Please choose a doctor from this clinic.',
-            'appointment_type.exists' => 'Please choose a valid clinic service.',
+            'clinic_service_id.exists' => 'Please choose a valid clinic service.',
+            'appointment_type.required_without' => 'Please choose a clinic service.',
         ]);
+
+        $service = $this->resolveClinicServiceForBooking(
+            $clinic->id,
+            $validated['clinic_service_id'] ?? null,
+            $validated['appointment_type'] ?? null,
+        );
+
+        $appointmentType = $service?->name
+            ?? ($validated['appointment_type'] ?? null);
+
+        if (! $appointmentType) {
+            throw ValidationException::withMessages([
+                'appointment_type' => 'Please choose a valid service from this clinic.',
+            ]);
+        }
+
+        // Snapshot server-side only — never trust a client-sent amount.
+        $amount = $service && $service->price !== null
+            ? (int) round((float) $service->price)
+            : 0;
+
+        if ($amount > 0 && empty($validated['payment_method'])) {
+            throw ValidationException::withMessages([
+                'payment_method' => 'A payment method is required for paid clinic services.',
+            ]);
+        }
+
+        $paymentMethod = $amount > 0 ? $validated['payment_method'] : ($validated['payment_method'] ?? null);
+        $paymentStatus = $amount > 0 ? 'pending' : 'not_required';
 
         $appointment = ClinicAppointment::create([
             'business_id' => $clinic->id,
             'clinic_patient_id' => $clinic_patient->id,
+            'clinic_service_id' => $service?->id,
             'scheduled_at' => $validated['scheduled_at'],
             'doctor_name' => $validated['doctor_name'],
-            'appointment_type' => $validated['appointment_type'],
+            'appointment_type' => $appointmentType,
             'status' => 'scheduled',
             'notes' => $validated['notes'] ?? null,
+            'amount' => $amount > 0 ? $amount : null,
+            'currency' => 'UGX',
+            'payment_method' => $paymentMethod,
+            'payment_status' => $paymentStatus,
             'created_by' => null,
         ]);
 
+        $appointment->load(['patient.parentGuardian', 'clinicService']);
+
+        $checkout = app(MarzPayCheckoutService::class);
+        try {
+            $paymentResult = $checkout->maybeInitiate($appointment, $paymentMethod);
+        } catch (\Throwable $error) {
+            Log::error('Clinic appointment payment initiation failed', [
+                'appointment_id' => $appointment->id,
+                'message' => $error->getMessage(),
+            ]);
+            $paymentResult = [
+                'success' => false,
+                'message' => 'Unable to initiate payment right now.',
+            ];
+        }
+        $paymentMeta = $checkout->registrationPaymentMeta(
+            $paymentResult,
+            $paymentMethod ?? 'cash',
+            'Appointment saved. Complete payment to confirm.',
+            'Appointment request booked successfully.',
+        );
+
         return response()->json([
             'success' => true,
-            'message' => 'Appointment request booked successfully.',
+            'message' => $paymentMeta['message'],
+            'payment_initiated' => $paymentMeta['payment_initiated'],
+            'payment_error' => $paymentMeta['payment_error'],
             'data' => [
-                'appointment' => $this->transformAppointment($appointment),
+                'appointment' => $this->transformAppointment($appointment->fresh()),
+                'payment' => $paymentMeta['payment'],
             ],
-        ]);
+        ], 201);
     }
 
     /**
@@ -584,11 +659,18 @@ class ClinicController extends Controller
     {
         return [
             'id' => $appointment->id,
+            'uuid' => $appointment->uuid,
+            'clinic_service_id' => $appointment->clinic_service_id,
             'scheduled_at' => $appointment->scheduled_at->toIso8601String(),
             'doctor_name' => $appointment->doctor_name,
             'appointment_type' => $appointment->appointment_type,
             'status' => $appointment->status,
             'notes' => $appointment->notes,
+            'amount' => $appointment->amount !== null ? (int) $appointment->amount : null,
+            'currency' => $appointment->currency ?? 'UGX',
+            'payment_method' => $appointment->payment_method,
+            'payment_status' => $appointment->payment_status ?? 'not_required',
+            'paid_at' => $appointment->paid_at?->toIso8601String(),
         ];
     }
 
@@ -824,13 +906,13 @@ class ClinicController extends Controller
 
     /**
      * Visit types parents can pick: appointment types (if any), plus clinic services.
+     * Priced services win on same-name collisions so they are not dropped.
      */
     protected function getClinicBookingOptions(int $businessId)
     {
         $this->ensureDefaultBookingTypes($businessId);
 
-        $options = collect();
-        $seen = [];
+        $byKey = [];
 
         $types = ClinicAppointmentType::query()
             ->where('business_id', $businessId)
@@ -841,27 +923,62 @@ class ClinicController extends Controller
 
         foreach ($types as $type) {
             $key = mb_strtolower(trim($type->name));
-            if ($key === '' || isset($seen[$key])) {
+            if ($key === '') {
                 continue;
             }
-            $seen[$key] = true;
-            $options->push([
+
+            $byKey[$key] = [
                 'id' => $type->id,
+                'clinic_service_id' => null,
                 'name' => $type->name,
                 'description' => $type->description,
-            ]);
+                'price' => null,
+            ];
         }
 
         foreach ($this->getClinicServices($businessId) as $service) {
             $key = mb_strtolower(trim((string) ($service['name'] ?? '')));
-            if ($key === '' || isset($seen[$key])) {
+            if ($key === '') {
                 continue;
             }
-            $seen[$key] = true;
-            $options->push($service);
+
+            // Prefer clinic services over free types with the same display name.
+            $byKey[$key] = $service;
         }
 
-        return $options->values();
+        return collect(array_values($byKey));
+    }
+
+    /**
+     * Resolve an active clinic service for booking by id, then by appointment type name.
+     */
+    protected function resolveClinicServiceForBooking(
+        int $businessId,
+        ?int $clinicServiceId,
+        ?string $appointmentType,
+    ): ?ClinicService {
+        if (! Schema::hasTable('clinic_services')) {
+            return null;
+        }
+
+        if ($clinicServiceId) {
+            return ClinicService::query()
+                ->where('business_id', $businessId)
+                ->where('status', 'active')
+                ->where('id', $clinicServiceId)
+                ->first();
+        }
+
+        $normalized = mb_strtolower(trim((string) $appointmentType));
+        if ($normalized === '') {
+            return null;
+        }
+
+        return ClinicService::query()
+            ->where('business_id', $businessId)
+            ->where('status', 'active')
+            ->whereRaw('LOWER(TRIM(name)) = ?', [$normalized])
+            ->first();
     }
 
     protected function isValidClinicBookingType(int $businessId, string $name): bool
@@ -907,12 +1024,15 @@ class ClinicController extends Controller
             ->orderBy('name')
             ->get()
             ->map(function (ClinicService $service) {
+                $price = $service->price !== null ? (float) $service->price : null;
+
                 return [
                     'id' => $service->id,
+                    'clinic_service_id' => $service->id,
                     'name' => $service->name,
                     'description' => $service->description,
                     'duration_minutes' => $service->duration_minutes,
-                    'price' => $service->price !== null ? (float) $service->price : null,
+                    'price' => $price,
                 ];
             })
             ->values();

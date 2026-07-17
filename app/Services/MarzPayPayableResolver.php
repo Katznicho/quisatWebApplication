@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Business;
+use App\Models\CalendarEventRegistration;
+use App\Models\ClinicAppointment;
 use App\Models\EventAttendee;
 use App\Models\KidsEventRegistration;
 use App\Models\Order;
@@ -16,6 +18,7 @@ class MarzPayPayableResolver
     public function __construct(
         protected BusinessWalletService $walletService
     ) {}
+
     public function resolve(string $type, string $identifier): ?Model
     {
         return match ($type) {
@@ -35,6 +38,14 @@ class MarzPayPayableResolver
                 ->where('uuid', $identifier)
                 ->orWhere('id', $identifier)
                 ->first(),
+            'clinic_appointment' => ClinicAppointment::query()
+                ->where('uuid', $identifier)
+                ->orWhere('id', $identifier)
+                ->first(),
+            'calendar_event_registration' => CalendarEventRegistration::query()
+                ->where('uuid', $identifier)
+                ->orWhere('id', $identifier)
+                ->first(),
             default => null,
         };
     }
@@ -46,6 +57,8 @@ class MarzPayPayableResolver
             KidsEventRegistration::class => 'kids_event_registration',
             ParentCornerRegistration::class => 'parent_corner_registration',
             EventAttendee::class => 'program_registration',
+            ClinicAppointment::class => 'clinic_appointment',
+            CalendarEventRegistration::class => 'calendar_event_registration',
             default => Str::snake(class_basename($payable)),
         };
     }
@@ -111,6 +124,8 @@ class MarzPayPayableResolver
             KidsEventRegistration::class => $payable->kidsEvent?->business,
             ParentCornerRegistration::class => $payable->parentCorner?->business,
             EventAttendee::class => $payable->programEvent?->business,
+            ClinicAppointment::class => $payable->business,
+            CalendarEventRegistration::class => $payable->calendarEvent?->business,
             default => null,
         };
     }

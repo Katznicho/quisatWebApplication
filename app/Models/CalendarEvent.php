@@ -19,6 +19,10 @@ class CalendarEvent extends Model
         'start_date',
         'end_date',
         'location',
+        'price',
+        'accepts_registrations',
+        'max_participants',
+        'current_participants',
         'cover_image',
         'color',
         'event_type',
@@ -36,6 +40,10 @@ class CalendarEvent extends Model
         'end_date' => 'datetime',
         'is_all_day' => 'boolean',
         'is_recurring' => 'boolean',
+        'accepts_registrations' => 'boolean',
+        'price' => 'decimal:2',
+        'max_participants' => 'integer',
+        'current_participants' => 'integer',
         'recurrence_days' => 'array',
         'recurrence_end_date' => 'date',
         'created_at' => 'datetime',
@@ -69,6 +77,34 @@ class CalendarEvent extends Model
     public function notifications()
     {
         return $this->hasMany(EventNotification::class);
+    }
+
+    public function registrations()
+    {
+        return $this->hasMany(CalendarEventRegistration::class);
+    }
+
+    public function getIsFullAttribute(): bool
+    {
+        if ($this->max_participants === null) {
+            return false;
+        }
+
+        return (int) $this->current_participants >= (int) $this->max_participants;
+    }
+
+    public function getFormattedPriceAttribute(): ?string
+    {
+        if ($this->price === null) {
+            return null;
+        }
+
+        $amount = (float) $this->price;
+        if ($amount <= 0) {
+            return 'Free';
+        }
+
+        return 'UGX '.number_format($amount, 0);
     }
 
     // Scopes
@@ -112,11 +148,11 @@ class CalendarEvent extends Model
     {
         $hours = floor($this->duration / 60);
         $minutes = $this->duration % 60;
-        
+
         if ($hours > 0) {
             return "{$hours}h {$minutes}m";
         }
-        
+
         return "{$minutes}m";
     }
 }

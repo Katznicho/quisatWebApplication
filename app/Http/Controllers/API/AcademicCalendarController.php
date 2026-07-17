@@ -107,7 +107,7 @@ class AcademicCalendarController extends Controller
             })
             ->first();
 
-        if (!$eventRecord) {
+        if (! $eventRecord) {
             return response()->json([
                 'success' => false,
                 'message' => 'Calendar event not found.',
@@ -142,7 +142,7 @@ class AcademicCalendarController extends Controller
         $end = $event->end_date instanceof Carbon ? $event->end_date : Carbon::parse($event->end_date);
 
         $coverImageUrl = $event->cover_image
-            ? (str_starts_with($event->cover_image, 'http') ? $event->cover_image : asset('storage/' . $event->cover_image))
+            ? (str_starts_with($event->cover_image, 'http') ? $event->cover_image : asset('storage/'.$event->cover_image))
             : null;
 
         $data = [
@@ -160,6 +160,12 @@ class AcademicCalendarController extends Controller
             'priority' => $event->priority,
             'color' => $event->color,
             'location' => $event->location,
+            'price' => $event->price !== null ? (float) $event->price : 0,
+            'formatted_price' => $event->formatted_price,
+            'accepts_registrations' => (bool) $event->accepts_registrations,
+            'max_participants' => $event->max_participants,
+            'current_participants' => (int) ($event->current_participants ?? 0),
+            'is_full' => (bool) $event->is_full,
             'status' => $event->status,
             'day_of_week' => $start->format('l'),
             'start_iso' => $start->toIso8601String(),
@@ -198,4 +204,3 @@ class AcademicCalendarController extends Controller
         return sprintf('%d minutes', $remainingMinutes);
     }
 }
-

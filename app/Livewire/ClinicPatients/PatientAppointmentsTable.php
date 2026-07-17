@@ -12,7 +12,6 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
-use Filament\Tables;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Actions\DeleteAction;
 use Filament\Tables\Actions\EditAction;
@@ -61,6 +60,29 @@ class PatientAppointmentsTable extends Component implements HasForms, HasTable
                     ->label('Doctor')
                     ->placeholder('Not assigned')
                     ->searchable(),
+                TextColumn::make('amount')
+                    ->label('Amount')
+                    ->formatStateUsing(fn (?int $state, ClinicAppointment $record): string => $state
+                        ? number_format($state).' '.($record->currency ?? 'UGX')
+                        : '—')
+                    ->toggleable(),
+                TextColumn::make('payment_method')
+                    ->label('Method')
+                    ->formatStateUsing(fn (?string $state): string => $state
+                        ? str_replace('_', ' ', ucfirst($state))
+                        : '—')
+                    ->toggleable(),
+                TextColumn::make('payment_status')
+                    ->label('Payment')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => str_replace('_', ' ', ucfirst($state ?? 'not_required')))
+                    ->color(fn (?string $state): string => match ($state) {
+                        'paid' => 'success',
+                        'pending' => 'warning',
+                        'failed' => 'danger',
+                        'waived' => 'gray',
+                        default => 'gray',
+                    }),
                 TextColumn::make('status')
                     ->badge()
                     ->colors([
@@ -92,6 +114,8 @@ class PatientAppointmentsTable extends Component implements HasForms, HasTable
                             'appointment_type' => $data['appointment_type'],
                             'status' => $data['status'],
                             'notes' => $data['notes'] ?? null,
+                            'payment_status' => 'not_required',
+                            'currency' => 'UGX',
                             'created_by' => auth()->id(),
                         ]);
                     }),
@@ -99,6 +123,45 @@ class PatientAppointmentsTable extends Component implements HasForms, HasTable
             ->actions([
                 EditAction::make()
                     ->form($this->appointmentFormSchema()),
+                Action::make('markPaid')
+                    ->label('Mark as paid')
+                    ->icon('heroicon-o-banknotes')
+                    ->color('success')
+                    ->form([
+                        Textarea::make('notes')
+                            ->label('Notes')
+                            ->rows(2)
+                            ->placeholder('Optional payment confirmation notes'),
+                    ])
+                    ->action(function (ClinicAppointment $record, array $data): void {
+                        $record->update([
+                            'payment_status' => 'paid',
+                            'paid_at' => now(),
+                            'payment_notes' => $data['notes'] ?? $record->payment_notes,
+                        ]);
+                    })
+                    ->visible(fn (ClinicAppointment $record): bool => in_array($record->payment_status, ['pending', 'failed'], true)
+                        && (int) ($record->amount ?? 0) > 0),
+                Action::make('waive')
+                    ->label('Waive')
+                    ->icon('heroicon-o-x-circle')
+                    ->color('gray')
+                    ->requiresConfirmation()
+                    ->form([
+                        Textarea::make('notes')
+                            ->label('Notes')
+                            ->rows(2)
+                            ->placeholder('Optional reason for waiving the fee'),
+                    ])
+                    ->action(function (ClinicAppointment $record, array $data): void {
+                        $record->update([
+                            'payment_status' => 'waived',
+                            'paid_at' => null,
+                            'payment_notes' => $data['notes'] ?? $record->payment_notes,
+                        ]);
+                    })
+                    ->visible(fn (ClinicAppointment $record): bool => in_array($record->payment_status, ['pending', 'failed'], true)
+                        && (int) ($record->amount ?? 0) > 0),
                 DeleteAction::make(),
             ])
             ->emptyStateHeading('No appointments yet')

@@ -7,7 +7,7 @@ use App\Models\BusinessBalanceLedger;
 use App\Models\Order;
 use App\Models\PaymentCollection;
 use App\Models\WithdrawalRequest;
-use Illuminate\Database\Eloquent\Model;
+use App\Support\SafeHash;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
@@ -17,6 +17,7 @@ class BusinessWalletService
     public const WALLET_MOBILE_MONEY = 'mobile_money';
 
     public const WALLET_CARD = 'card';
+
     public function __construct(
         protected WithdrawalFeeService $feeService,
         protected MarzPayService $marzPayService
@@ -42,7 +43,7 @@ class BusinessWalletService
             return false;
         }
 
-        return Hash::check($pin, $business->withdrawal_pin);
+        return SafeHash::check($pin, $business->withdrawal_pin);
     }
 
     public function changePin(Business $business, string $currentPin, string $newPin): void
@@ -60,7 +61,7 @@ class BusinessWalletService
     {
         $user = auth()->user();
 
-        if (! $user || ! Hash::check($accountPassword, $user->password)) {
+        if (! $user || ! SafeHash::check($accountPassword, $user->password)) {
             throw ValidationException::withMessages([
                 'password' => 'Your account password is incorrect.',
             ]);
