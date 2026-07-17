@@ -12,16 +12,27 @@ class PublicStatsController extends Controller
 {
     /**
      * Platform-wide registration stats (businesses, schools, parents).
+     *
+     * Businesses / schools only count Quisat-admin-approved registrations
+     * (registration_verified_at set after document review).
      */
     public function index(Request $request)
     {
         try {
-            $businessesCount = Business::query()->count();
+            $approvedBusinesses = Business::query()
+                ->whereNotNull('registration_verified_at');
 
-            $schoolsCount = Business::query()
+            $businessesCount = (clone $approvedBusinesses)->count();
+
+            $schoolsCount = (clone $approvedBusinesses)
                 ->whereHas('businessCategory', function ($q) {
                     $q->where('name', 'like', '%school%');
                 })
+                ->count();
+
+            $pendingBusinessesCount = Business::query()
+                ->whereNull('registration_verified_at')
+                ->where('id', '!=', 1)
                 ->count();
 
             $parentsCount = ParentGuardian::query()->count();
@@ -32,6 +43,7 @@ class PublicStatsController extends Controller
                     'businesses' => $businessesCount,
                     'schools' => $schoolsCount,
                     'parents' => $parentsCount,
+                    'pending_businesses' => $pendingBusinessesCount,
                 ],
             ]);
         } catch (\Exception $e) {
