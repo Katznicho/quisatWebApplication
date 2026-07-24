@@ -1087,6 +1087,7 @@ class AuthController extends Controller
             'universal_code' => $parent->universal_code,
             'universal_link' => $codes->universalLink($parent->universal_code),
             'business_id' => $primaryBusiness['id'] ?? $parent->business_id,
+            'country' => $parent->country,
             'photo_url' => $this->resolvePhotoUrl($parent->photo),
             'business' => $primaryBusiness,
             'businesses' => $businesses->all(),

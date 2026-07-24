@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers\API;
 
+use App\Http\Controllers\Concerns\ResolvesCountryFilter;
 use App\Http\Controllers\Controller;
 use App\Models\Program;
 use App\Models\ProgramEvent;
 use App\Models\Business;
 use App\Services\ContentViewService;
+use App\Support\CountryFilter;
+use App\Support\CountryScope;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -14,12 +17,16 @@ use Illuminate\Support\Str;
 
 class PublicProgramsController extends Controller
 {
+    use ResolvesCountryFilter;
+
     /**
      * List of programs (public Christian Kids Hub)
      */
     public function index(Request $request)
     {
         try {
+            $countryFilter = $this->countryFilter($request);
+
             $query = Program::query()
                 ->where(function ($q) {
                     $q->whereNull('status')
@@ -35,11 +42,19 @@ class PublicProgramsController extends Controller
                 });
             }
 
+            $programIds = $this->programIdsForCountry($request, $countryFilter);
+            if ($programIds !== null) {
+                if ($programIds === []) {
+                    $query->whereRaw('1 = 0');
+                } else {
+                    $query->whereIn('id', $programIds);
+                }
+            }
+
             $programs = $query->get();
 
-            $data = $programs->map(function (Program $program) {
-                // Include events in list as well
-                return $this->transformProgram($program, true);
+            $data = $programs->map(function (Program $program) use ($countryFilter) {
+                return $this->transformProgram($program, true, $countryFilter);
             });
 
             return response()->json([
@@ -61,12 +76,14 @@ class PublicProgramsController extends Controller
     /**
      * Show a single program and its events
      */
-    public function show($id)
+    public function show(Request $request, $id)
     {
         try {
             Log::info('========================================');
             Log::info('PublicProgramsController::show - START');
             Log::info('Requested ID:', ['id' => $id]);
+
+            $countryFilter = $this->countryFilter($request);
             
             $program = Program::query()
                 ->where(function ($q) {
@@ -87,6 +104,14 @@ class PublicProgramsController extends Controller
                 ], 404);
             }
 
+            $programIds = $this->programIdsForCountry($request, $countryFilter);
+            if ($programIds !== null && ! in_array((int) $program->id, $programIds, true)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Program not found',
+                ], 404);
+            }
+
             app(ContentViewService::class)->record($program);
             $program->refresh();
 
@@ -96,7 +121,7 @@ class PublicProgramsController extends Controller
                 'uuid' => $program->uuid,
             ]);
 
-            $transformedProgram = $this->transformProgram($program, true);
+            $transformedProgram = $this->transformProgram($program, true, $countryFilter);
             
             Log::info('PublicProgramsController::show - Transformed program:', [
                 'id' => $transformedProgram['id'],
@@ -141,9 +166,11 @@ class PublicProgramsController extends Controller
     /**
      * Show a single program event (Christian Kids Hub).
      */
-    public function showEvent($id)
+    public function showEvent(Request $request, $id)
     {
         try {
+            $countryFilter = $this->countryFilter($request);
+
             $event = ProgramEvent::query()
                 ->with('business')
                 ->where(function ($q) use ($id) {
@@ -151,7 +178,7 @@ class PublicProgramsController extends Controller
                 })
                 ->first();
 
-            if (! $event) {
+            if (! $event || ! $this->eventMatchesCountry($event, $countryFilter)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Event not found',
@@ -178,7 +205,7 @@ class PublicProgramsController extends Controller
         }
     }
 
-    private function transformProgram(Program $program, bool $includeDetails = false): array
+    private function transformProgram(Program $program, bool $includeDetails = false, ?CountryFilter $countryFilter = null): array
     {
         $resolveUrl = function (?string $pathOrUrl): ?string {
             if (!$pathOrUrl) {
@@ -229,7 +256,8 @@ class PublicProgramsController extends Controller
             $events = ProgramEvent::whereJsonContains('program_ids', $program->id)
                 ->with('business')
                 ->orderBy('start_date', 'asc')
-                ->get();
+                ->get()
+                ->filter(fn (ProgramEvent $event) => $this->eventMatchesCountry($event, $countryFilter));
 
             // Transform events
             $transformedEvents = $events->map(function (ProgramEvent $event) {
@@ -311,6 +339,39 @@ class PublicProgramsController extends Controller
         }
 
         return $data;
+    }
+
+    /**
+     * @return array<int>|null Null means no country filter applies.
+     */
+    private function programIdsForCountry(Request $request, ?CountryFilter $countryFilter): ?array
+    {
+        if (! $countryFilter?->applies()) {
+            return null;
+        }
+
+        $eventQuery = ProgramEvent::query()->with('business');
+        $this->scopeQueryByCountry($eventQuery, $request);
+
+        return $eventQuery->get()
+            ->flatMap(fn (ProgramEvent $event) => is_array($event->program_ids) ? $event->program_ids : [])
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function eventMatchesCountry(ProgramEvent $event, ?CountryFilter $countryFilter): bool
+    {
+        if (! $countryFilter?->applies()) {
+            return true;
+        }
+
+        if (! $event->business) {
+            return false;
+        }
+
+        return CountryScope::businessMatches($event->business, $countryFilter);
     }
 
     private function transformProgramEvent(ProgramEvent $event): array
