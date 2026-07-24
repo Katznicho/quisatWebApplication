@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\API;
 
+use App\Http\Controllers\Concerns\ResolvesCountryFilter;
 use App\Http\Controllers\Controller;
 use App\Models\SupportChild;
 use App\Models\SupportChildEnquiry;
@@ -12,6 +13,8 @@ use Illuminate\Support\Str;
 
 class SupportChildController extends Controller
 {
+    use ResolvesCountryFilter;
+
     public function index(Request $request)
     {
         $businessId = $request->get('business_id');
@@ -39,6 +42,8 @@ class SupportChildController extends Controller
             });
         }
 
+        $this->scopeQueryByCountry($query, $request);
+
         $children = $query->get();
 
         return response()->json([
@@ -54,14 +59,17 @@ class SupportChildController extends Controller
     {
         $businessId = $request->get('business_id');
 
-        $child = SupportChild::with('images')
+        $query = SupportChild::with('images')
             ->when($businessId, function (Builder $q) use ($businessId) {
                 $q->where('business_id', $businessId);
             })
             ->where(function (Builder $q) use ($id) {
                 $q->where('id', $id)->orWhere('uuid', $id);
-            })
-            ->first();
+            });
+
+        $this->scopeQueryByCountry($query, $request);
+
+        $child = $query->first();
 
         if (! $child) {
             return response()->json([

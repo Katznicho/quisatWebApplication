@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\API;
 
+use App\Http\Controllers\Concerns\ResolvesCountryFilter;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Services\ContentViewService;
 use App\Support\ProductCategory;
+use App\Support\CountryScope;
 use App\Support\StationeryHub;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -15,6 +17,8 @@ use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
+    use ResolvesCountryFilter;
+
     public function index(Request $request)
     {
         try {
@@ -69,6 +73,8 @@ class ProductController extends Controller
                 });
             }
 
+            $this->scopeQueryByCountry($query, $request);
+
             $products = $query->orderBy('created_at', 'desc')->get();
 
             $usedCategories = $products
@@ -100,7 +106,7 @@ class ProductController extends Controller
         }
     }
 
-    public function show($id)
+    public function show(Request $request, $id)
     {
         try {
             $product = Product::with(['business:id,name,email,phone,address,shop_number,website_link,social_media_handles', 'images'])
@@ -109,7 +115,7 @@ class ProductController extends Controller
                 })
                 ->first();
 
-            if (!$product) {
+            if (! $product || ! $product->business || ! CountryScope::businessMatches($product->business, $this->countryFilter($request))) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Product not found',

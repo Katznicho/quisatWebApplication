@@ -194,9 +194,9 @@ class StudentController extends Controller
     public function downloadTemplate()
     {
         // Create CSV content with headers and example rows
-        $csvData = "first_name,last_name,email,phone,date_of_birth,gender,student_id,admission_date,parent_email,address,city,country,status\n";
-        $csvData .= "John,Doe,john.doe@example.com,+256700000000,2010-05-15,male,STU001,2024-01-15,parent1@example.com,123 Main Street,Kampala,Uganda,active\n";
-        $csvData .= "Jane,Smith,jane.smith@example.com,+256700000001,2011-08-20,female,STU002,2024-01-15,parent2@example.com,456 Oak Avenue,Entebbe,Uganda,active\n";
+        $csvData = "first_name,last_name,email,phone,date_of_birth,gender,student_id,admission_date,parent_email,class,address,city,country,status\n";
+        $csvData .= "John,Doe,john.doe@example.com,+256700000000,2010-05-15,male,STU001,2024-01-15,parent1@example.com,P.1,123 Main Street,Kampala,Uganda,active\n";
+        $csvData .= "Jane,Smith,jane.smith@example.com,+256700000001,2011-08-20,female,STU002,2024-01-15,parent2@example.com,P.2,456 Oak Avenue,Entebbe,Uganda,active\n";
 
         $filename = 'student_template_' . now()->format('Y-m-d') . '.csv';
 
@@ -260,6 +260,11 @@ class StudentController extends Controller
                     'admission' => 'admission_date',
                     'parent_email' => 'parent_email',
                     'parent_guardian_email' => 'parent_email',
+                    'class' => 'class',
+                    'class_name' => 'class',
+                    'classroom' => 'class',
+                    'class_room' => 'class',
+                    'class_code' => 'class',
                     'address' => 'address',
                     'city' => 'city',
                     'country' => 'country',
@@ -315,6 +320,21 @@ class StudentController extends Controller
                 continue;
             }
 
+            $classValue = $data['class'] ?? null;
+            unset($data['class']);
+
+            if ($classValue !== null && trim((string) $classValue) !== '') {
+                $classRoomId = $this->resolveClassRoomId((string) $classValue, (int) $businessId);
+
+                if (! $classRoomId) {
+                    $errorCount++;
+                    $errors[] = "Row {$rowNumber}: Class not found: {$classValue}. Use the class name or code from your Classes list.";
+                    continue;
+                }
+
+                $data['class_room_id'] = $classRoomId;
+            }
+
             // Set defaults
             $data['business_id'] = $businessId;
             $data['parent_guardian_id'] = $parentGuardian->id;
@@ -343,5 +363,24 @@ class StudentController extends Controller
         return redirect()->route('school-management.students')
             ->with('success', $message)
             ->with('bulk_upload_errors', $errors);
+    }
+
+    protected function resolveClassRoomId(string $classValue, int $businessId): ?int
+    {
+        $classValue = trim($classValue);
+
+        if ($classValue === '') {
+            return null;
+        }
+
+        $classRoom = ClassRoom::query()
+            ->where('business_id', $businessId)
+            ->where(function ($query) use ($classValue) {
+                $query->whereRaw('LOWER(name) = ?', [strtolower($classValue)])
+                    ->orWhereRaw('LOWER(code) = ?', [strtolower($classValue)]);
+            })
+            ->first();
+
+        return $classRoom?->id;
     }
 }

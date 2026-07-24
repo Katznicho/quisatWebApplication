@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\API;
 
+use App\Http\Controllers\Concerns\ResolvesCountryFilter;
 use App\Http\Controllers\Controller;
+use App\Support\CountryScope;
 use App\Models\Business;
 use App\Models\ClinicAppointment;
 use App\Models\ClinicAppointmentType;
@@ -27,6 +29,8 @@ use Illuminate\Validation\ValidationException;
 
 class ClinicController extends Controller
 {
+    use ResolvesCountryFilter;
+
     public function __construct(
         protected ClinicPatientImportService $importService
     ) {}
@@ -47,10 +51,12 @@ class ClinicController extends Controller
             }
 
             $search = trim((string) $request->query('search', ''));
+            $countryFilter = $this->countryFilter($request);
 
             $clinics = Business::query()
                 ->where('id', '!=', 1)
                 ->where('status', 'active')
+                ->tap(fn ($query) => CountryScope::applyToBusinessQuery($query, $countryFilter))
                 ->when($search !== '', function ($q) use ($search) {
                     $q->where(function ($inner) use ($search) {
                         $inner->where('name', 'like', "%{$search}%")
@@ -84,7 +90,7 @@ class ClinicController extends Controller
     public function show(Request $request, $id)
     {
         try {
-            $clinic = $this->findClinicBusiness($id);
+            $clinic = $this->findClinicBusiness($id, $request);
 
             if (! $clinic) {
                 return response()->json([
@@ -615,7 +621,7 @@ class ClinicController extends Controller
         ]);
     }
 
-    protected function findClinicBusiness($id): ?Business
+    protected function findClinicBusiness($id, ?Request $request = null): ?Business
     {
         $business = Business::where('id', '!=', 1)
             ->where(function ($q) use ($id) {
@@ -624,6 +630,23 @@ class ClinicController extends Controller
             ->first();
 
         if (! $business || ! $business->hasFeatureByName('Kids Clinics')) {
+            return null;
+        }
+
+        $filter = $this->countryFilter($request);
+        if ($filter?->applies() && ! CountryScope::businessMatches($business, $filter)) {
+            $actor = auth('sanctum')->user();
+            if ($actor instanceof ParentGuardian) {
+                $hasMembership = $actor->memberships()
+                    ->where('business_id', $business->id)
+                    ->where('status', 'active')
+                    ->exists();
+
+                if ($hasMembership) {
+                    return $business;
+                }
+            }
+
             return null;
         }
 

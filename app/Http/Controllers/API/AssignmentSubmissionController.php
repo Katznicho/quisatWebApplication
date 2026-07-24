@@ -37,47 +37,35 @@ class AssignmentSubmissionController extends Controller
                 ], 404);
             }
 
-            // Get student - handle both parent and student submissions
-            $studentId = $request->input('student_id');
-            
-            if (!$studentId) {
-                // If user is a parent, get their first child's student_id
-                if ($user instanceof ParentGuardian) {
-                    $child = $user->students()->where('business_id', $businessId)->first();
-                    if ($child) {
-                        $studentId = $child->id;
-                    }
-                } elseif ($user instanceof User) {
-                    // Try to find student by user email or other identifier
-                    $student = Student::where('business_id', $businessId)
-                        ->where('email', $user->email)
-                        ->first();
-                    $studentId = $student?->id;
-                }
-            }
+            $student = $this->resolveSubmittingStudent(
+                $request,
+                $user,
+                $businessId,
+                $assignmentRecord
+            );
 
-            if (!$studentId) {
+            if (!$student) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Student not found. Please provide student_id or ensure you have a linked student.',
                 ], 404);
             }
 
-            // Verify student belongs to the assignment's class
-            $student = Student::find($studentId);
-            if (!$student || $student->business_id !== $businessId) {
+            if (!$student->class_room_id) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Student not found or does not belong to this business.',
-                ], 404);
+                    'message' => 'This student is not assigned to a class. Please contact the school administration.',
+                ], 403);
             }
 
-            if ($student->class_room_id !== $assignmentRecord->class_room_id) {
+            if ((int) $student->class_room_id !== (int) $assignmentRecord->class_room_id) {
                 return response()->json([
                     'success' => false,
                     'message' => 'This assignment is not for the student\'s class.',
                 ], 403);
             }
+
+            $studentId = $student->id;
 
             $validated = $request->validate([
                 'submission_file' => 'required|array',
@@ -238,6 +226,53 @@ class AssignmentSubmissionController extends Controller
                 'students_with_status' => $allStudentsWithStatus,
             ],
         ]);
+    }
+
+    protected function resolveSubmittingStudent(
+        Request $request,
+        mixed $user,
+        int $businessId,
+        ClassAssignment $assignmentRecord
+    ): ?Student {
+        $studentId = $request->input('student_id');
+
+        if ($user instanceof ParentGuardian) {
+            $childrenQuery = $user->students()->where('business_id', $businessId);
+
+            if ($studentId) {
+                return $childrenQuery->where('id', $studentId)->first();
+            }
+
+            $matchingChild = (clone $childrenQuery)
+                ->where('class_room_id', $assignmentRecord->class_room_id)
+                ->first();
+
+            if ($matchingChild) {
+                return $matchingChild;
+            }
+
+            return $childrenQuery->first();
+        }
+
+        if ($user instanceof User) {
+            if ($studentId) {
+                return Student::where('business_id', $businessId)
+                    ->where('id', $studentId)
+                    ->first();
+            }
+
+            return Student::where('business_id', $businessId)
+                ->where('email', $user->email)
+                ->first();
+        }
+
+        if ($studentId) {
+            return Student::where('business_id', $businessId)
+                ->where('id', $studentId)
+                ->first();
+        }
+
+        return null;
     }
 
     protected function transformSubmission(AssignmentSubmission $submission): array

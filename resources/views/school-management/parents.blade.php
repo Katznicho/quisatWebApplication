@@ -36,9 +36,14 @@
                     </div>
                 @endif
 
-                <div class="mb-4 flex justify-between items-center">
+                <div class="mb-4 flex flex-wrap justify-between items-center gap-3">
                     <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Parents & Guardians</h2>
-                    <div class="flex space-x-3">
+                    <div class="flex flex-wrap gap-3">
+                        @include('partials.link-parent-quisat-code-modal', [
+                            'contextLabel' => 'school',
+                            'formAction' => route('school-management.parents.link-by-quisat-code'),
+                            'redirectTo' => route('school-management.parents'),
+                        ])
                         <a href="{{ route('school-management.parents.create') }}" 
                            class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

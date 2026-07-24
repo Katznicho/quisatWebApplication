@@ -12,6 +12,8 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\Grid;
+use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
@@ -46,34 +48,129 @@ class ListRoles extends Component implements HasForms, HasTable
         $schema = [];
 
         foreach ($permissions as $group => $categories) {
-            $categoryCheckboxes = [];
+            $groupPermissionKeys = [];
+            $categoryPermissionKeyMap = [];
 
             foreach ($categories as $category => $perms) {
-                $permCheckboxes = [];
+                $categoryPermissionKeys = [];
 
                 foreach ($perms as $perm) {
                     $key = self::permissionKey($perm);
                     $permissionMap[$key] = $perm;
+                    $categoryPermissionKeys[] = $key;
+                    $groupPermissionKeys[] = $key;
+                }
 
-                    $permCheckboxes[] = Checkbox::make($key)
+                $categoryPermissionKeyMap[$category] = $categoryPermissionKeys;
+            }
+
+            $groupSelectAllKey = $this->groupSelectAllKey($group);
+            $categoryBlocks = [];
+
+            foreach ($categories as $category => $perms) {
+                $categoryPermissionKeys = $categoryPermissionKeyMap[$category];
+                $categorySelectAllKey = $this->categorySelectAllKey($group, $category);
+                $permCheckboxes = [];
+
+                foreach ($perms as $perm) {
+                    $key = self::permissionKey($perm);
+
+                    $checkbox = Checkbox::make($key)
                         ->label($perm)
                         ->default($checkedPermissions[$key] ?? false)
                         ->disabled($disabled);
+
+                    if (! $disabled) {
+                        $checkbox
+                            ->live()
+                            ->afterStateUpdated(function ($state, Set $set, Get $get) use (
+                                $categoryPermissionKeys,
+                                $groupPermissionKeys,
+                                $categorySelectAllKey,
+                                $groupSelectAllKey
+                            ): void {
+                                $set(
+                                    $categorySelectAllKey,
+                                    collect($categoryPermissionKeys)->every(fn (string $permKey) => (bool) $get($permKey))
+                                );
+                                $set(
+                                    $groupSelectAllKey,
+                                    collect($groupPermissionKeys)->every(fn (string $permKey) => (bool) $get($permKey))
+                                );
+                            });
+                    }
+
+                    $permCheckboxes[] = $checkbox;
                 }
 
-                $categoryCheckboxes[] = Fieldset::make(Str::slug($category, '_'))
+                $categoryBlocks[] = Fieldset::make(Str::slug($category, '_'))
                     ->label($category)
-                    ->schema($permCheckboxes)
+                    ->schema([
+                        Checkbox::make($categorySelectAllKey)
+                            ->label('Select all')
+                            ->dehydrated(false)
+                            ->disabled($disabled)
+                            ->default(collect($categoryPermissionKeys)->every(
+                                fn (string $permKey) => ! empty($checkedPermissions[$permKey])
+                            ))
+                            ->live()
+                            ->afterStateUpdated(function ($state, Set $set, Get $get) use ($categoryPermissionKeys, $groupPermissionKeys, $groupSelectAllKey): void {
+                                foreach ($categoryPermissionKeys as $permKey) {
+                                    $set($permKey, (bool) $state);
+                                }
+
+                                $set(
+                                    $groupSelectAllKey,
+                                    collect($groupPermissionKeys)->every(function (string $permKey) use ($categoryPermissionKeys, $state, $get) {
+                                        if (in_array($permKey, $categoryPermissionKeys, true)) {
+                                            return (bool) $state;
+                                        }
+
+                                        return (bool) $get($permKey);
+                                    })
+                                );
+                            }),
+                        ...$permCheckboxes,
+                    ])
                     ->columns(1);
             }
 
             $schema[] = Fieldset::make(Str::slug($group, '_'))
                 ->label($group)
-                ->schema($categoryCheckboxes)
+                ->schema([
+                    Checkbox::make($groupSelectAllKey)
+                        ->label('Select all in this group')
+                        ->dehydrated(false)
+                        ->disabled($disabled)
+                        ->default(collect($groupPermissionKeys)->every(
+                            fn (string $permKey) => ! empty($checkedPermissions[$permKey])
+                        ))
+                        ->live()
+                        ->afterStateUpdated(function ($state, Set $set) use ($groupPermissionKeys, $categories, $group): void {
+                            foreach ($groupPermissionKeys as $permKey) {
+                                $set($permKey, (bool) $state);
+                            }
+
+                            foreach (array_keys($categories) as $categoryName) {
+                                $set($this->categorySelectAllKey($group, $categoryName), (bool) $state);
+                            }
+                        }),
+                    ...$categoryBlocks,
+                ])
                 ->columns(1);
         }
 
         return $schema;
+    }
+
+    protected function groupSelectAllKey(string $group): string
+    {
+        return 'select_all_group_'.Str::slug($group, '_');
+    }
+
+    protected function categorySelectAllKey(string $group, string $category): string
+    {
+        return 'select_all_category_'.Str::slug($group.'_'.$category, '_');
     }
 
     // Load checked permission keys from Role model's stored permissions JSON

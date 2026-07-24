@@ -4,6 +4,7 @@ namespace App\Livewire\SchoolManagement;
 
 use App\Models\Student;
 use App\Models\ParentGuardian;
+use App\Models\ClassRoom;
 use App\Models\User;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -12,6 +13,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Hidden;
+use Filament\Notifications\Notification;
 use Filament\Tables;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
@@ -127,6 +129,50 @@ class StudentManagement extends Component implements HasForms, HasTable
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\BulkAction::make('assign_class')
+                        ->label('Assign to class')
+                        ->icon('heroicon-o-academic-cap')
+                        ->form(function (\Illuminate\Support\Collection $records) {
+                            $businessId = $this->resolveBulkBusinessId($records);
+
+                            return [
+                                Select::make('class_room_id')
+                                    ->label('Class')
+                                    ->options(
+                                        ClassRoom::query()
+                                            ->where('business_id', $businessId)
+                                            ->orderBy('name')
+                                            ->pluck('name', 'id')
+                                    )
+                                    ->searchable()
+                                    ->required()
+                                    ->helperText('All selected students will be assigned to this class.'),
+                            ];
+                        })
+                        ->action(function (\Illuminate\Support\Collection $records, array $data): void {
+                            $businessId = $this->resolveBulkBusinessId($records);
+
+                            foreach ($records as $record) {
+                                if ((int) $record->business_id !== $businessId) {
+                                    Notification::make()
+                                        ->danger()
+                                        ->title('Selected students must belong to the same school.')
+                                        ->send();
+
+                                    return;
+                                }
+
+                                $record->update([
+                                    'class_room_id' => $data['class_room_id'],
+                                ]);
+                            }
+
+                            Notification::make()
+                                ->success()
+                                ->title('Students assigned to class successfully.')
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
                     Tables\Actions\BulkAction::make('delete_permanently')
                         ->label('Delete Permanently')
                         ->requiresConfirmation()
@@ -149,6 +195,17 @@ class StudentManagement extends Component implements HasForms, HasTable
                         }),
                 ]),
             ]);
+    }
+
+    protected function resolveBulkBusinessId(\Illuminate\Support\Collection $records): int
+    {
+        $authBusinessId = (int) auth()->user()->business_id;
+
+        if ($authBusinessId !== 1) {
+            return $authBusinessId;
+        }
+
+        return (int) ($records->first()?->business_id ?? $authBusinessId);
     }
 
     public function render(): View

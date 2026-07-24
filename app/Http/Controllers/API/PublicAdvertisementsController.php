@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\API;
 
+use App\Http\Controllers\Concerns\ResolvesCountryFilter;
 use App\Http\Controllers\Controller;
 use App\Models\Advertisement;
 use Illuminate\Http\Request;
@@ -11,6 +12,8 @@ use Illuminate\Support\Str;
 
 class PublicAdvertisementsController extends Controller
 {
+    use ResolvesCountryFilter;
+
     /**
      * List advertisements visible to the mobile app and public users.
      */
@@ -34,6 +37,8 @@ class PublicAdvertisementsController extends Controller
                       ->orWhere('description', 'like', "%{$search}%");
                 });
             }
+
+            $this->scopeQueryByCountry($query, $request);
 
             $ads = $query->orderBy('created_at', 'desc')->get();
 
@@ -60,17 +65,20 @@ class PublicAdvertisementsController extends Controller
     /**
      * Show a single published advertisement.
      */
-    public function show($id)
+    public function show(Request $request, $id)
     {
         try {
-            $ad = Advertisement::query()
+            $query = Advertisement::query()
                 ->publiclyVisible()
                 ->whereHas('business')
                 ->with('business:id,name,email,phone,address,website_link,social_media_handles')
                 ->where(function ($q) use ($id) {
                     $q->where('id', $id)->orWhere('uuid', $id);
-                })
-                ->first();
+                });
+
+            $this->scopeQueryByCountry($query, $request);
+
+            $ad = $query->first();
 
             if (! $ad) {
                 return response()->json([

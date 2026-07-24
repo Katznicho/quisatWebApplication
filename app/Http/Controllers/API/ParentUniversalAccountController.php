@@ -10,6 +10,7 @@ use App\Services\ParentUniversalCodeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use App\Support\CountryScope;
 use Illuminate\Support\Str;
 
 class ParentUniversalAccountController extends Controller
@@ -146,6 +147,15 @@ class ParentUniversalAccountController extends Controller
                 'success' => false,
                 'code' => 'BUSINESS_JOIN_FORBIDDEN',
                 'message' => 'Self-join is only allowed for clinics. Share your Quisat code with the school or clinic staff.',
+            ], 403);
+        }
+
+        $parentCountry = CountryScope::fromParent($parent);
+        if ($parentCountry?->applies() && ! CountryScope::businessMatches($business, $parentCountry)) {
+            return response()->json([
+                'success' => false,
+                'code' => 'COUNTRY_MISMATCH',
+                'message' => 'This clinic is not available in your country.',
             ], 403);
         }
 

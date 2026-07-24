@@ -16,6 +16,11 @@
             </p>
         </div>
         <div class="flex flex-wrap gap-2">
+            @include('partials.link-parent-quisat-code-modal', [
+                'contextLabel' => 'clinic',
+                'formAction' => route('clinic-patients.link-by-quisat-code'),
+                'redirectTo' => route('clinic-patients.index'),
+            ])
             <a href="{{ route('clinic-patients.create') }}"
                class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
                 <i class="fas fa-user-plus mr-2"></i>Add patient
@@ -163,6 +168,7 @@
                     <li>Add <strong>Appointment Types</strong> for staff booking and consultation forms.</li>
                     <li>Add <strong>Services</strong> or <strong>Appointment Types</strong> so parents can book visits from the Quisat app.</li>
                     <li>Parents book from the app; staff book from each patient&apos;s <strong>Appointments</strong> tab.</li>
+                    <li>Use <strong>Link by Quisat code</strong> when a parent already has a Quisat account — enter their <code>QSP-</code> code from the app Profile screen.</li>
                     <li>Use the <strong>Patients</strong> tab to navigate directly into each child record.</li>
                     <li>Review all clinic activity under <strong>Consultations</strong>.</li>
                 </ul>

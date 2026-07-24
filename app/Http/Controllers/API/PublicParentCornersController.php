@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\API;
 
+use App\Http\Controllers\Concerns\ResolvesCountryFilter;
 use App\Http\Controllers\Controller;
 use App\Models\ParentCorner;
 use Illuminate\Http\Request;
@@ -11,6 +12,8 @@ use Illuminate\Support\Str;
 
 class PublicParentCornersController extends Controller
 {
+    use ResolvesCountryFilter;
+
     /**
      * List public parent corner events with filters
      */
@@ -24,6 +27,8 @@ class PublicParentCornersController extends Controller
             if (filter_var($request->query('upcoming_only'), FILTER_VALIDATE_BOOL)) {
                 $query->where('start_date', '>=', now());
             }
+
+            $this->scopeQueryByCountry($query, $request);
 
             $events = $query->orderBy('start_date', 'asc')->get();
 
@@ -50,18 +55,21 @@ class PublicParentCornersController extends Controller
     /**
      * Show a single event
      */
-    public function show($id)
+    public function show(Request $request, $id)
     {
         try {
-            $event = ParentCorner::query()
+            $query = ParentCorner::query()
                 ->where('status', 'published')
                 ->with('business:id,name,email,phone,address,website_link,social_media_handles')
                 ->where(function ($q) use ($id) {
                     $q->where('id', $id)->orWhere('id', intval($id));
-                })
-                ->first();
+                });
 
-            if (!$event) {
+            $this->scopeQueryByCountry($query, $request);
+
+            $event = $query->first();
+
+            if (! $event) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Event not found',

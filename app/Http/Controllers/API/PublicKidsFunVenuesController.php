@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\API;
 
+use App\Http\Controllers\Concerns\ResolvesCountryFilter;
 use App\Http\Controllers\Controller;
 use App\Models\KidsFunVenue;
 use Illuminate\Http\Request;
@@ -11,6 +12,8 @@ use Illuminate\Support\Str;
 
 class PublicKidsFunVenuesController extends Controller
 {
+    use ResolvesCountryFilter;
+
     /**
      * List all kids fun venues (public, only published)
      */
@@ -32,6 +35,8 @@ class PublicKidsFunVenuesController extends Controller
                       ->orWhere('location', 'like', "%{$search}%");
                 });
             }
+
+            $this->scopeQueryByCountry($query, $request);
 
             // Get all venues (no pagination for now, can add if needed)
             $venues = $query->get();
@@ -60,15 +65,18 @@ class PublicKidsFunVenuesController extends Controller
     /**
      * Show a specific venue
      */
-    public function show($uuid)
+    public function show(Request $request, $uuid)
     {
         try {
-            $venue = KidsFunVenue::where('uuid', $uuid)
+            $query = KidsFunVenue::where('uuid', $uuid)
                 ->where('status', 'published')
-                ->with('business:id,name,email,phone,address,shop_number,website_link,social_media_handles')
-                ->first();
+                ->with('business:id,name,email,phone,address,shop_number,website_link,social_media_handles');
 
-            if (!$venue) {
+            $this->scopeQueryByCountry($query, $request);
+
+            $venue = $query->first();
+
+            if (! $venue) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Venue not found',

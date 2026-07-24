@@ -370,6 +370,49 @@ class ParentGuardianController extends Controller
             ->with('bulk_upload_errors', $errors);
     }
 
+    /**
+     * Link an existing Quisat parent account to the logged-in business using QSP- code.
+     */
+    public function linkByQuisatCode(Request $request)
+    {
+        $validated = $request->validate([
+            'universal_code' => 'required|string|max:32',
+            'relationship' => 'nullable|in:father,mother,guardian,other',
+            'redirect_to' => 'nullable|string|max:500',
+        ]);
+
+        $businessId = (int) Auth::user()->business_id;
+        if ($businessId < 1) {
+            return back()->withErrors(['universal_code' => 'Your account is not linked to a business.']);
+        }
+
+        $parent = $this->codes->findByCode((string) $validated['universal_code']);
+
+        if (! $parent) {
+            return back()
+                ->withInput()
+                ->withErrors(['universal_code' => 'Quisat code not found. Ask the parent to share their code from Profile in the app.']);
+        }
+
+        try {
+            $this->codes->attachToBusiness(
+                $parent,
+                $businessId,
+                'universal_code',
+                $validated['relationship'] ?? null,
+            );
+        } catch (\Throwable $e) {
+            return back()
+                ->withInput()
+                ->withErrors(['universal_code' => 'Unable to link this parent. '.$e->getMessage()]);
+        }
+
+        $redirectTo = $validated['redirect_to'] ?? route('school-management.parents');
+        $message = $parent->full_name.' has been linked to your business using their Quisat code.';
+
+        return redirect()->to($redirectTo)->with('success', $message);
+    }
+
     protected function canManageParent(ParentGuardian $parent, ?int $businessId): bool
     {
         if (! $businessId) {

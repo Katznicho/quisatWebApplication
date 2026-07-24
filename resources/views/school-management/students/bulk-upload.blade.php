@@ -91,7 +91,7 @@
                                 Upload Filled CSV File
                             </h3>
                             <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                                Fill in the template with your student data and upload it here. Make sure the parent/guardian email exists in the system.
+                                Fill in the template with your student data and upload it here. Make sure the parent/guardian email exists in the system. Add the <strong>class</strong> column to assign each student to a class during upload.
                             </p>
                             
                             <form action="{{ route('school-management.students.bulk-upload') }}" method="POST" enctype="multipart/form-data">
@@ -144,6 +144,7 @@
                         <div>
                             <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Optional Columns:</h4>
                             <ul class="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                                <li><strong>class</strong> - Class name or code (assign class at registration)</li>
                                 <li><strong>phone</strong> - Phone number</li>
                                 <li><strong>address</strong> - Street address</li>
                                 <li><strong>city</strong> - City name</li>

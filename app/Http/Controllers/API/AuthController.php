@@ -99,6 +99,7 @@ class AuthController extends Controller
                             'address' => $user->business->address,
                             'city' => $user->business->city,
                             'country' => $user->business->country,
+                            'country_id' => $user->business->country_id,
                             'logo' => $user->business->logo,
                             'type' => $user->business->type,
                             'mode' => $user->business->mode,
@@ -193,6 +194,7 @@ class AuthController extends Controller
                             'address' => $user->business->address,
                             'city' => $user->business->city,
                             'country' => $user->business->country,
+                            'country_id' => $user->business->country_id,
                             'logo' => $user->business->logo,
                             'type' => $user->business->type,
                             'mode' => $user->business->mode,
@@ -579,7 +581,7 @@ class AuthController extends Controller
                     $codes->ensureCode($existingByEmail);
 
                     $token = $existingByEmail->createToken($request->device_name ?? 'mobile-app')->plainTextToken;
-                    $existingByEmail->load(['business', 'students', 'memberships.business']);
+                    $existingByEmail->load(['business', 'students.classRoom', 'memberships.business']);
 
                     return response()->json([
                         'success' => true,
@@ -622,7 +624,7 @@ class AuthController extends Controller
 
             $codes->ensureCode($parent);
             $token = $parent->createToken($request->device_name ?? 'mobile-app')->plainTextToken;
-            $parent->load(['business', 'students', 'memberships.business']);
+            $parent->load(['business', 'students.classRoom', 'memberships.business']);
 
             return response()->json([
                 'success' => true,
@@ -719,7 +721,7 @@ class AuthController extends Controller
             $token = $parent->createToken($request->device_name ?? 'mobile-app')->plainTextToken;
 
             // Load parent relationships (business may be null for guest parents)
-            $parent->load(['business', 'students', 'memberships.business']);
+            $parent->load(['business', 'students.classRoom', 'memberships.business']);
 
             return response()->json([
                 'success' => true,
@@ -1040,6 +1042,7 @@ class AuthController extends Controller
                     'address' => $business->address,
                     'city' => $business->city,
                     'country' => $business->country,
+                    'country_id' => $business->country_id,
                     'logo' => $business->logo,
                     'type' => $business->type,
                     'mode' => $business->mode,
@@ -1063,6 +1066,7 @@ class AuthController extends Controller
                 'address' => $b->address,
                 'city' => $b->city,
                 'country' => $b->country,
+                'country_id' => $b->country_id,
                 'logo' => $b->logo,
                 'type' => $b->type,
                 'mode' => $b->mode,
@@ -1093,7 +1097,13 @@ class AuthController extends Controller
                     'last_name' => $student->last_name,
                     'full_name' => $student->full_name,
                     'student_id' => $student->student_id,
-                    'class' => $student->class,
+                    'class' => $student->classRoom?->name,
+                    'class_room_id' => $student->class_room_id,
+                    'class_room' => $student->classRoom ? [
+                        'id' => $student->classRoom->id,
+                        'name' => $student->classRoom->name,
+                        'code' => $student->classRoom->code,
+                    ] : null,
                     'status' => $student->status,
                     'photo_url' => $this->resolvePhotoUrl($student->photo),
                 ];

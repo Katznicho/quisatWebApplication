@@ -189,6 +189,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
         ->name('clinic-appointments.mark-paid');
     Route::post('clinic-appointments/{clinic_appointment}/waive', [\App\Http\Controllers\ClinicAppointmentController::class, 'waive'])
         ->name('clinic-appointments.waive');
+    Route::post('clinic-patients/link-by-quisat-code', [\App\Http\Controllers\SchoolManagement\ParentGuardianController::class, 'linkByQuisatCode'])
+        ->name('clinic-patients.link-by-quisat-code');
 
     // Admin Management Routes
     Route::prefix('admin')->name('admin.')->middleware('super.admin')->group(function () {
@@ -292,6 +294,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/parents/bulk-upload', [ParentGuardianController::class, 'bulkUploadPage'])->name('parents.bulk-upload-page');
         Route::get('/parents/download-template', [ParentGuardianController::class, 'downloadTemplate'])->name('parents.download-template');
         Route::post('/parents/bulk-upload', [ParentGuardianController::class, 'bulkUpload'])->name('parents.bulk-upload');
+        Route::post('/parents/link-by-quisat-code', [ParentGuardianController::class, 'linkByQuisatCode'])->name('parents.link-by-quisat-code');
 
         Route::get('/terms', function () {
             return view('school-management.terms');
