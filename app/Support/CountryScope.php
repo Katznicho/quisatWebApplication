@@ -51,7 +51,10 @@ class CountryScope
                 return null;
             }
 
-            return self::fromBusiness($actor->business);
+            $actor->loadMissing('business');
+            $filter = self::fromBusiness($actor->business);
+
+            return $filter?->applies() ? $filter : self::defaultFilter();
         }
 
         if ($actor instanceof ParentGuardian) {
@@ -68,16 +71,18 @@ class CountryScope
         }
 
         return $query->where(function (Builder $countryQuery) use ($filter) {
-            if ($filter->countryId !== null) {
+            if ($filter->countryId !== null && filled($filter->countryName)) {
+                $countryQuery->where(function (Builder $inner) use ($filter) {
+                    $inner->where('country_id', $filter->countryId)
+                        ->orWhere(function (Builder $legacy) use ($filter) {
+                            $legacy->whereNull('country_id')
+                                ->whereRaw('LOWER(country) = ?', [strtolower((string) $filter->countryName)]);
+                        });
+                });
+            } elseif ($filter->countryId !== null) {
                 $countryQuery->where('country_id', $filter->countryId);
-            }
-
-            if (filled($filter->countryName)) {
-                if ($filter->countryId !== null) {
-                    $countryQuery->orWhere('country', $filter->countryName);
-                } else {
-                    $countryQuery->where('country', $filter->countryName);
-                }
+            } elseif (filled($filter->countryName)) {
+                $countryQuery->whereRaw('LOWER(country) = ?', [strtolower((string) $filter->countryName)]);
             }
         });
     }
@@ -106,7 +111,11 @@ class CountryScope
             return true;
         }
 
-        if (filled($filter->countryName) && strcasecmp((string) $business->country, (string) $filter->countryName) === 0) {
+        if (
+            filled($filter->countryName)
+            && $business->country_id === null
+            && strcasecmp((string) $business->country, (string) $filter->countryName) === 0
+        ) {
             return true;
         }
 

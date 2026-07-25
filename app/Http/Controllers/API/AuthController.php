@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Mail\PasswordResetCodeMail;
 use App\Models\Business;
+use App\Models\Country;
 use App\Models\ParentGuardian;
 use App\Models\User;
 use App\Services\ParentUniversalCodeService;
@@ -547,6 +548,7 @@ class AuthController extends Controller
                 'phone' => 'required|string|max:255',
                 'password' => 'required|string|min:8|confirmed',
                 'relationship' => 'nullable|in:father,mother,guardian,other',
+                'country_id' => 'required|exists:countries,id',
                 'device_name' => 'nullable|string|max:255',
             ]);
 
@@ -560,6 +562,7 @@ class AuthController extends Controller
 
             $email = $codes->normalizeEmail($request->email);
             $phone = $request->phone;
+            $country = Country::findOrFail((int) $request->country_id);
 
             $existingByEmail = $codes->findByNormalizedEmail($email, true);
             if ($existingByEmail) {
@@ -572,6 +575,7 @@ class AuthController extends Controller
                         'phone' => $phone,
                         'password' => Hash::make($request->password),
                         'relationship' => $request->relationship ?? $existingByEmail->relationship ?? 'guardian',
+                        'country' => $country->name,
                         'status' => 'active',
                         'account_type' => $existingByEmail->business_id || $existingByEmail->memberships()->exists()
                             ? 'linked'
@@ -617,6 +621,7 @@ class AuthController extends Controller
                 'phone' => $phone,
                 'password' => Hash::make($request->password),
                 'relationship' => $request->relationship ?? 'guardian',
+                'country' => $country->name,
                 'business_id' => null,
                 'account_type' => 'guest',
                 'status' => 'active',
@@ -793,7 +798,7 @@ class AuthController extends Controller
             // Store code in cache for 10 minutes
             cache()->put("parent_password_reset_code_{$parent->id}", $code, 600);
 
-            Log::info('Code generated and cached for parent: '.$parent->id.' - Code: '.$code);
+            Log::info('Code generated and cached for parent: '.$parent->id);
 
             // Send email with code
             try {
@@ -802,17 +807,10 @@ class AuthController extends Controller
             } catch (\Exception $e) {
                 Log::error('Failed to send parent password reset email: '.$e->getMessage());
 
-                // Still return success with code for testing
                 return response()->json([
-                    'success' => true,
-                    'message' => 'Code generated but email failed. Code: '.$code,
-                    'data' => [
-                        'parent_id' => $parent->id,
-                        'email' => $parent->email,
-                        'code' => $code, // For debugging
-                        'expires_in' => 600,
-                    ],
-                ], 200);
+                    'success' => false,
+                    'message' => 'Failed to send reset code. Please try again.',
+                ], 500);
             }
 
             return response()->json([
@@ -821,8 +819,7 @@ class AuthController extends Controller
                 'data' => [
                     'parent_id' => $parent->id,
                     'email' => $parent->email,
-                    'code' => $code, // For debugging - remove in production
-                    'expires_in' => 600, // 10 minutes
+                    'expires_in' => 600,
                 ],
             ], 200);
 
@@ -1088,6 +1085,9 @@ class AuthController extends Controller
             'universal_link' => $codes->universalLink($parent->universal_code),
             'business_id' => $primaryBusiness['id'] ?? $parent->business_id,
             'country' => $parent->country,
+            'country_id' => filled($parent->country)
+                ? Country::query()->whereRaw('LOWER(name) = ?', [strtolower((string) $parent->country)])->value('id')
+                : null,
             'photo_url' => $this->resolvePhotoUrl($parent->photo),
             'business' => $primaryBusiness,
             'businesses' => $businesses->all(),

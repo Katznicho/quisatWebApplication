@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BroadcastAnnouncement;
 use App\Models\ParentGuardian;
 use App\Models\User;
+use App\Services\AnnouncementNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -147,7 +148,7 @@ class AnnouncementController extends Controller
                 'title' => $validated['title'],
                 'content' => $validated['content'],
                 'type' => $validated['type'] ?? 'general',
-                'channels' => $validated['channels'] ?? ['in_app'],
+                'channels' => $validated['channels'] ?? ['push', 'in_app'],
                 'target_roles' => $validated['target_roles'] ?? ['all_users'],
                 'target_users' => $validated['target_users'] ?? null,
                 'status' => $validated['status'] ?? 'published',
@@ -157,6 +158,10 @@ class AnnouncementController extends Controller
             ]);
 
             $announcement->load('sender:id,name,email');
+
+            if (($validated['status'] ?? 'published') === 'published') {
+                app(AnnouncementNotificationService::class)->dispatch($announcement);
+            }
 
             return response()->json([
                 'success' => true,

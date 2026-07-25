@@ -21,7 +21,7 @@ use App\Http\Controllers\API\ParentUniversalAccountController;
 use App\Http\Controllers\API\ProductController;
 use App\Http\Controllers\API\ProductReviewController;
 use App\Http\Controllers\API\ProgramRegistrationController;
-use App\Http\Controllers\API\PublicAdvertisementsController;
+use App\Http\Controllers\API\PublicCountryController;
 use App\Http\Controllers\API\PublicKidsEventsController;
 use App\Http\Controllers\API\PublicKidsFunVenuesController;
 use App\Http\Controllers\API\PublicParentCornersController;
@@ -110,6 +110,8 @@ Route::prefix('v1')->group(function () {
                 ], 500);
             }
         });
+
+        Route::get('countries', [PublicCountryController::class, 'index']);
 
         // Kids Events
         Route::get('kids-events', [PublicKidsEventsController::class, 'index']);
