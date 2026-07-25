@@ -137,6 +137,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | These addresses receive a copy when a new business registers on Quisat.
+    | Optional CC observers can be added via BUSINESS_REGISTRATION_NOTIFY_CC.
     |
     */
 
@@ -147,7 +148,7 @@ return [
 
     'business_registration_notify_cc' => array_filter(array_map(
         'trim',
-        explode(',', env('BUSINESS_REGISTRATION_NOTIFY_CC', 'katznicho@gmail.com'))
+        explode(',', env('BUSINESS_REGISTRATION_NOTIFY_CC', ''))
     )),
 
 ];
