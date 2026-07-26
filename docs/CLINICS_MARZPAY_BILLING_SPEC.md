@@ -7,6 +7,7 @@
 
 ---
 
+
 ## 1. Problem
 
 Kids Clinics already expose priced services (`ClinicService.price`) and let parents book appointments, but:
