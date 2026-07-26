@@ -4,12 +4,11 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Concerns\ResolvesCountryFilter;
 use App\Http\Controllers\Controller;
+use App\Models\Country;
 use App\Models\Program;
 use App\Models\ProgramEvent;
-use App\Models\Business;
 use App\Services\ContentViewService;
 use App\Support\CountryFilter;
-use App\Support\CountryScope;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -342,6 +341,9 @@ class PublicProgramsController extends Controller
     }
 
     /**
+     * Christian Kids Hub is platform content (not a registered marketplace business).
+     * It is always scoped to the platform default country (Uganda), not event business country.
+     *
      * @return array<int>|null Null means no country filter applies.
      */
     private function programIdsForCountry(Request $request, ?CountryFilter $countryFilter): ?array
@@ -350,10 +352,12 @@ class PublicProgramsController extends Controller
             return null;
         }
 
-        $eventQuery = ProgramEvent::query()->with('business');
-        $this->scopeQueryByCountry($eventQuery, $request);
+        if (! $this->matchesPlatformCountry($countryFilter)) {
+            return [];
+        }
 
-        return $eventQuery->get()
+        return ProgramEvent::query()
+            ->get()
             ->flatMap(fn (ProgramEvent $event) => is_array($event->program_ids) ? $event->program_ids : [])
             ->map(fn ($id) => (int) $id)
             ->unique()
@@ -367,11 +371,38 @@ class PublicProgramsController extends Controller
             return true;
         }
 
-        if (! $event->business) {
-            return false;
+        return $this->matchesPlatformCountry($countryFilter);
+    }
+
+    private function matchesPlatformCountry(?CountryFilter $countryFilter): bool
+    {
+        if (! $countryFilter?->applies()) {
+            return true;
         }
 
-        return CountryScope::businessMatches($event->business, $countryFilter);
+        $defaultCountry = Country::query()->where('is_default', true)->first()
+            ?? Country::query()->whereRaw('LOWER(name) = ?', ['uganda'])->first()
+            ?? Country::query()->orderBy('id')->first();
+
+        if (! $defaultCountry) {
+            return true;
+        }
+
+        if (
+            $countryFilter->countryId !== null
+            && (int) $countryFilter->countryId === (int) $defaultCountry->id
+        ) {
+            return true;
+        }
+
+        if (
+            filled($countryFilter->countryName)
+            && strcasecmp((string) $countryFilter->countryName, (string) $defaultCountry->name) === 0
+        ) {
+            return true;
+        }
+
+        return false;
     }
 
     private function transformProgramEvent(ProgramEvent $event): array

@@ -21,6 +21,7 @@ use App\Http\Controllers\API\ParentUniversalAccountController;
 use App\Http\Controllers\API\ProductController;
 use App\Http\Controllers\API\ProductReviewController;
 use App\Http\Controllers\API\ProgramRegistrationController;
+use App\Http\Controllers\API\PublicAdvertisementsController;
 use App\Http\Controllers\API\PublicCountryController;
 use App\Http\Controllers\API\PublicKidsEventsController;
 use App\Http\Controllers\API\PublicKidsFunVenuesController;

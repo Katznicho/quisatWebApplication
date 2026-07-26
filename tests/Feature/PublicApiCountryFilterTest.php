@@ -4,9 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\Business;
 use App\Models\Country;
+use App\Models\Currency;
 use App\Models\Feature;
 use App\Models\ParentGuardian;
 use App\Models\Product;
+use App\Models\Program;
+use App\Models\ProgramEvent;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -194,5 +197,49 @@ class PublicApiCountryFilterTest extends TestCase
 
         $response->assertStatus(403)
             ->assertJsonPath('code', 'COUNTRY_MISMATCH');
+    }
+
+    public function test_christian_kids_hub_programs_show_for_uganda_not_kenya(): void
+    {
+        $currency = Currency::create([
+            'name' => 'Uganda Shilling',
+            'code' => 'UGX',
+            'symbol' => 'UGX',
+            'exchange_rate' => 1,
+        ]);
+
+        $program = Program::create([
+            'name' => 'Bible Adventure',
+            'description' => 'Faith-based kids program',
+            'status' => 'active',
+        ]);
+
+        $kenyaBusiness = Business::factory()->create([
+            'country_id' => $this->kenya->id,
+            'country' => 'Kenya',
+        ]);
+
+        ProgramEvent::create([
+            'program_ids' => [$program->id],
+            'name' => 'Creation Week',
+            'description' => 'Learn about creation',
+            'start_date' => now()->addDay()->toDateString(),
+            'end_date' => now()->addDays(2)->toDateString(),
+            'price' => 0,
+            'status' => 'open',
+            'location' => 'Church Hall',
+            'currency_id' => $currency->id,
+            'business_id' => $kenyaBusiness->id,
+            'user_id' => User::factory()->create()->id,
+        ]);
+
+        $ugandaResponse = $this->getJson('/api/v1/programmes?country_id='.$this->uganda->id);
+        $kenyaResponse = $this->getJson('/api/v1/programmes?country_id='.$this->kenya->id);
+
+        $ugandaNames = collect($ugandaResponse->json('data.programs'))->pluck('name')->all();
+        $kenyaNames = collect($kenyaResponse->json('data.programs'))->pluck('name')->all();
+
+        $this->assertContains('Bible Adventure', $ugandaNames);
+        $this->assertNotContains('Bible Adventure', $kenyaNames);
     }
 }

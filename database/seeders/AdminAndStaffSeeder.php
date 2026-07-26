@@ -25,6 +25,11 @@ class AdminAndStaffSeeder extends Seeder
             ]
         );
 
+        $uganda = \App\Models\Country::query()
+            ->where('is_default', true)
+            ->orWhereRaw('LOWER(name) = ?', ['uganda'])
+            ->first();
+
         // Create a system business (business_id = 1)
         $systemBusiness = Business::firstOrCreate(
             ['id' => 1],
@@ -33,13 +38,22 @@ class AdminAndStaffSeeder extends Seeder
                 'email' => 'admin@system.com',
                 'phone' => '+1234567890',
                 'address' => 'System Address',
-                'city' => 'System City',
-                'country' => 'System Country',
+                'city' => 'Kampala',
+                'country' => $uganda?->name ?? 'Uganda',
+                'country_id' => $uganda?->id,
                 'account_number' => 'SYS001',
                 'business_category_id' => $businessCategory->id,
                 'status' => 'active',
             ]
         );
+
+        if ($uganda) {
+            $systemBusiness->update([
+                'city' => $systemBusiness->city ?: 'Kampala',
+                'country' => 'Uganda',
+                'country_id' => $uganda->id,
+            ]);
+        }
 
         // Create roles
         $adminRole = Role::firstOrCreate(
