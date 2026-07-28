@@ -7,12 +7,16 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
 use App\Models\ParentGuardian;
+use App\Services\ConversationMessageNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class ConversationController extends Controller
 {
+    public function __construct(
+        protected ConversationMessageNotificationService $messageNotifications
+    ) {}
     public function index(Request $request)
     {
         $businessId = $request->get('business_id');
@@ -167,7 +171,7 @@ class ConversationController extends Controller
 
         $messagesQuery = $conversation->messages()
             ->with('sender:id,name,email,profile_photo_path')
-            ->orderBy('created_at', 'desc');
+            ->orderBy('created_at', 'asc');
 
         $pivot = $conversation->users()->where('user_id', $user->id)->first()?->pivot;
         if ($pivot && $pivot->cleared_at !== null) {
@@ -285,6 +289,8 @@ class ConversationController extends Controller
         }
 
         $message->load('sender:id,name,email,profile_photo_path');
+
+        $this->notifyNewMessage($conversation, $message, $user);
 
         return response()->json([
             'success' => true,
@@ -461,6 +467,8 @@ class ConversationController extends Controller
 
                     $existingConversation->load(['users:id,name,email,profile_photo_path', 'latestMessage.sender:id,name,email,profile_photo_path']);
 
+                    $this->notifyNewMessage($existingConversation, $message, $user);
+
                     return response()->json([
                         'success' => true,
                         'message' => 'Message sent to existing conversation.',
@@ -517,6 +525,10 @@ class ConversationController extends Controller
             DB::commit();
 
             $conversation->load(['users:id,name,email,profile_photo_path', 'latestMessage.sender:id,name,email,profile_photo_path']);
+
+            if ($message) {
+                $this->notifyNewMessage($conversation, $message, $user);
+            }
 
             $responseData = [
                 'success' => true,
@@ -708,6 +720,19 @@ class ConversationController extends Controller
     protected function userInConversation(Conversation $conversation, User $user): bool
     {
         return $conversation->participants()->where('user_id', $user->id)->exists();
+    }
+
+    protected function notifyNewMessage(Conversation $conversation, Message $message, User $sender): void
+    {
+        try {
+            $this->messageNotifications->notify($conversation, $message, $sender);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to send message push notification', [
+                'conversation_id' => $conversation->id,
+                'message_id' => $message->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     protected function markMessagesAsRead(Conversation $conversation, User $user): void
