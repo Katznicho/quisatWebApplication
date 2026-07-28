@@ -128,6 +128,7 @@ Route::prefix('v1')->group(function () {
         // Parent Corner Registration (public - supports guest registration)
         Route::post('parent-corners/{eventId}/register', [\App\Http\Controllers\API\ParentCornerRegistrationController::class, 'store']);
 
+        
         // Kids Fun Venues
         Route::get('kids-fun-venues', [PublicKidsFunVenuesController::class, 'index']);
         Route::get('kids-fun-venues/{id}', [PublicKidsFunVenuesController::class, 'show']);
