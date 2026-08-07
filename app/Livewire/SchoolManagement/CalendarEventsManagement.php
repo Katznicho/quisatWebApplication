@@ -172,6 +172,8 @@ class CalendarEventsManagement extends Component implements HasForms, HasTable
                             $data['max_participants'] = null;
                         }
 
+                        $data['price'] = $data['price'] ?? 0;
+
                         $record->fill($data);
                         $record->save();
 
@@ -286,6 +288,8 @@ class CalendarEventsManagement extends Component implements HasForms, HasTable
                         if (array_key_exists('max_participants', $data) && $data['max_participants'] === '') {
                             $data['max_participants'] = null;
                         }
+
+                        $data['price'] = $data['price'] ?? 0;
 
                         return CalendarEvent::create($data);
                     })

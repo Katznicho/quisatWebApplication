@@ -76,8 +76,8 @@ class ParentCornerController extends Controller
             'end_date' => 'required|date|after:start_date',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'contact_info' => 'nullable|string',
-            'contact_email' => 'nullable|email',
-            'contact_phone' => 'nullable|string',
+            'contact_email' => 'nullable|email|max:255',
+            'contact_phone' => 'nullable|string|max:255',
             'organizer_name' => 'nullable|string|max:255',
             'organizer_email' => 'nullable|email|max:255',
             'organizer_phone' => 'nullable|string|max:255',
@@ -89,7 +89,10 @@ class ParentCornerController extends Controller
         if ($request->hasFile('image')) {
             $validated['image_url'] = $request->file('image')->store('parent-corners', 'public');
         }
+        unset($validated['image']);
 
+        // Empty price inputs become null; DB column is NOT NULL with default 0.
+        $validated['price'] = $validated['price'] ?? 0;
         $validated['business_id'] = Auth::user()->business_id;
         $validated['created_by'] = Auth::id();
         $validated['current_participants'] = 0;
@@ -159,8 +162,8 @@ class ParentCornerController extends Controller
             'status' => 'required|in:draft,published,completed,cancelled',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'contact_info' => 'nullable|string',
-            'contact_email' => 'nullable|email',
-            'contact_phone' => 'nullable|string',
+            'contact_email' => 'nullable|email|max:255',
+            'contact_phone' => 'nullable|string|max:255',
             'organizer_name' => 'nullable|string|max:255',
             'organizer_email' => 'nullable|email|max:255',
             'organizer_phone' => 'nullable|string|max:255',
@@ -176,6 +179,9 @@ class ParentCornerController extends Controller
             }
             $validated['image_url'] = $request->file('image')->store('parent-corners', 'public');
         }
+        unset($validated['image']);
+
+        $validated['price'] = $validated['price'] ?? 0;
 
         $parentCorner->update($validated);
 

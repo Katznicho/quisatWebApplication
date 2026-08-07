@@ -78,7 +78,7 @@ class RoleController extends Controller
         if (auth()->user()->role_id == 1) {
             $request->validate([
                 // 'name' => 'required|string|max:255',
-                'name' => 'required|string|unique:roles,name',
+                'name' => 'required|string|max:255|unique:roles,name',
                 'permissions_menu' => 'required',
                 // 'entity_id' => 'required',
                 // 'groups' => 'required|array',  // Validate that groups are selected
@@ -86,7 +86,7 @@ class RoleController extends Controller
         } else {
             $request->validate([
                 // 'name' => 'required|string|max:255',
-                'name' => 'required|string|unique:roles,name',
+                'name' => 'required|string|max:255|unique:roles,name',
                 'permissions_menu' => 'required',
                 // 'groups' => 'required|array',  // Validate that groups are selected
             ]);

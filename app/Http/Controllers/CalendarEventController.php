@@ -56,7 +56,7 @@ class CalendarEventController extends Controller
             'end_date' => 'required|date|after:start_date',
             'location' => 'nullable|string|max:255',
             'color' => 'nullable|string|max:7',
-            'event_type' => 'required|in:meeting,exam,holiday,workshop,other',
+            'event_type' => 'required|in:meeting,class,exam,holiday,activity,other',
             'priority' => 'required|in:low,medium,high,urgent',
             'is_all_day' => 'boolean',
             'is_recurring' => 'boolean',
@@ -81,7 +81,7 @@ class CalendarEventController extends Controller
             'recurrence_pattern' => $request->recurrence_pattern,
             'recurrence_days' => $request->recurrence_days,
             'recurrence_end_date' => $request->recurrence_end_date,
-            'status' => 'active',
+            'status' => 'published',
         ]);
 
         // Create notifications if specified
@@ -135,7 +135,7 @@ class CalendarEventController extends Controller
             'end_date' => 'required|date|after:start_date',
             'location' => 'nullable|string|max:255',
             'color' => 'nullable|string|max:7',
-            'event_type' => 'required|in:meeting,exam,holiday,workshop,other',
+            'event_type' => 'required|in:meeting,class,exam,holiday,activity,other',
             'priority' => 'required|in:low,medium,high,urgent',
             'is_all_day' => 'boolean',
             'is_recurring' => 'boolean',

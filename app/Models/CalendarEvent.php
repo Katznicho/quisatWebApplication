@@ -58,6 +58,11 @@ class CalendarEvent extends Model
         });
     }
 
+    public function setPriceAttribute($value): void
+    {
+        $this->attributes['price'] = $value === null || $value === '' ? 0 : $value;
+    }
+
     public function getRouteKeyName()
     {
         return 'uuid';

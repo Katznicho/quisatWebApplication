@@ -17,7 +17,7 @@ return new class extends Migration
             //program ids
             $table->json('program_ids');
             $table->string('name');
-            $table->string('description')->nullable();
+            $table->text('description')->nullable();
             $table->date('start_date');
             $table->date('end_date');
             $table->string('price')->default(0);

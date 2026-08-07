@@ -286,13 +286,19 @@ class ProgramController extends Controller
             $selectedCurrencyId = Currency::query()->value('id');
         }
 
+        if (empty($selectedCurrencyId)) {
+            return redirect()->back()
+                ->withInput()
+                ->withErrors(['currency_id' => 'No currency is configured. Please set up currencies before creating program events.']);
+        }
+
         $eventData = [
             'program_ids' => [$program->id],
             'name' => $request->name,
             'description' => $request->description,
             'start_date' => $request->start_date,
             'end_date' => $request->end_date,
-            'price' => $request->price,
+            'price' => $request->price ?? 0,
             'status' => 'upcoming',
             'location' => $request->location,
             'currency_id' => $selectedCurrencyId,

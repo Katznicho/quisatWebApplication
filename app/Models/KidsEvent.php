@@ -60,6 +60,17 @@ class KidsEvent extends Model
         'social_media_handles' => 'array',
     ];
 
+    protected $attributes = [
+        'price' => 0,
+        'current_participants' => 0,
+        'status' => 'draft',
+    ];
+
+    public function setPriceAttribute($value): void
+    {
+        $this->attributes['price'] = $value === null || $value === '' ? 0 : $value;
+    }
+
     // Relationships
     public function business(): BelongsTo
     {

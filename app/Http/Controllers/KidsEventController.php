@@ -87,8 +87,8 @@ class KidsEventController extends Controller
             'requirements' => 'nullable|array',
             'requirements.*' => 'string',
             'contact_info' => 'nullable|string',
-            'contact_email' => 'nullable|email',
-            'contact_phone' => 'nullable|string',
+            'contact_email' => 'nullable|email|max:255',
+            'contact_phone' => 'nullable|string|max:255',
             'organizer_name' => 'nullable|string|max:255',
             'organizer_email' => 'nullable|email|max:255',
             'organizer_phone' => 'nullable|string|max:255',
@@ -100,7 +100,10 @@ class KidsEventController extends Controller
         if ($request->hasFile('image')) {
             $validated['image_url'] = $request->file('image')->store('kids-events', 'public');
         }
+        unset($validated['image']);
 
+        // Empty price inputs become null; DB column is NOT NULL with default 0.
+        $validated['price'] = $validated['price'] ?? 0;
         $validated['business_id'] = Auth::user()->business_id;
         $validated['created_by'] = Auth::id();
         $validated['current_participants'] = 0;
@@ -158,8 +161,8 @@ class KidsEventController extends Controller
             'requirements' => 'nullable|array',
             'requirements.*' => 'string',
             'contact_info' => 'nullable|string',
-            'contact_email' => 'nullable|email',
-            'contact_phone' => 'nullable|string',
+            'contact_email' => 'nullable|email|max:255',
+            'contact_phone' => 'nullable|string|max:255',
             'organizer_name' => 'nullable|string|max:255',
             'organizer_email' => 'nullable|email|max:255',
             'organizer_phone' => 'nullable|string|max:255',
@@ -175,6 +178,9 @@ class KidsEventController extends Controller
             }
             $validated['image_url'] = $request->file('image')->store('kids-events', 'public');
         }
+        unset($validated['image']);
+
+        $validated['price'] = $validated['price'] ?? 0;
 
         $kidsEvent->update($validated);
 
