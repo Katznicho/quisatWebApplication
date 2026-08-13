@@ -311,35 +311,35 @@ class FeeManagement extends Component implements HasForms, HasTable
                 Tables\Actions\ActionGroup::make([
                     Action::make('csv_payments')
                         ->label('All payments · CSV')
-                        ->url(fn () => route('fees.report.csv', ['type' => 'payments']))
+                        ->url(fn () => route('school-management.fees.report.csv', ['type' => 'payments']))
                         ->openUrlInNewTab(),
                     Action::make('pdf_payments')
                         ->label('All payments · PDF')
-                        ->url(fn () => route('fees.report.pdf', ['type' => 'payments']))
+                        ->url(fn () => route('school-management.fees.report.pdf', ['type' => 'payments']))
                         ->openUrlInNewTab(),
                     Action::make('csv_pending')
                         ->label('Pending / arrears · CSV')
-                        ->url(fn () => route('fees.report.csv', ['type' => 'pending']))
+                        ->url(fn () => route('school-management.fees.report.csv', ['type' => 'pending']))
                         ->openUrlInNewTab(),
                     Action::make('pdf_pending')
                         ->label('Pending / arrears · PDF')
-                        ->url(fn () => route('fees.report.pdf', ['type' => 'pending']))
+                        ->url(fn () => route('school-management.fees.report.pdf', ['type' => 'pending']))
                         ->openUrlInNewTab(),
                     Action::make('csv_methods')
                         ->label('By method · CSV')
-                        ->url(fn () => route('fees.report.csv', ['type' => 'methods']))
+                        ->url(fn () => route('school-management.fees.report.csv', ['type' => 'methods']))
                         ->openUrlInNewTab(),
                     Action::make('pdf_methods')
                         ->label('By method · PDF')
-                        ->url(fn () => route('fees.report.pdf', ['type' => 'methods']))
+                        ->url(fn () => route('school-management.fees.report.pdf', ['type' => 'methods']))
                         ->openUrlInNewTab(),
                     Action::make('csv_recent')
                         ->label('Recent payments · CSV')
-                        ->url(fn () => route('fees.report.csv', ['type' => 'recent']))
+                        ->url(fn () => route('school-management.fees.report.csv', ['type' => 'recent']))
                         ->openUrlInNewTab(),
                     Action::make('pdf_recent')
                         ->label('Recent payments · PDF')
-                        ->url(fn () => route('fees.report.pdf', ['type' => 'recent']))
+                        ->url(fn () => route('school-management.fees.report.pdf', ['type' => 'recent']))
                         ->openUrlInNewTab(),
                 ])
                     ->label('Download / print reports')
