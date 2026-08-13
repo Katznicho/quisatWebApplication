@@ -4,6 +4,8 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\DeviceToken;
+use App\Models\ParentGuardian;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -20,6 +22,14 @@ class DeviceTokenController extends Controller
         ]);
 
         $owner = $request->user();
+        $attributes = [
+            'push_token' => $validated['push_token'],
+            'platform' => $validated['platform'],
+            'device_name' => $validated['device_name'] ?? null,
+            'app_version' => $validated['app_version'] ?? null,
+            'is_active' => true,
+            'last_used_at' => now(),
+        ];
 
         $token = DeviceToken::updateOrCreate(
             [
@@ -27,15 +37,19 @@ class DeviceTokenController extends Controller
                 'tokenable_id' => $owner->getKey(),
                 'device_id' => $validated['device_id'],
             ],
-            [
-                'push_token' => $validated['push_token'],
-                'platform' => $validated['platform'],
-                'device_name' => $validated['device_name'] ?? null,
-                'app_version' => $validated['app_version'] ?? null,
-                'is_active' => true,
-                'last_used_at' => now(),
-            ]
+            $attributes
         );
+
+        foreach ($this->linkedOwners($owner) as $linked) {
+            DeviceToken::updateOrCreate(
+                [
+                    'tokenable_type' => $linked::class,
+                    'tokenable_id' => $linked->getKey(),
+                    'device_id' => $validated['device_id'],
+                ],
+                $attributes
+            );
+        }
 
         return response()->json([
             'success' => true,
@@ -55,16 +69,49 @@ class DeviceTokenController extends Controller
         ]);
 
         $owner = $request->user();
+        $owners = collect([$owner])->merge($this->linkedOwners($owner));
 
         DeviceToken::query()
-            ->where('tokenable_type', $owner::class)
-            ->where('tokenable_id', $owner->getKey())
             ->where('device_id', $validated['device_id'])
+            ->where(function ($query) use ($owners) {
+                foreach ($owners as $tokenOwner) {
+                    $query->orWhere(function ($ownerQuery) use ($tokenOwner) {
+                        $ownerQuery
+                            ->where('tokenable_type', $tokenOwner::class)
+                            ->where('tokenable_id', $tokenOwner->getKey());
+                    });
+                }
+            })
             ->update(['is_active' => false]);
 
         return response()->json([
             'success' => true,
             'message' => 'Device unregistered from push notifications.',
         ]);
+    }
+
+    /**
+     * @return array<int, User|ParentGuardian>
+     */
+    protected function linkedOwners($owner): array
+    {
+        $email = strtolower(trim((string) ($owner->email ?? '')));
+        if ($email === '') {
+            return [];
+        }
+
+        if ($owner instanceof ParentGuardian) {
+            $user = User::query()->whereRaw('LOWER(TRIM(email)) = ?', [$email])->first();
+
+            return $user ? [$user] : [];
+        }
+
+        if ($owner instanceof User) {
+            $parent = ParentGuardian::query()->whereRaw('LOWER(TRIM(email)) = ?', [$email])->first();
+
+            return $parent ? [$parent] : [];
+        }
+
+        return [];
     }
 }

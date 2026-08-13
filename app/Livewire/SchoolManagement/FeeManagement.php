@@ -4,26 +4,29 @@ namespace App\Livewire\SchoolManagement;
 
 use App\Models\Fee;
 use App\Models\Student;
-use App\Models\Term;
+use App\Services\FeeInvoiceService;
+use App\Services\FeeParentNotificationService;
 use App\Support\TenantScope;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Tables;
+use Filament\Tables\Actions\Action;
+use Filament\Tables\Actions\CreateAction;
+use Filament\Tables\Actions\DeleteAction;
+use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
-use Filament\Tables\Table;
-use Filament\Tables\Actions\CreateAction;
-use Filament\Tables\Actions\EditAction;
-use Filament\Tables\Actions\DeleteAction;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
-use Livewire\Component;
+use Filament\Tables\Table;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use Livewire\Component;
 
 class FeeManagement extends Component implements HasForms, HasTable
 {
@@ -45,21 +48,7 @@ class FeeManagement extends Component implements HasForms, HasTable
             ->orderBy('last_name')
             ->get()
             ->mapWithKeys(fn (Student $student) => [
-                $student->id => trim("{$student->first_name} {$student->last_name}"),
-            ])
-            ->all();
-    }
-
-    private function termOptions(): array
-    {
-        $businessId = $this->businessId();
-
-        return Term::query()
-            ->when($businessId, fn (Builder $q) => $q->where('business_id', $businessId))
-            ->orderByDesc('start_date')
-            ->get()
-            ->mapWithKeys(fn (Term $term) => [
-                $term->id => trim("{$term->name} ({$term->academic_year})"),
+                $student->id => trim("{$student->first_name} {$student->last_name} ({$student->student_id})"),
             ])
             ->all();
     }
@@ -72,69 +61,61 @@ class FeeManagement extends Component implements HasForms, HasTable
                 ->options(fn () => $this->studentOptions())
                 ->searchable()
                 ->required(),
-            Select::make('term_id')
+            TextInput::make('term_label')
                 ->label('Term')
-                ->options(fn () => $this->termOptions())
-                ->searchable()
-                ->nullable(),
-            Select::make('fee_type')
-                ->label('Fee Type')
-                ->options([
-                    'tuition' => 'Tuition',
-                    'library' => 'Library',
-                    'transport' => 'Transport',
-                    'laboratory' => 'Laboratory',
-                    'sports' => 'Sports',
-                    'other' => 'Other',
-                ])
-                ->required(),
+                ->maxLength(255)
+                ->placeholder('e.g. Term 1 2026')
+                ->helperText('Type the term or billing period. This is not a dropdown.'),
+            TextInput::make('fee_type')
+                ->label('Fee / bill type')
+                ->required()
+                ->maxLength(255)
+                ->placeholder('e.g. Tuition, Uniform, Exam fee')
+                ->datalist([
+                    'Tuition',
+                    'Library',
+                    'Transport',
+                    'Laboratory',
+                    'Sports',
+                    'Uniform',
+                    'Exam fee',
+                    'Development fee',
+                    'Other',
+                ]),
             TextInput::make('amount')
                 ->numeric()
                 ->required()
                 ->minValue(0)
                 ->placeholder('Enter amount'),
-            TextInput::make('amount_paid')
-                ->numeric()
-                ->default(0)
-                ->minValue(0)
-                ->placeholder('Enter amount paid'),
             DatePicker::make('due_date')
                 ->required(),
-            Select::make('payment_status')
-                ->options([
-                    'pending' => 'Pending',
-                    'partial' => 'Partial',
-                    'paid' => 'Paid',
-                    'overdue' => 'Overdue',
-                    'waived' => 'Waived',
-                ])
-                ->default('pending')
-                ->required(),
-            Select::make('payment_method')
-                ->options([
-                    'cash' => 'Cash',
-                    'mobile_money' => 'Mobile Money',
-                    'bank_transfer' => 'Bank Transfer',
-                    'check' => 'Check',
-                ])
-                ->nullable(),
-            DatePicker::make('payment_date')
-                ->nullable(),
-            TextInput::make('receipt_number')
-                ->placeholder('Enter receipt number')
-                ->maxLength(255),
             Textarea::make('notes')
                 ->placeholder('Enter notes')
                 ->rows(3),
+            Select::make('external_payment_system')
+                ->label('Other payment system')
+                ->options([
+                    'school_pay' => 'School Pay',
+                    'sure_pay' => 'Sure Pay',
+                    'other' => 'Other',
+                ])
+                ->placeholder('None (MarzPay / cash in app)')
+                ->nullable(),
+            TextInput::make('external_student_code')
+                ->label('External student code / ID')
+                ->maxLength(255)
+                ->placeholder('School Pay / Sure Pay student code')
+                ->visible(fn ($get) => filled($get('external_payment_system'))),
         ];
     }
 
-    private function normalizeFeeData(array $data): array
+    private function normalizeShared(array $data): array
     {
-        $amount = (float) ($data['amount'] ?? 0);
-        $amountPaid = (float) ($data['amount_paid'] ?? 0);
-        $data['amount_paid'] = $amountPaid;
-        $data['balance'] = max($amount - $amountPaid, 0);
+        $data['fee_type'] = trim((string) ($data['fee_type'] ?? ''));
+        $data['term_label'] = trim((string) ($data['term_label'] ?? '')) ?: null;
+        $data['external_payment_system'] = $data['external_payment_system'] ?: null;
+        $data['external_student_code'] = trim((string) ($data['external_student_code'] ?? '')) ?: null;
+        unset($data['term_id'], $data['payment_status'], $data['payment_date'], $data['receipt_number'], $data['payment_method']);
 
         if (! TenantScope::isSuperAdmin()) {
             $data['business_id'] = TenantScope::businessId();
@@ -146,9 +127,47 @@ class FeeManagement extends Component implements HasForms, HasTable
         return $data;
     }
 
+    private function normalizeCreateData(array $data): array
+    {
+        $data = $this->normalizeShared($data);
+        $amount = (float) ($data['amount'] ?? 0);
+        $data['amount_paid'] = 0;
+        $data['balance'] = $amount;
+        $data['payment_status'] = 'pending';
+        $data['payment_date'] = null;
+        $data['receipt_number'] = null;
+        $data['payment_method'] = null;
+
+        return $data;
+    }
+
+    private function normalizeEditData(array $data, Fee $record): array
+    {
+        $data = $this->normalizeShared($data);
+        $amount = (float) ($data['amount'] ?? $record->amount);
+        $data['balance'] = max($amount - (float) $record->amount_paid, 0);
+
+        return $data;
+    }
+
+    public function stats(): array
+    {
+        $query = Fee::query();
+        TenantScope::apply($query);
+        $fees = $query->get();
+
+        return [
+            'billed' => (float) $fees->sum('amount'),
+            'paid' => (float) $fees->sum('amount_paid'),
+            'pending' => (float) $fees->sum(fn (Fee $fee) => max($fee->remainingBalance(), 0)),
+            'arrears' => (float) $fees->sum(fn (Fee $fee) => $fee->arrears()),
+            'credits' => (float) $fees->sum(fn (Fee $fee) => $fee->credit()),
+        ];
+    }
+
     public function table(Table $table): Table
     {
-        $query = Fee::query()->with(['student', 'term']);
+        $query = Fee::query()->with(['student.parentGuardian', 'term', 'payments']);
         TenantScope::apply($query);
 
         return $table
@@ -157,23 +176,24 @@ class FeeManagement extends Component implements HasForms, HasTable
                 Tables\Columns\TextColumn::make('student.first_name')
                     ->label('Student')
                     ->formatStateUsing(fn ($state, Fee $record) => trim(
-                        ($record->student?->first_name ?? '') . ' ' . ($record->student?->last_name ?? '')
+                        ($record->student?->first_name ?? '').' '.($record->student?->last_name ?? '')
                     ))
-                    ->searchable(['students.first_name', 'students.last_name'])
+                    ->searchable(['students.first_name', 'students.last_name', 'students.student_id'])
                     ->sortable(),
-                Tables\Columns\TextColumn::make('term.name')
+                Tables\Columns\TextColumn::make('student.parentGuardian.first_name')
+                    ->label('Parent')
+                    ->formatStateUsing(fn ($state, Fee $record) => $record->student?->parentGuardian?->full_name)
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('term_label')
                     ->label('Term')
+                    ->formatStateUsing(fn ($state, Fee $record) => $record->displayTerm() ?: '—')
+                    ->searchable()
                     ->sortable(),
-                Tables\Columns\BadgeColumn::make('fee_type')
+                Tables\Columns\TextColumn::make('fee_type')
                     ->label('Type')
-                    ->colors([
-                        'primary' => 'tuition',
-                        'success' => 'transport',
-                        'warning' => 'library',
-                        'danger' => 'laboratory',
-                        'info' => 'sports',
-                        'secondary' => 'other',
-                    ]),
+                    ->badge()
+                    ->searchable()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('amount')
                     ->money('UGX')
                     ->sortable(),
@@ -186,6 +206,10 @@ class FeeManagement extends Component implements HasForms, HasTable
                 Tables\Columns\TextColumn::make('due_date')
                     ->date()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('payment_date')
+                    ->label('Paid on')
+                    ->date()
+                    ->toggleable(),
                 Tables\Columns\BadgeColumn::make('payment_status')
                     ->colors([
                         'warning' => 'pending',
@@ -195,6 +219,15 @@ class FeeManagement extends Component implements HasForms, HasTable
                         'secondary' => 'waived',
                     ]),
                 Tables\Columns\TextColumn::make('payment_method')
+                    ->label('Method')
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('receipt_number')
+                    ->label('Receipt')
+                    ->searchable()
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('external_student_code')
+                    ->label('External ID')
+                    ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
@@ -202,13 +235,42 @@ class FeeManagement extends Component implements HasForms, HasTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                SelectFilter::make('payment_status')
+                    ->options([
+                        'pending' => 'Pending',
+                        'partial' => 'Partial',
+                        'overdue' => 'Overdue / arrears',
+                        'paid' => 'Paid',
+                        'waived' => 'Waived',
+                    ]),
+                SelectFilter::make('payment_method')
+                    ->options([
+                        'mobile_money' => 'MarzPay mobile money',
+                        'card' => 'MarzPay card',
+                        'cash' => 'Cash',
+                        'other' => 'Other / attached proof',
+                    ]),
+                SelectFilter::make('external_payment_system')
+                    ->label('External system')
+                    ->options([
+                        'school_pay' => 'School Pay',
+                        'sure_pay' => 'Sure Pay',
+                        'other' => 'Other',
+                    ]),
                 TrashedFilter::make(),
             ])
             ->actions([
+                Action::make('view_proof')
+                    ->label('Receipts')
+                    ->icon('heroicon-o-photo')
+                    ->visible(fn (Fee $record) => $record->payments->contains(fn ($p) => filled($p->proof_url) || filled($p->receipt_number)))
+                    ->modalHeading('Payments & attached receipts')
+                    ->modalContent(fn (Fee $record): View => view('fees.payment-proofs', ['fee' => $record->load('payments')]))
+                    ->modalSubmitAction(false),
                 EditAction::make()
                     ->modalHeading('Edit Fee')
                     ->form($this->feeFormSchema())
-                    ->mutateFormDataUsing(fn (array $data): array => $this->normalizeFeeData($data))
+                    ->mutateFormDataUsing(fn (array $data, Fee $record): array => $this->normalizeEditData($data, $record))
                     ->successNotificationTitle('Fee updated successfully.'),
                 DeleteAction::make()
                     ->modalHeading('Delete Fee')
@@ -226,19 +288,70 @@ class FeeManagement extends Component implements HasForms, HasTable
                     ->label('Add Fee')
                     ->modalHeading('Add New Fee')
                     ->form($this->feeFormSchema())
-                    ->mutateFormDataUsing(fn (array $data): array => $this->normalizeFeeData($data))
+                    ->mutateFormDataUsing(fn (array $data): array => $this->normalizeCreateData($data))
                     ->createAnother(false)
                     ->after(function (Fee $record) {
+                        try {
+                            app(FeeInvoiceService::class)->generate($record);
+                        } catch (\Throwable $e) {
+                            report($e);
+                        }
+
+                        try {
+                            app(FeeParentNotificationService::class)->notifyCreated($record);
+                        } catch (\Throwable $e) {
+                            report($e);
+                        }
+
                         Notification::make()
                             ->title('Fee created successfully.')
                             ->success()
                             ->send();
                     }),
+                Tables\Actions\ActionGroup::make([
+                    Action::make('csv_payments')
+                        ->label('All payments · CSV')
+                        ->url(fn () => route('fees.report.csv', ['type' => 'payments']))
+                        ->openUrlInNewTab(),
+                    Action::make('pdf_payments')
+                        ->label('All payments · PDF')
+                        ->url(fn () => route('fees.report.pdf', ['type' => 'payments']))
+                        ->openUrlInNewTab(),
+                    Action::make('csv_pending')
+                        ->label('Pending / arrears · CSV')
+                        ->url(fn () => route('fees.report.csv', ['type' => 'pending']))
+                        ->openUrlInNewTab(),
+                    Action::make('pdf_pending')
+                        ->label('Pending / arrears · PDF')
+                        ->url(fn () => route('fees.report.pdf', ['type' => 'pending']))
+                        ->openUrlInNewTab(),
+                    Action::make('csv_methods')
+                        ->label('By method · CSV')
+                        ->url(fn () => route('fees.report.csv', ['type' => 'methods']))
+                        ->openUrlInNewTab(),
+                    Action::make('pdf_methods')
+                        ->label('By method · PDF')
+                        ->url(fn () => route('fees.report.pdf', ['type' => 'methods']))
+                        ->openUrlInNewTab(),
+                    Action::make('csv_recent')
+                        ->label('Recent payments · CSV')
+                        ->url(fn () => route('fees.report.csv', ['type' => 'recent']))
+                        ->openUrlInNewTab(),
+                    Action::make('pdf_recent')
+                        ->label('Recent payments · PDF')
+                        ->url(fn () => route('fees.report.pdf', ['type' => 'recent']))
+                        ->openUrlInNewTab(),
+                ])
+                    ->label('Download / print reports')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->button(),
             ]);
     }
 
     public function render(): View
     {
-        return view('livewire.school-management.fee-management');
+        return view('livewire.school-management.fee-management', [
+            'stats' => $this->stats(),
+        ]);
     }
 }

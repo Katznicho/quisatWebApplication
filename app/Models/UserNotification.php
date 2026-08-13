@@ -50,4 +50,17 @@ class UserNotification extends Model
             $this->update(['read_at' => now()]);
         }
     }
+
+    public static function unreadCountFor(?string $type, $id): int
+    {
+        if (! $type || $id === null || $id === '') {
+            return 0;
+        }
+
+        return static::query()
+            ->where('notifiable_type', $type)
+            ->where('notifiable_id', $id)
+            ->whereNull('read_at')
+            ->count();
+    }
 }

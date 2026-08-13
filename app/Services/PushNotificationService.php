@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\DeviceToken;
 use App\Models\PushBroadcast;
+use App\Models\UserNotification;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Minishlink\WebPush\Subscription;
@@ -14,7 +15,9 @@ class PushNotificationService
     public function sendToToken(DeviceToken $token, string $title, string $body, ?array $data = null): bool
     {
         if ($token->isExpo()) {
-            return $this->sendExpo($token->push_token, $title, $body, $data);
+            $badge = UserNotification::unreadCountFor($token->tokenable_type, $token->tokenable_id);
+
+            return $this->sendExpo($token->push_token, $title, $body, $data, $badge);
         }
 
         if ($token->isWeb()) {
@@ -24,13 +27,13 @@ class PushNotificationService
         return false;
     }
 
-    public function sendExpo(string $expoToken, string $title, string $body, ?array $data = null): bool
+    public function sendExpo(string $expoToken, string $title, string $body, ?array $data = null, ?int $badge = null): bool
     {
         if (! str_starts_with($expoToken, 'ExponentPushToken[') && ! str_starts_with($expoToken, 'ExpoPushToken[')) {
             return false;
         }
 
-        $payload = $this->buildExpoPayload($expoToken, $title, $body, $data);
+        $payload = $this->buildExpoPayload($expoToken, $title, $body, $data, $badge);
 
         $request = Http::acceptJson()->asJson();
 
@@ -123,20 +126,20 @@ class PushNotificationService
      */
     public function sendExpoBatch(iterable $tokens, string $title, string $body, ?array $data = null): array
     {
-        $expoTokens = collect($tokens)
-            ->filter(fn (DeviceToken $t) => $t->isExpo())
-            ->pluck('push_token')
-            ->filter()
+        $messages = collect($tokens)
+            ->filter(fn (DeviceToken $t) => $t->isExpo() && $t->push_token)
+            ->unique('push_token')
+            ->map(function (DeviceToken $token) use ($title, $body, $data) {
+                $badge = UserNotification::unreadCountFor($token->tokenable_type, $token->tokenable_id);
+
+                return $this->buildExpoPayload($token->push_token, $title, $body, $data, $badge);
+            })
             ->values()
             ->all();
 
-        if ($expoTokens === []) {
+        if ($messages === []) {
             return ['sent' => 0, 'failed' => 0];
         }
-
-        $messages = array_map(function (string $to) use ($title, $body, $data) {
-            return $this->buildExpoPayload($to, $title, $body, $data);
-        }, $expoTokens);
 
         $request = Http::acceptJson()->asJson();
 
@@ -187,7 +190,7 @@ class PushNotificationService
     /**
      * @return array<string, mixed>
      */
-    protected function buildExpoPayload(string $expoToken, string $title, string $body, ?array $data): array
+    protected function buildExpoPayload(string $expoToken, string $title, string $body, ?array $data, ?int $badge = null): array
     {
         $payload = [
             'to' => $expoToken,
@@ -195,7 +198,12 @@ class PushNotificationService
             'body' => $body,
             'sound' => 'default',
             'priority' => 'high',
+            'channelId' => $this->resolveAndroidChannel($data),
         ];
+
+        if ($badge !== null) {
+            $payload['badge'] = max(0, $badge);
+        }
 
         $imageUrl = $data['imageUrl'] ?? null;
 
@@ -205,9 +213,47 @@ class PushNotificationService
         }
 
         if ($data) {
-            $payload['data'] = $data;
+            $payload['data'] = $this->stringifyExpoData($data);
         }
 
         return $payload;
+    }
+
+    /**
+     * Expo iOS payloads require string values in the data map.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, string>
+     */
+    protected function stringifyExpoData(array $data): array
+    {
+        $stringified = [];
+
+        foreach ($data as $key => $value) {
+            if (is_array($value) || is_object($value)) {
+                $stringified[(string) $key] = json_encode($value) ?: '';
+                continue;
+            }
+
+            if (is_bool($value)) {
+                $stringified[(string) $key] = $value ? 'true' : 'false';
+                continue;
+            }
+
+            $stringified[(string) $key] = $value === null ? '' : (string) $value;
+        }
+
+        return $stringified;
+    }
+
+    protected function resolveAndroidChannel(?array $data): string
+    {
+        $type = strtolower((string) ($data['type'] ?? ''));
+
+        if ($type === 'message' || str_contains($type, 'message')) {
+            return 'messages';
+        }
+
+        return 'default';
     }
 }

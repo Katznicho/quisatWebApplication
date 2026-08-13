@@ -9,12 +9,16 @@ use App\Models\User;
 use App\Models\ParentGuardian;
 use App\Models\Student;
 use App\Models\BroadcastAnnouncement;
+use App\Services\ConversationMessageNotificationService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class ChatController extends Controller
 {
+    public function __construct(
+        protected ConversationMessageNotificationService $messageNotifications
+    ) {}
     /**
      * Display the main chat interface
      */
@@ -311,6 +315,7 @@ class ChatController extends Controller
 
                     // Update last message timestamp
                     $existingConversation->update(['last_message_at' => now()]);
+                    $this->notifyConversationMessage($existingConversation, $message, $user);
 
                     return response()->json([
                         'conversation' => $existingConversation->load('users'),
@@ -355,6 +360,10 @@ class ChatController extends Controller
             }
 
             DB::commit();
+
+            if ($message) {
+                $this->notifyConversationMessage($conversation, $message, $user);
+            }
 
             return response()->json([
                 'conversation' => $conversation->load('users'),
@@ -450,6 +459,7 @@ class ChatController extends Controller
 
         // Update conversation's last message time
         $conversation->update(['last_message_at' => $message->created_at]);
+        $this->notifyConversationMessage($conversation, $message, $user);
 
         return response()->json([
             'message' => $message->load('sender'),
@@ -664,10 +674,24 @@ class ChatController extends Controller
             'type' => $request->type ?? 'general',
             'target_roles' => $targetRoles,
             'target_users' => $request->target_users,
-            'channels' => ['in_app'],
+            'channels' => ['push', 'in_app'],
             'status' => 'sent',
             'sent_at' => now()
         ]);
+
+        try {
+            $announcementForPush = $broadcast->replicate();
+            $announcementForPush->id = $broadcast->id;
+            $announcementForPush->exists = true;
+            $announcementForPush->status = 'published';
+            $announcementForPush->channels = ['push', 'in_app'];
+            app(\App\Services\AnnouncementNotificationService::class)->dispatch($announcementForPush);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to dispatch broadcast announcement push', [
+                'broadcast_id' => $broadcast->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         $broadcastMessageContent = '📢 **Broadcast: ' . $broadcast->title . "**\n\n" . $broadcast->content;
 
@@ -705,12 +729,13 @@ class ChatController extends Controller
                 ]);
             }
 
-            $conversation->messages()->create([
+            $message = $conversation->messages()->create([
                 'sender_id' => $user->id,
                 'content' => $broadcastMessageContent,
                 'type' => 'text',
             ]);
             $conversation->update(['last_message_at' => now()]);
+            $this->notifyConversationMessage($conversation, $message, $user);
         };
 
         // STAFF recipients
@@ -895,6 +920,23 @@ class ChatController extends Controller
             'message' => $meetingMessage,
             'success' => true
         ]);
+    }
+
+    protected function notifyConversationMessage(Conversation $conversation, ?Message $message, $sender): void
+    {
+        if (! $message instanceof Message || ! $sender instanceof User) {
+            return;
+        }
+
+        try {
+            $this->messageNotifications->notify($conversation, $message, $sender);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to send message push notification', [
+                'conversation_id' => $conversation->id,
+                'message_id' => $message->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

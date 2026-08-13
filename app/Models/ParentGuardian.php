@@ -93,6 +93,11 @@ class ParentGuardian extends Model
         return $this->hasMany(Student::class);
     }
 
+    public function children()
+    {
+        return $this->hasMany(ParentChild::class);
+    }
+
     public function hiddenAssignments()
     {
         return $this->belongsToMany(

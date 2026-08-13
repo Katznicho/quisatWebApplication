@@ -9,6 +9,7 @@ use App\Models\ClassAssignmentParentHidden;
 use App\Models\ParentGuardian;
 use App\Models\Timetable;
 use App\Models\User;
+use App\Services\AssignmentNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
@@ -222,6 +223,17 @@ class ClassAssignmentController extends Controller
             ]);
 
             $assignment->load(['classRoom:id,name,code', 'subject:id,name,code', 'teacher:id,name,email']);
+
+            if (($assignment->status ?? '') === 'published') {
+                try {
+                    app(AssignmentNotificationService::class)->notifyPublished($assignment);
+                } catch (\Throwable $e) {
+                    Log::warning('Failed to send assignment push notification', [
+                        'assignment_id' => $assignment->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
 
             return response()->json([
                 'success' => true,

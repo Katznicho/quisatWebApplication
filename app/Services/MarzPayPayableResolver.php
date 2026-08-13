@@ -6,6 +6,7 @@ use App\Models\Business;
 use App\Models\CalendarEventRegistration;
 use App\Models\ClinicAppointment;
 use App\Models\EventAttendee;
+use App\Models\Fee;
 use App\Models\KidsEventRegistration;
 use App\Models\Order;
 use App\Models\ParentCornerRegistration;
@@ -46,6 +47,10 @@ class MarzPayPayableResolver
                 ->where('uuid', $identifier)
                 ->orWhere('id', $identifier)
                 ->first(),
+            'school_fee', 'fee' => Fee::query()
+                ->where('uuid', $identifier)
+                ->orWhere('id', $identifier)
+                ->first(),
             default => null,
         };
     }
@@ -59,6 +64,7 @@ class MarzPayPayableResolver
             EventAttendee::class => 'program_registration',
             ClinicAppointment::class => 'clinic_appointment',
             CalendarEventRegistration::class => 'calendar_event_registration',
+            Fee::class => 'school_fee',
             default => Str::snake(class_basename($payable)),
         };
     }
@@ -126,6 +132,7 @@ class MarzPayPayableResolver
             EventAttendee::class => $payable->programEvent?->business,
             ClinicAppointment::class => $payable->business,
             CalendarEventRegistration::class => $payable->calendarEvent?->business,
+            Fee::class => $payable->business ?? $payable->student?->business,
             default => null,
         };
     }

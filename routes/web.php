@@ -278,6 +278,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/fees', function () {
             return view('school-management.fees');
         })->name('fees');
+        Route::get('/fees/report.csv', [\App\Http\Controllers\FeeReportController::class, 'csv'])->name('fees.report.csv');
+        Route::get('/fees/report.pdf', [\App\Http\Controllers\FeeReportController::class, 'pdf'])->name('fees.report.pdf');
 
         Route::get('/timetable', function () {
             return view('school-management.timetable');

@@ -21,7 +21,7 @@ class SendPushBroadcastJob
 
     public function handle(PushAudienceResolver $audienceResolver, PushNotificationService $pushService): void
     {
-        $broadcast = $this->broadcast->fresh();
+        $broadcast = $this->broadcast->fresh(['business.businessCategory']);
 
         if (! $broadcast || $broadcast->status === PushBroadcast::STATUS_SENT) {
             return;

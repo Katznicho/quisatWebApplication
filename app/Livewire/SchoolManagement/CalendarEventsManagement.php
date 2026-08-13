@@ -3,6 +3,7 @@
 namespace App\Livewire\SchoolManagement;
 
 use App\Models\CalendarEvent;
+use App\Services\CalendarEventNotificationService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
@@ -294,6 +295,12 @@ class CalendarEventsManagement extends Component implements HasForms, HasTable
                         return CalendarEvent::create($data);
                     })
                     ->after(function (CalendarEvent $record) {
+                        try {
+                            app(CalendarEventNotificationService::class)->notifyPublished($record);
+                        } catch (\Throwable $e) {
+                            report($e);
+                        }
+
                         Notification::make()
                             ->title('Event created successfully.')
                             ->success()

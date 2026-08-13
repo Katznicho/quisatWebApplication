@@ -3,9 +3,13 @@
 namespace App\Services;
 
 use App\Models\Business;
+use App\Models\ClinicPatient;
+use App\Models\ParentChild;
 use App\Models\ParentGuardian;
 use App\Models\ParentGuardianBusiness;
+use App\Models\Student;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class ParentUniversalCodeService
 {
@@ -100,7 +104,6 @@ class ParentUniversalCodeService
 
         $query = $withTrashed ? ParentGuardian::withTrashed() : ParentGuardian::query();
 
-        // Strip common formatting characters for comparison (portable across MySQL versions).
         return $query
             ->whereNotNull('phone')
             ->whereRaw(
@@ -128,6 +131,7 @@ class ParentUniversalCodeService
 
     /**
      * Idempotently attach a parent to a business and upgrade guest → linked.
+     * Also imports any children the parent registered in the app.
      */
     public function attachToBusiness(
         ParentGuardian $parent,
@@ -172,14 +176,106 @@ class ParentUniversalCodeService
             if (empty($parent->business_id)) {
                 $parentUpdates['business_id'] = $businessId;
             }
+            if ($relationship && empty($parent->relationship)) {
+                $parentUpdates['relationship'] = $relationship;
+            }
             if (! empty($parentUpdates)) {
                 $parent->forceFill($parentUpdates)->save();
             }
 
             $this->ensureCode($parent);
+            $this->importChildrenToBusiness($parent->fresh(['children']), $businessId);
 
             return $membership->fresh(['business']);
         });
+    }
+
+    /**
+     * Create school student records (and clinic patients when applicable)
+     * from the parent's registered children profiles.
+     *
+     * @return array{students: int, patients: int}
+     */
+    public function importChildrenToBusiness(ParentGuardian $parent, int $businessId): array
+    {
+        $business = Business::find($businessId);
+        if (! $business) {
+            return ['students' => 0, 'patients' => 0];
+        }
+
+        $parent->loadMissing('children');
+        $studentsCreated = 0;
+        $patientsCreated = 0;
+        $isClinic = $this->isClinicBusiness($business);
+        $clinicImporter = $isClinic ? app(ClinicPatientImportService::class) : null;
+
+        foreach ($parent->children as $child) {
+            /** @var ParentChild $child */
+            $student = Student::query()
+                ->where('parent_guardian_id', $parent->id)
+                ->where('business_id', $businessId)
+                ->where('first_name', $child->first_name)
+                ->where('last_name', $child->last_name)
+                ->whereDate('date_of_birth', $child->date_of_birth->toDateString())
+                ->first();
+
+            if (! $student) {
+                $student = Student::create([
+                    'first_name' => $child->first_name,
+                    'last_name' => $child->last_name,
+                    'email' => $this->uniqueChildEmail($parent, $child),
+                    'phone' => $child->phone ?: $parent->phone,
+                    'date_of_birth' => $child->date_of_birth,
+                    'gender' => $child->gender,
+                    'address' => $child->address ?: $parent->address,
+                    'city' => $child->city ?: $parent->city,
+                    'country' => $child->country ?: $parent->country,
+                    'student_id' => $this->uniqueStudentId(),
+                    'admission_date' => now()->toDateString(),
+                    'business_id' => $businessId,
+                    'parent_guardian_id' => $parent->id,
+                    'status' => 'active',
+                ]);
+                $studentsCreated++;
+            }
+
+            if ($clinicImporter) {
+                $existed = ClinicPatient::query()
+                    ->where('business_id', $businessId)
+                    ->where('student_id', $student->id)
+                    ->exists();
+
+                $clinicImporter->attachStudentToClinic($student, $business);
+
+                if (! $existed) {
+                    $patientsCreated++;
+                }
+            }
+        }
+
+        return ['students' => $studentsCreated, 'patients' => $patientsCreated];
+    }
+
+    protected function uniqueChildEmail(ParentGuardian $parent, ParentChild $child): string
+    {
+        $base = 'child.'.Str::lower(Str::substr((string) ($child->uuid ?: Str::uuid()), 0, 8)).'.'.$parent->id;
+        $email = $base.'@quisat.parent';
+        $i = 1;
+        while (Student::withTrashed()->where('email', $email)->exists()) {
+            $email = $base.'.'.$i.'@quisat.parent';
+            $i++;
+        }
+
+        return $email;
+    }
+
+    protected function uniqueStudentId(): string
+    {
+        do {
+            $studentId = 'STU-'.strtoupper(Str::random(8));
+        } while (Student::withTrashed()->where('student_id', $studentId)->exists());
+
+        return $studentId;
     }
 
     protected function randomSegment(int $length): string

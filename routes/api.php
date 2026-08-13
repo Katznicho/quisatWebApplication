@@ -16,6 +16,7 @@ use App\Http\Controllers\API\MarzPayPaymentController;
 use App\Http\Controllers\API\MarzPayWebhookController;
 use App\Http\Controllers\API\OrderController;
 use App\Http\Controllers\API\ParentDashboardController;
+use App\Http\Controllers\API\ParentFeeController;
 use App\Http\Controllers\API\ParentGuardianController;
 use App\Http\Controllers\API\ParentUniversalAccountController;
 use App\Http\Controllers\API\ProductController;
@@ -238,7 +239,9 @@ Route::prefix('v1')->group(function () {
         Route::delete('device-tokens', [\App\Http\Controllers\API\DeviceTokenController::class, 'destroy']);
         Route::get('notifications', [\App\Http\Controllers\API\UserNotificationController::class, 'index']);
         Route::post('notifications/read-all', [\App\Http\Controllers\API\UserNotificationController::class, 'markAllRead']);
+        Route::delete('notifications', [\App\Http\Controllers\API\UserNotificationController::class, 'destroyAll']);
         Route::post('notifications/{uuid}/read', [\App\Http\Controllers\API\UserNotificationController::class, 'markRead']);
+        Route::delete('notifications/{uuid}', [\App\Http\Controllers\API\UserNotificationController::class, 'destroy']);
 
         // Business-scoped Routes (Require Authentication + Business Association)
         Route::middleware('business.scope')->group(function () {
@@ -334,6 +337,8 @@ Route::prefix('v1')->group(function () {
 
             Route::get('staff/dashboard', [StaffDashboardController::class, 'index']);
             Route::get('parent/dashboard', [ParentDashboardController::class, 'index']);
+            Route::get('parent/fees', [ParentFeeController::class, 'index']);
+            Route::post('parent/fees/{fee}/pay', [ParentFeeController::class, 'pay']);
 
             Route::prefix('parent/clinics')->group(function () {
                 Route::get('child-access-codes', [ClinicController::class, 'childAccessCodes']);

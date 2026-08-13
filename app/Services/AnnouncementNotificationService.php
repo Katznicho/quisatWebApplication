@@ -3,27 +3,33 @@
 namespace App\Services;
 
 use App\Models\BroadcastAnnouncement;
-use App\Models\DeviceToken;
 use App\Models\ParentGuardian;
 use App\Models\User;
 use App\Models\UserNotification;
+use App\Services\Concerns\ResolvesPushDeviceTokens;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 class AnnouncementNotificationService
 {
+    use ResolvesPushDeviceTokens;
+
     public function __construct(
         protected PushNotificationService $pushService
     ) {}
 
     public function dispatch(BroadcastAnnouncement $announcement): void
     {
-        if ($announcement->status !== 'published') {
+        if ($announcement->status !== 'published' && $announcement->status !== 'sent') {
             return;
         }
 
-        $channels = $announcement->channels ?? ['in_app'];
+        $channels = $announcement->channels ?? ['in_app', 'push'];
+        if (! in_array('push', $channels, true)) {
+            $channels[] = 'push';
+        }
+
         $recipients = $this->resolveRecipients($announcement);
 
         if ($recipients->isEmpty()) {
@@ -33,8 +39,9 @@ class AnnouncementNotificationService
         $body = Str::limit(strip_tags((string) $announcement->content), 240);
         $data = [
             'type' => 'announcement',
-            'announcement_id' => $announcement->id,
-            'business_id' => $announcement->business_id,
+            'screen' => 'Announcements',
+            'announcement_id' => (string) $announcement->id,
+            'business_id' => (string) $announcement->business_id,
         ];
 
         if (in_array('in_app', $channels, true)) {
@@ -113,25 +120,5 @@ class AnnouncementNotificationService
         return $recipients
             ->unique(fn (Model $owner) => $owner::class.'#'.$owner->getKey())
             ->values();
-    }
-
-    /**
-     * @param  Collection<int, Model>  $recipients
-     * @return Collection<int, DeviceToken>
-     */
-    protected function resolveDeviceTokens(Collection $recipients): Collection
-    {
-        return DeviceToken::query()
-            ->where('is_active', true)
-            ->where(function ($query) use ($recipients) {
-                foreach ($recipients as $recipient) {
-                    $query->orWhere(function ($ownerQuery) use ($recipient) {
-                        $ownerQuery
-                            ->where('tokenable_type', $recipient::class)
-                            ->where('tokenable_id', $recipient->getKey());
-                    });
-                }
-            })
-            ->get();
     }
 }

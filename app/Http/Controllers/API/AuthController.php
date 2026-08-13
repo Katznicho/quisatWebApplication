@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\PasswordResetCodeMail;
 use App\Models\Business;
 use App\Models\Country;
+use App\Models\ParentChild;
 use App\Models\ParentGuardian;
 use App\Models\User;
 use App\Services\ParentUniversalCodeService;
@@ -548,8 +549,22 @@ class AuthController extends Controller
                 'phone' => 'required|string|max:255',
                 'password' => 'required|string|min:8|confirmed',
                 'relationship' => 'nullable|in:father,mother,guardian,other',
+                'occupation' => 'nullable|string|max:255',
+                'address' => 'nullable|string|max:2000',
+                'city' => 'nullable|string|max:255',
+                'emergency_contact' => 'nullable|string|max:255',
                 'country_id' => 'required|exists:countries,id',
                 'device_name' => 'nullable|string|max:255',
+                'children' => 'nullable|array|max:10',
+                'children.*.first_name' => 'required_with:children|string|max:255',
+                'children.*.last_name' => 'required_with:children|string|max:255',
+                'children.*.date_of_birth' => 'required_with:children|date|before:today',
+                'children.*.gender' => 'required_with:children|in:male,female,other',
+                'children.*.phone' => 'nullable|string|max:255',
+                'children.*.address' => 'nullable|string|max:2000',
+                'children.*.city' => 'nullable|string|max:255',
+                'children.*.medical_notes' => 'nullable|string|max:2000',
+                'children.*.allergies' => 'nullable|string|max:2000',
             ]);
 
             if ($validator->fails()) {
@@ -575,6 +590,10 @@ class AuthController extends Controller
                         'phone' => $phone,
                         'password' => Hash::make($request->password),
                         'relationship' => $request->relationship ?? $existingByEmail->relationship ?? 'guardian',
+                        'occupation' => $request->occupation ?? $existingByEmail->occupation,
+                        'address' => $request->address ?? $existingByEmail->address,
+                        'city' => $request->city ?? $existingByEmail->city,
+                        'emergency_contact' => $request->emergency_contact ?? $existingByEmail->emergency_contact,
                         'country' => $country->name,
                         'status' => 'active',
                         'account_type' => $existingByEmail->business_id || $existingByEmail->memberships()->exists()
@@ -583,9 +602,10 @@ class AuthController extends Controller
                         'business_id' => $existingByEmail->business_id,
                     ])->save();
                     $codes->ensureCode($existingByEmail);
+                    $this->syncParentChildren($existingByEmail, $request->input('children', []));
 
                     $token = $existingByEmail->createToken($request->device_name ?? 'mobile-app')->plainTextToken;
-                    $existingByEmail->load(['business', 'students.classRoom', 'memberships.business']);
+                    $existingByEmail->load(['business', 'students.classRoom', 'memberships.business', 'children']);
 
                     return response()->json([
                         'success' => true,
@@ -621,6 +641,10 @@ class AuthController extends Controller
                 'phone' => $phone,
                 'password' => Hash::make($request->password),
                 'relationship' => $request->relationship ?? 'guardian',
+                'occupation' => $request->occupation,
+                'address' => $request->address,
+                'city' => $request->city,
+                'emergency_contact' => $request->emergency_contact,
                 'country' => $country->name,
                 'business_id' => null,
                 'account_type' => 'guest',
@@ -628,8 +652,9 @@ class AuthController extends Controller
             ]);
 
             $codes->ensureCode($parent);
+            $this->syncParentChildren($parent, $request->input('children', []));
             $token = $parent->createToken($request->device_name ?? 'mobile-app')->plainTextToken;
-            $parent->load(['business', 'students.classRoom', 'memberships.business']);
+            $parent->load(['business', 'students.classRoom', 'memberships.business', 'children']);
 
             return response()->json([
                 'success' => true,
@@ -1079,6 +1104,10 @@ class AuthController extends Controller
             'email' => $parent->email,
             'phone' => $parent->phone,
             'relationship' => $parent->relationship,
+            'occupation' => $parent->occupation,
+            'address' => $parent->address,
+            'city' => $parent->city,
+            'emergency_contact' => $parent->emergency_contact,
             'status' => $parent->status,
             'account_type' => $parent->account_type ?? ($parent->business_id ? 'linked' : 'guest'),
             'universal_code' => $parent->universal_code,
@@ -1109,7 +1138,71 @@ class AuthController extends Controller
                     'photo_url' => $this->resolvePhotoUrl($student->photo),
                 ];
             }),
+            'children' => ($parent->relationLoaded('children') ? $parent->children : $parent->children()->get())->map(function (ParentChild $child) {
+                return [
+                    'id' => $child->id,
+                    'uuid' => $child->uuid,
+                    'first_name' => $child->first_name,
+                    'last_name' => $child->last_name,
+                    'full_name' => $child->full_name,
+                    'date_of_birth' => optional($child->date_of_birth)->toDateString(),
+                    'gender' => $child->gender,
+                    'phone' => $child->phone,
+                    'address' => $child->address,
+                    'city' => $child->city,
+                    'country' => $child->country,
+                    'medical_notes' => $child->medical_notes,
+                    'allergies' => $child->allergies,
+                ];
+            })->values(),
             'user_type' => 'parent_guardian',
         ];
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $children
+     */
+    private function syncParentChildren(ParentGuardian $parent, array $children): void
+    {
+        if ($children === []) {
+            return;
+        }
+
+        foreach ($children as $childData) {
+            $first = trim((string) ($childData['first_name'] ?? ''));
+            $last = trim((string) ($childData['last_name'] ?? ''));
+            $dob = $childData['date_of_birth'] ?? null;
+            $gender = $childData['gender'] ?? null;
+
+            if ($first === '' || $last === '' || ! $dob || ! $gender) {
+                continue;
+            }
+
+            $existing = ParentChild::query()
+                ->where('parent_guardian_id', $parent->id)
+                ->where('first_name', $first)
+                ->where('last_name', $last)
+                ->whereDate('date_of_birth', $dob)
+                ->first();
+
+            $payload = [
+                'first_name' => $first,
+                'last_name' => $last,
+                'date_of_birth' => $dob,
+                'gender' => $gender,
+                'phone' => $childData['phone'] ?? null,
+                'address' => $childData['address'] ?? $parent->address,
+                'city' => $childData['city'] ?? $parent->city,
+                'country' => $childData['country'] ?? $parent->country,
+                'medical_notes' => $childData['medical_notes'] ?? null,
+                'allergies' => $childData['allergies'] ?? null,
+            ];
+
+            if ($existing) {
+                $existing->update($payload);
+            } else {
+                $parent->children()->create($payload);
+            }
+        }
     }
 }

@@ -256,16 +256,7 @@
                                         
                                         <div>
                                             <label for="payment_method" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Payment Method *</label>
-                                            <select id="payment_method" name="payment_method" 
-                                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white @error('payment_method') border-red-500 @enderror" 
-                                                   required>
-                                                <option value="cash" {{ old('payment_method') === 'cash' ? 'selected' : '' }}>Cash</option>
-                                                <option value="card" {{ old('payment_method') === 'card' ? 'selected' : '' }}>Card</option>
-                                                <option value="bank_transfer" {{ old('payment_method') === 'bank_transfer' ? 'selected' : '' }}>Bank Transfer</option>
-                                                <option value="airtel_money" {{ old('payment_method') === 'airtel_money' ? 'selected' : '' }}>Airtel Money</option>
-                                                <option value="mtn_mobile_money" {{ old('payment_method') === 'mtn_mobile_money' ? 'selected' : '' }}>MTN Mobile Money</option>
-                                                <option value="other" {{ old('payment_method') === 'other' ? 'selected' : '' }}>Other</option>
-                                            </select>
+                                            <x-marzpay-payment-select :selected="old('payment_method', 'mtn_mobile_money')" />
                                             @error('payment_method')
                                                 <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                                             @enderror

@@ -28,7 +28,7 @@
                 </h3>
                 <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
                     Ask the parent to open <strong>Profile</strong> in the Quisat app and share their code (e.g. <code>QSP-XXXXXXXX</code>).
-                    Enter it here to connect their account to your {{ $contextLabel ?? 'business' }}.
+                    Enter it here to connect their account — their contact details and children are imported automatically so you do not re-enter registration info.
                 </p>
             </div>
 

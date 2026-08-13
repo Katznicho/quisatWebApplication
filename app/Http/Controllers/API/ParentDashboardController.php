@@ -6,8 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\BroadcastAnnouncement;
 use App\Models\CalendarEvent;
 use App\Models\ClassAssignment;
+use App\Models\Fee;
 use App\Models\ParentGuardian;
 use App\Models\Student;
+use App\Models\StudentAcademicEntry;
+use App\Models\StudentCharacterReport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -126,6 +129,29 @@ class ParentDashboardController extends Controller
             ];
         });
 
+        $pendingFees = Fee::query()
+            ->with(['student:id,first_name,last_name,student_id', 'term:id,name,academic_year', 'invoiceDocument', 'payments'])
+            ->where('business_id', $business->id)
+            ->whereIn('student_id', $children->pluck('id'))
+            ->whereIn('payment_status', ['pending', 'partial', 'overdue'])
+            ->where('balance', '>', 0)
+            ->orderBy('due_date')
+            ->limit(8)
+            ->get()
+            ->map(fn (Fee $fee) => app(ParentFeeController::class)->transform($fee))
+            ->values();
+
+        $childIds = $children->pluck('id')->filter()->values();
+        $latestAcademic = $childIds->isEmpty()
+            ? null
+            : StudentAcademicEntry::query()->whereIn('student_id', $childIds)->max('updated_at');
+        $latestCharacter = $childIds->isEmpty()
+            ? null
+            : StudentCharacterReport::query()->whereIn('student_id', $childIds)->max('updated_at');
+        $progressRevision = collect([$latestAcademic, $latestCharacter, $childIds->implode(',')])
+            ->filter()
+            ->implode('|');
+
         return response()->json([
             'success' => true,
             'message' => 'Parent dashboard data loaded successfully.',
@@ -139,6 +165,8 @@ class ParentDashboardController extends Controller
                 'announcements' => $announcements,
                 'upcoming_events' => $events,
                 'upcoming_assignments' => $assignments,
+                'pending_fees' => $pendingFees,
+                'progress_revision' => $progressRevision ?: null,
             ],
         ]);
     }

@@ -41,11 +41,18 @@ class PushBroadcastController extends Controller
     {
         $this->authorizePushAdmin();
 
+        $actorBusiness = Auth::user()?->business()->with('businessCategory')->first();
+        $usesSystemAudience = $this->isSuperAdmin() || ($actorBusiness instanceof Business && ! $actorBusiness->isSchool());
+
         $businesses = $this->isSuperAdmin()
             ? Business::query()->where('id', '!=', 1)->orderBy('name')->get(['id', 'name'])
             : collect();
 
-        return view('push-notifications.create', compact('businesses'));
+        return view('push-notifications.create', [
+            'businesses' => $businesses,
+            'usesSystemAudience' => $usesSystemAudience,
+            'isSchoolBusiness' => $actorBusiness instanceof Business && $actorBusiness->isSchool(),
+        ]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -99,9 +106,18 @@ class PushBroadcastController extends Controller
 
         if (! $this->isSuperAdmin()) {
             $businessId = Auth::user()->business_id;
-            $validated['audience'] = in_array($validated['audience'], ['parents', 'staff', 'business'], true)
-                ? $validated['audience']
-                : 'business';
+            $actorBusiness = Auth::user()->business()->with('businessCategory')->first();
+            $isSchool = $actorBusiness instanceof Business && $actorBusiness->isSchool();
+
+            if ($isSchool) {
+                $validated['audience'] = in_array($validated['audience'], ['parents', 'staff', 'business'], true)
+                    ? $validated['audience']
+                    : 'business';
+            } else {
+                $validated['audience'] = in_array($validated['audience'], ['all', 'parents', 'staff'], true)
+                    ? $validated['audience']
+                    : 'all';
+            }
         }
 
         if ($validated['audience'] === PushBroadcast::AUDIENCE_BUSINESS && ! $businessId) {

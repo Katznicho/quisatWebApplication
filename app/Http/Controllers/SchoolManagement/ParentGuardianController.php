@@ -407,8 +407,17 @@ class ParentGuardianController extends Controller
                 ->withErrors(['universal_code' => 'Unable to link this parent. '.$e->getMessage()]);
         }
 
+        $childCount = $parent->children()->count();
+        $studentCount = $parent->students()->where('business_id', $businessId)->count();
         $redirectTo = $validated['redirect_to'] ?? route('school-management.parents');
-        $message = $parent->full_name.' has been linked to your business using their Quisat code.';
+        $message = $parent->full_name.' has been linked using their Quisat code.';
+        if ($studentCount > 0) {
+            $message .= " {$studentCount} child".($studentCount === 1 ? '' : 'ren').' imported from their profile.';
+        } elseif ($childCount > 0) {
+            $message .= ' Their children profiles are ready — refresh Students if they do not appear yet.';
+        } else {
+            $message .= ' No children were on their profile yet.';
+        }
 
         return redirect()->to($redirectTo)->with('success', $message);
     }

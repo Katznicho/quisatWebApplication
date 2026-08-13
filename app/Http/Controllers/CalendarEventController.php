@@ -8,6 +8,7 @@ use App\Models\EventNotification;
 use App\Models\ClassRoom;
 use App\Models\Student;
 use App\Models\User;
+use App\Services\CalendarEventNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
@@ -87,6 +88,15 @@ class CalendarEventController extends Controller
         // Create notifications if specified
         if ($request->has('notifications')) {
             $this->createNotifications($event, $request->notifications);
+        }
+
+        try {
+            app(CalendarEventNotificationService::class)->notifyPublished($event);
+        } catch (\Throwable $e) {
+            \Log::warning('Failed to send calendar event push notification', [
+                'event_id' => $event->id,
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return redirect()->route('calendar-events.index')

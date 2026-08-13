@@ -3,17 +3,19 @@
 namespace App\Services;
 
 use App\Models\Conversation;
-use App\Models\DeviceToken;
 use App\Models\Message;
 use App\Models\ParentGuardian;
 use App\Models\User;
 use App\Models\UserNotification;
+use App\Services\Concerns\ResolvesPushDeviceTokens;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 class ConversationMessageNotificationService
 {
+    use ResolvesPushDeviceTokens;
+
     public function __construct(
         protected PushNotificationService $pushService
     ) {}
@@ -31,8 +33,9 @@ class ConversationMessageNotificationService
         $body = $this->buildBody($message);
         $data = [
             'type' => 'message',
-            'conversation_id' => $conversation->id,
-            'message_id' => $message->id,
+            'screen' => 'Conversation',
+            'conversation_id' => (string) $conversation->id,
+            'message_id' => (string) $message->id,
             'title' => $sender->name ?? 'New message',
         ];
 
@@ -103,25 +106,5 @@ class ConversationMessageNotificationService
         return $owners
             ->unique(fn (Model $owner) => $owner::class.'#'.$owner->getKey())
             ->values();
-    }
-
-    /**
-     * @param  Collection<int, Model>  $recipients
-     * @return Collection<int, DeviceToken>
-     */
-    protected function resolveDeviceTokens(Collection $recipients): Collection
-    {
-        return DeviceToken::query()
-            ->where('is_active', true)
-            ->where(function ($query) use ($recipients) {
-                foreach ($recipients as $recipient) {
-                    $query->orWhere(function ($ownerQuery) use ($recipient) {
-                        $ownerQuery
-                            ->where('tokenable_type', $recipient::class)
-                            ->where('tokenable_id', $recipient->getKey());
-                    });
-                }
-            })
-            ->get();
     }
 }

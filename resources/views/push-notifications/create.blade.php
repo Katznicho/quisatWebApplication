@@ -40,17 +40,26 @@
                     <div>
                         <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Audience</label>
                         <select name="audience" class="w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-900 px-3 py-2 text-sm">
-                            @if (auth()->user()->business_id == 1)
-                                <option value="all" @selected(old('audience') === 'all')>All users (parents + staff)</option>
-                                <option value="parents" @selected(old('audience') === 'parents')>Parents only</option>
-                                <option value="staff" @selected(old('audience') === 'staff')>Staff only</option>
-                                <option value="business" @selected(old('audience') === 'business')>Specific business</option>
+                            @if ($usesSystemAudience)
+                                <option value="all" @selected(old('audience', 'all') === 'all')>All users in the system</option>
+                                <option value="parents" @selected(old('audience') === 'parents')>Parents in the system</option>
+                                <option value="staff" @selected(old('audience') === 'staff')>Staff in the system</option>
+                                @if (auth()->user()->business_id == 1)
+                                    <option value="business" @selected(old('audience') === 'business')>Specific business</option>
+                                @endif
                             @else
-                                <option value="business" @selected(old('audience', 'business') === 'business')>Everyone in my business</option>
-                                <option value="parents" @selected(old('audience') === 'parents')>Parents in my business</option>
-                                <option value="staff" @selected(old('audience') === 'staff')>Staff in my business</option>
+                                <option value="business" @selected(old('audience', 'business') === 'business')>Everyone in my school</option>
+                                <option value="parents" @selected(old('audience') === 'parents')>Parents in my school</option>
+                                <option value="staff" @selected(old('audience') === 'staff')>Staff in my school</option>
                             @endif
                         </select>
+                        <p class="mt-1 text-xs text-gray-500">
+                            @if ($usesSystemAudience ?? false)
+                                Marketplace notifications (Kidz Mart, events, adverts, venues, and similar) can reach everyone on Quisat.
+                            @else
+                                School notifications stay limited to people linked to your school.
+                            @endif
+                        </p>
                         @error('audience')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
                     </div>
 

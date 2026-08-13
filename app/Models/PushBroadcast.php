@@ -113,6 +113,8 @@ class PushBroadcast extends Model
             $data['imageUrl'] = $imageUrl;
         }
 
+        $data['type'] = $data['type'] ?? 'broadcast';
+
         return $data === [] ? null : $data;
     }
 

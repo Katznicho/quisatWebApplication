@@ -175,9 +175,14 @@ class ParentGuardianManagement extends Component implements HasForms, HasTable
                             $data['relationship'] ?? null,
                         );
 
+                        $studentCount = $parent->students()->where('business_id', $businessId)->count();
+                        $suffix = $studentCount > 0
+                            ? " {$studentCount} child".($studentCount === 1 ? '' : 'ren').' imported.'
+                            : '';
+
                         Notification::make()
                             ->success()
-                            ->title($parent->full_name.' linked successfully.')
+                            ->title($parent->full_name.' linked successfully.'.$suffix)
                             ->send();
                     }),
             ])

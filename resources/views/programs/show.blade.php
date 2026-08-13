@@ -489,15 +489,7 @@
                             
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Payment Method</label>
-                                <select name="payment_method" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                                    <option value="">Select Payment Method</option>
-                                    <option value="cash">Cash</option>
-                                    <option value="card">Card</option>
-                                    <option value="airtel_money">Airtel Money</option>
-                                    <option value="mtn_mobile_money">MTN Mobile Money</option>
-                                    <option value="bank_transfer">Bank Transfer</option>
-                                </select>
-                                <p class="mt-1 text-xs text-gray-500">Mobile money and card payments are processed via MarzPay. Approve the prompt on your phone to complete payment.</p>
+                                <x-marzpay-payment-select class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" :show-other="false" />
                             </div>
                         </div>
                         
@@ -537,18 +529,10 @@
                             <input type="number" name="amount" placeholder="Enter payment amount" step="0.01" min="0.01" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
                         </div>
                         
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Payment Method</label>
-                            <select name="payment_method" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                                <option value="">Select payment method</option>
-                                <option value="cash">Cash</option>
-                                <option value="card">Card</option>
-                                <option value="bank_transfer">Bank Transfer</option>
-                                <option value="airtel_money">Airtel Money</option>
-                                <option value="mtn_mobile_money">MTN Mobile Money</option>
-                                <option value="other">Other</option>
-                            </select>
-                        </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Payment Method</label>
+                                <x-marzpay-payment-select class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+                            </div>
                         
                         <div>
                             <label class="block text-sm font-medium text-gray-700">Payment Reference</label>

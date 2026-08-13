@@ -12,13 +12,13 @@ class MarzPayCheckoutService
     ) {
     }
 
-    public function maybeInitiate(Model $payable, ?string $paymentMethod): ?array
+    public function maybeInitiate(Model $payable, ?string $paymentMethod, ?string $phoneOverride = null, ?int $amountOverride = null): ?array
     {
         if (! $paymentMethod || ! $this->marzPay->isOnlinePaymentMethod($paymentMethod)) {
             return null;
         }
 
-        $amount = $this->resolver->amountFor($payable);
+        $amount = $amountOverride ?? $this->resolver->amountFor($payable);
 
         if ($amount < 1) {
             return null;
@@ -35,7 +35,7 @@ class MarzPayCheckoutService
             $payable,
             $amount,
             $method,
-            $this->resolver->phoneFor($payable),
+            $phoneOverride ?: $this->resolver->phoneFor($payable),
             $this->resolver->descriptionFor($payable),
         );
     }

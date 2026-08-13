@@ -233,5 +233,19 @@ class Business extends Model
         return $this->hasFeature($feature->id);
     }
 
+    public function isSchool(): bool
+    {
+        $type = strtolower((string) $this->type);
+        if (str_contains($type, 'school')) {
+            return true;
+        }
+
+        $category = strtolower((string) ($this->relationLoaded('businessCategory')
+            ? ($this->businessCategory?->name ?? '')
+            : ($this->businessCategory()->value('name') ?? '')));
+
+        return str_contains($category, 'school');
+    }
+
    
 }
