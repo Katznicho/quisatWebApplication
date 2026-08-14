@@ -103,4 +103,9 @@ class ClinicPatient extends Model
     {
         return $this->hasMany(ClinicPatientGrowthRecord::class);
     }
+
+    public function fees()
+    {
+        return $this->hasMany(Fee::class);
+    }
 }

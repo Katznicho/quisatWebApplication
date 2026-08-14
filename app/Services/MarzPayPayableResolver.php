@@ -47,7 +47,7 @@ class MarzPayPayableResolver
                 ->where('uuid', $identifier)
                 ->orWhere('id', $identifier)
                 ->first(),
-            'school_fee', 'fee' => Fee::query()
+            'school_fee', 'clinic_fee', 'fee' => Fee::query()
                 ->where('uuid', $identifier)
                 ->orWhere('id', $identifier)
                 ->first(),
@@ -64,7 +64,7 @@ class MarzPayPayableResolver
             EventAttendee::class => 'program_registration',
             ClinicAppointment::class => 'clinic_appointment',
             CalendarEventRegistration::class => 'calendar_event_registration',
-            Fee::class => 'school_fee',
+            Fee::class => $payable->isClinicFee() ? 'clinic_fee' : 'school_fee',
             default => Str::snake(class_basename($payable)),
         };
     }
@@ -132,7 +132,9 @@ class MarzPayPayableResolver
             EventAttendee::class => $payable->programEvent?->business,
             ClinicAppointment::class => $payable->business,
             CalendarEventRegistration::class => $payable->calendarEvent?->business,
-            Fee::class => $payable->business ?? $payable->student?->business,
+            Fee::class => $payable->business
+                ?? $payable->student?->business
+                ?? $payable->clinicPatient?->business,
             default => null,
         };
     }

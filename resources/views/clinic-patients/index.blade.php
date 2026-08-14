@@ -3,7 +3,7 @@
 @section('content')
 @php
     $activeTab = request('tab', 'patients');
-    if (! in_array($activeTab, ['overview', 'patients', 'appointments', 'doctors', 'consultations', 'appointment-types', 'services'], true)) {
+    if (! in_array($activeTab, ['overview', 'patients', 'appointments', 'doctors', 'consultations', 'appointment-types', 'services', 'fees'], true)) {
         $activeTab = 'patients';
     }
 @endphp
@@ -90,8 +90,11 @@
                 <p class="mt-2 text-sm font-semibold text-slate-900">Doctors and types power patient forms</p>
             </div>
             <div class="rounded-xl border border-slate-200 bg-white p-4">
-                <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Patient workspace</p>
-                <p class="mt-2 text-sm font-semibold text-slate-900">Appointments, visits, growth, vaccines, documents</p>
+                <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Clinic billing</p>
+                <p class="mt-2 text-sm font-semibold text-slate-900">
+                    <a href="{{ route('clinic-patients.index', ['tab' => 'fees']) }}" class="text-blue-600 hover:underline">Fees / Billing</a>
+                    — pick patients and create bills
+                </p>
             </div>
         </div>
     </div>
@@ -126,6 +129,10 @@
                class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'services' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
                 Services
             </a>
+            <a href="{{ route('clinic-patients.index', ['tab' => 'fees']) }}"
+               class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'fees' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
+                Fees / Billing
+            </a>
         </nav>
     </div>
 
@@ -158,6 +165,14 @@
                         <p class="text-sm font-semibold text-slate-900">5. Record care</p>
                         <p class="mt-1 text-sm text-slate-600">Open each patient to manage appointments, consultations, vaccinations, growth, and documents.</p>
                     </div>
+                    <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 md:col-span-2">
+                        <p class="text-sm font-semibold text-emerald-900">6. Bill patients</p>
+                        <p class="mt-1 text-sm text-emerald-800">Use the <strong>Fees / Billing</strong> tab (or <strong>Bill</strong> on a patient row) to charge consultations, labs, and meds. Parents pay from Fees in the Quisat app.</p>
+                        <a href="{{ route('clinic-patients.index', ['tab' => 'fees']) }}"
+                           class="mt-3 inline-flex items-center rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700">
+                            Open clinic billing
+                        </a>
+                    </div>
                 </div>
             </div>
 
@@ -169,6 +184,7 @@
                     <li>Add <strong>Services</strong> or <strong>Appointment Types</strong> so parents can book visits from the Quisat app.</li>
                     <li>Parents book from the app; staff book from each patient&apos;s <strong>Appointments</strong> tab.</li>
                     <li>Use <strong>Link by Quisat code</strong> when a parent already has a Quisat account — enter their <code>QSP-</code> code from the app Profile screen.</li>
+                    <li>Use the <strong>Fees</strong> tab to bill patients (consultations, labs, meds) just like school fees.</li>
                     <li>Use the <strong>Patients</strong> tab to navigate directly into each child record.</li>
                     <li>Review all clinic activity under <strong>Consultations</strong>.</li>
                 </ul>
@@ -204,6 +220,10 @@
                     Run <code class="rounded bg-slate-100 px-1.5 py-0.5">php artisan migrate</code> on this server to enable the services table.
                 </p>
             @endif
+        </div>
+    @elseif($activeTab === 'fees')
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <livewire:clinic-patients.fee-management />
         </div>
     @endif
 </div>

@@ -87,6 +87,14 @@ class ClinicDashboardPatientsTable extends Component implements HasForms, HasTab
                     ->url(route('clinic-patients.create')),
             ])
             ->actions([
+                Action::make('bill')
+                    ->label('Bill')
+                    ->icon('heroicon-o-banknotes')
+                    ->color('success')
+                    ->url(fn (ClinicPatient $record): string => route('clinic-patients.show', [
+                        'clinic_patient' => $record,
+                        'tab' => 'fees',
+                    ])),
                 Action::make('view')
                     ->icon('heroicon-o-eye')
                     ->color('info')

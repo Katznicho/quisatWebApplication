@@ -1,18 +1,20 @@
 <?php
 
-namespace App\Livewire\SchoolManagement;
+namespace App\Livewire\ClinicPatients;
 
+use App\Models\ClinicPatient;
+use App\Models\ClinicService;
 use App\Models\Fee;
-use App\Models\Student;
 use App\Services\FeeInvoiceService;
 use App\Services\FeeParentNotificationService;
 use App\Support\TenantScope;
-use Filament\Forms\Concerns\InteractsWithForms;
-use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Tables;
 use Filament\Tables\Actions\Action;
@@ -26,6 +28,7 @@ use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Component;
 
 class FeeManagement extends Component implements HasForms, HasTable
@@ -33,95 +36,119 @@ class FeeManagement extends Component implements HasForms, HasTable
     use InteractsWithForms;
     use InteractsWithTable;
 
+    public ?ClinicPatient $patient = null;
+
     private function businessId(): ?int
     {
-        return TenantScope::businessId();
+        return TenantScope::businessId() ?? auth()->user()?->business_id;
     }
 
-    private function studentOptions(): array
+    private function patientOptions(): array
     {
         $businessId = $this->businessId();
 
-        return Student::query()
+        return ClinicPatient::query()
             ->when($businessId, fn (Builder $q) => $q->where('business_id', $businessId))
+            ->when($this->patient, fn (Builder $q) => $q->whereKey($this->patient->id))
             ->orderBy('first_name')
             ->orderBy('last_name')
             ->get()
-            ->mapWithKeys(fn (Student $student) => [
-                $student->id => trim("{$student->first_name} {$student->last_name} ({$student->student_id})"),
+            ->mapWithKeys(fn (ClinicPatient $patient) => [
+                $patient->id => trim("{$patient->first_name} {$patient->last_name} ({$patient->patient_number})"),
             ])
             ->all();
     }
 
+    private function serviceFeeTypeSuggestions(): array
+    {
+        $defaults = [
+            'Consultation',
+            'Lab test',
+            'Medication',
+            'Vaccination',
+            'Procedure',
+            'Follow-up',
+            'Other',
+        ];
+
+        if (! Schema::hasTable('clinic_services')) {
+            return $defaults;
+        }
+
+        $businessId = $this->businessId();
+        $serviceNames = ClinicService::query()
+            ->when($businessId, fn (Builder $q) => $q->where('business_id', $businessId))
+            ->orderBy('name')
+            ->pluck('name')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        return array_values(array_unique(array_merge($serviceNames, $defaults)));
+    }
+
     private function feeFormSchema(): array
     {
-        return [
-            Select::make('student_id')
-                ->label('Student')
-                ->options(fn () => $this->studentOptions())
+        $schema = [];
+
+        if ($this->patient) {
+            $schema[] = Hidden::make('clinic_patient_id')->default($this->patient->id);
+        } else {
+            $schema[] = Select::make('clinic_patient_id')
+                ->label('Patient')
+                ->options(fn () => $this->patientOptions())
                 ->searchable()
-                ->required(),
+                ->required()
+                ->helperText('Choose the clinic patient to bill.');
+        }
+
+        $schema = array_merge($schema, [
             TextInput::make('term_label')
-                ->label('Term')
+                ->label('Billing period')
                 ->maxLength(255)
-                ->placeholder('e.g. Term 1 2026')
-                ->helperText('Type the term or billing period. This is not a dropdown.'),
+                ->placeholder('e.g. August 2026 visit')
+                ->helperText('Optional label for the bill (visit date, month, package, etc.).'),
             TextInput::make('fee_type')
                 ->label('Fee / bill type')
                 ->required()
                 ->maxLength(255)
-                ->placeholder('e.g. Tuition, Uniform, Exam fee')
-                ->datalist([
-                    'Tuition',
-                    'Library',
-                    'Transport',
-                    'Laboratory',
-                    'Sports',
-                    'Uniform',
-                    'Exam fee',
-                    'Development fee',
-                    'Other',
-                ]),
+                ->placeholder('e.g. Consultation, Lab test')
+                ->datalist($this->serviceFeeTypeSuggestions()),
             TextInput::make('amount')
                 ->numeric()
                 ->required()
                 ->minValue(0)
                 ->placeholder('Enter amount'),
             DatePicker::make('due_date')
-                ->required(),
+                ->required()
+                ->default(now()),
             Textarea::make('notes')
                 ->placeholder('Enter notes')
                 ->rows(3),
-            Select::make('external_payment_system')
-                ->label('Other payment system')
-                ->options([
-                    'school_pay' => 'School Pay',
-                    'sure_pay' => 'Sure Pay',
-                    'other' => 'Other',
-                ])
-                ->placeholder('None (MarzPay / cash in app)')
-                ->nullable(),
-            TextInput::make('external_student_code')
-                ->label('External student code / ID')
-                ->maxLength(255)
-                ->placeholder('School Pay / Sure Pay student code')
-                ->visible(fn ($get) => filled($get('external_payment_system'))),
-        ];
+        ]);
+
+        return $schema;
     }
 
     private function normalizeShared(array $data): array
     {
         $data['fee_type'] = trim((string) ($data['fee_type'] ?? ''));
         $data['term_label'] = trim((string) ($data['term_label'] ?? '')) ?: null;
-        $data['external_payment_system'] = $data['external_payment_system'] ?: null;
-        $data['external_student_code'] = trim((string) ($data['external_student_code'] ?? '')) ?: null;
+        $data['student_id'] = null;
+        $data['external_payment_system'] = null;
+        $data['external_student_code'] = null;
         unset($data['term_id'], $data['payment_status'], $data['payment_date'], $data['receipt_number'], $data['payment_method']);
 
+        if ($this->patient) {
+            $data['clinic_patient_id'] = $this->patient->id;
+        }
+
         if (! TenantScope::isSuperAdmin()) {
-            $data['business_id'] = TenantScope::businessId();
-        } elseif (empty($data['business_id']) && ! empty($data['student_id'])) {
-            $student = Student::find($data['student_id']);
-            $data['business_id'] = $student?->business_id;
+            $data['business_id'] = $this->businessId();
+        } elseif (empty($data['business_id']) && ! empty($data['clinic_patient_id'])) {
+            $patient = ClinicPatient::find($data['clinic_patient_id']);
+            $data['business_id'] = $patient?->business_id;
         }
 
         return $data;
@@ -152,8 +179,8 @@ class FeeManagement extends Component implements HasForms, HasTable
 
     public function stats(): array
     {
-        $query = Fee::query()->whereNotNull('student_id')->whereNull('clinic_patient_id');
-        TenantScope::apply($query);
+        $query = Fee::query()->whereNotNull('clinic_patient_id');
+        $this->scopeClinicFees($query);
         $fees = $query->get();
 
         return [
@@ -165,30 +192,40 @@ class FeeManagement extends Component implements HasForms, HasTable
         ];
     }
 
+    private function scopeClinicFees(Builder $query): void
+    {
+        $businessId = $this->businessId();
+        if ($businessId && ! TenantScope::isSuperAdmin()) {
+            $query->where('business_id', $businessId);
+        }
+
+        if ($this->patient) {
+            $query->where('clinic_patient_id', $this->patient->id);
+        }
+    }
+
     public function table(Table $table): Table
     {
         $query = Fee::query()
-            ->with(['student.parentGuardian', 'term', 'payments'])
-            ->whereNotNull('student_id')
-            ->whereNull('clinic_patient_id');
-        TenantScope::apply($query);
+            ->with(['clinicPatient.parentGuardian', 'term', 'payments'])
+            ->whereNotNull('clinic_patient_id');
+        $this->scopeClinicFees($query);
 
         return $table
             ->query($query)
             ->columns([
-                Tables\Columns\TextColumn::make('student.first_name')
-                    ->label('Student')
-                    ->formatStateUsing(fn ($state, Fee $record) => trim(
-                        ($record->student?->first_name ?? '').' '.($record->student?->last_name ?? '')
-                    ))
-                    ->searchable(['students.first_name', 'students.last_name', 'students.student_id'])
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('student.parentGuardian.first_name')
+                Tables\Columns\TextColumn::make('clinicPatient.first_name')
+                    ->label('Patient')
+                    ->formatStateUsing(fn ($state, Fee $record) => $record->clinicPatient?->full_name)
+                    ->searchable(['clinic_patients.first_name', 'clinic_patients.last_name', 'clinic_patients.patient_number'])
+                    ->sortable()
+                    ->visible(fn () => ! $this->patient),
+                Tables\Columns\TextColumn::make('clinicPatient.parentGuardian.first_name')
                     ->label('Parent')
-                    ->formatStateUsing(fn ($state, Fee $record) => $record->student?->parentGuardian?->full_name)
+                    ->formatStateUsing(fn ($state, Fee $record) => $record->clinicPatient?->parentGuardian?->full_name)
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('term_label')
-                    ->label('Term')
+                    ->label('Period')
                     ->formatStateUsing(fn ($state, Fee $record) => $record->displayTerm() ?: '—')
                     ->searchable()
                     ->sortable(),
@@ -228,10 +265,6 @@ class FeeManagement extends Component implements HasForms, HasTable
                     ->label('Receipt')
                     ->searchable()
                     ->toggleable(),
-                Tables\Columns\TextColumn::make('external_student_code')
-                    ->label('External ID')
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -253,13 +286,6 @@ class FeeManagement extends Component implements HasForms, HasTable
                         'cash' => 'Cash',
                         'other' => 'Other / attached proof',
                     ]),
-                SelectFilter::make('external_payment_system')
-                    ->label('External system')
-                    ->options([
-                        'school_pay' => 'School Pay',
-                        'sure_pay' => 'Sure Pay',
-                        'other' => 'Other',
-                    ]),
                 TrashedFilter::make(),
             ])
             ->actions([
@@ -271,13 +297,13 @@ class FeeManagement extends Component implements HasForms, HasTable
                     ->modalContent(fn (Fee $record): View => view('fees.payment-proofs', ['fee' => $record->load('payments')]))
                     ->modalSubmitAction(false),
                 EditAction::make()
-                    ->modalHeading('Edit Fee')
+                    ->modalHeading('Edit clinic fee')
                     ->form($this->feeFormSchema())
                     ->mutateFormDataUsing(fn (array $data, Fee $record): array => $this->normalizeEditData($data, $record))
-                    ->successNotificationTitle('Fee updated successfully.'),
+                    ->successNotificationTitle('Clinic fee updated successfully.'),
                 DeleteAction::make()
-                    ->modalHeading('Delete Fee')
-                    ->successNotificationTitle('Fee deleted successfully (soft).'),
+                    ->modalHeading('Delete clinic fee')
+                    ->successNotificationTitle('Clinic fee deleted successfully (soft).'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -288,8 +314,8 @@ class FeeManagement extends Component implements HasForms, HasTable
             ])
             ->headerActions([
                 CreateAction::make()
-                    ->label('Add Fee')
-                    ->modalHeading('Add New Fee')
+                    ->label('Bill patient')
+                    ->modalHeading($this->patient ? 'Bill '.$this->patient->full_name : 'Bill clinic patient')
                     ->form($this->feeFormSchema())
                     ->mutateFormDataUsing(fn (array $data): array => $this->normalizeCreateData($data))
                     ->createAnother(false)
@@ -307,54 +333,18 @@ class FeeManagement extends Component implements HasForms, HasTable
                         }
 
                         Notification::make()
-                            ->title('Fee created successfully.')
+                            ->title('Clinic fee created successfully.')
                             ->success()
                             ->send();
                     }),
-                Tables\Actions\ActionGroup::make([
-                    Action::make('csv_payments')
-                        ->label('All payments · CSV')
-                        ->url(fn () => route('school-management.fees.report.csv', ['type' => 'payments']))
-                        ->openUrlInNewTab(),
-                    Action::make('pdf_payments')
-                        ->label('All payments · PDF')
-                        ->url(fn () => route('school-management.fees.report.pdf', ['type' => 'payments']))
-                        ->openUrlInNewTab(),
-                    Action::make('csv_pending')
-                        ->label('Pending / arrears · CSV')
-                        ->url(fn () => route('school-management.fees.report.csv', ['type' => 'pending']))
-                        ->openUrlInNewTab(),
-                    Action::make('pdf_pending')
-                        ->label('Pending / arrears · PDF')
-                        ->url(fn () => route('school-management.fees.report.pdf', ['type' => 'pending']))
-                        ->openUrlInNewTab(),
-                    Action::make('csv_methods')
-                        ->label('By method · CSV')
-                        ->url(fn () => route('school-management.fees.report.csv', ['type' => 'methods']))
-                        ->openUrlInNewTab(),
-                    Action::make('pdf_methods')
-                        ->label('By method · PDF')
-                        ->url(fn () => route('school-management.fees.report.pdf', ['type' => 'methods']))
-                        ->openUrlInNewTab(),
-                    Action::make('csv_recent')
-                        ->label('Recent payments · CSV')
-                        ->url(fn () => route('school-management.fees.report.csv', ['type' => 'recent']))
-                        ->openUrlInNewTab(),
-                    Action::make('pdf_recent')
-                        ->label('Recent payments · PDF')
-                        ->url(fn () => route('school-management.fees.report.pdf', ['type' => 'recent']))
-                        ->openUrlInNewTab(),
-                ])
-                    ->label('Download / print reports')
-                    ->icon('heroicon-o-document-arrow-down')
-                    ->button(),
             ]);
     }
 
     public function render(): View
     {
-        return view('livewire.school-management.fee-management', [
+        return view('livewire.clinic-patients.fee-management', [
             'stats' => $this->stats(),
+            'scopedPatient' => $this->patient,
         ]);
     }
 }

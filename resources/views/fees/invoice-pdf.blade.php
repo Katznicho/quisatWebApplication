@@ -36,9 +36,9 @@
                 <div class="label">From</div>
                 <p class="value">{{ $business->name }}</p>
                 <div class="label">Bill to</div>
-                <p class="value">{{ $parent?->full_name ?? $student->full_name }}</p>
-                <p>Child: {{ $student->full_name }}</p>
-                <p>Student ID: {{ $student->student_id }}</p>
+                <p class="value">{{ $parent?->full_name ?? $childName }}</p>
+                <p>Child: {{ $childName }}</p>
+                <p>{{ $idLabel }}: {{ $idValue ?: '—' }}</p>
             </td>
             <td>
                 <div class="label">Invoice</div>

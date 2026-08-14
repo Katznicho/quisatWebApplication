@@ -46,7 +46,10 @@ class FeeReportController extends Controller
 
     protected function fees(string $type)
     {
-        $query = Fee::query()->with(['student.parentGuardian', 'term']);
+        $query = Fee::query()
+            ->with(['student.parentGuardian', 'term'])
+            ->whereNotNull('student_id')
+            ->whereNull('clinic_patient_id');
         TenantScope::apply($query);
 
         return match ($type) {

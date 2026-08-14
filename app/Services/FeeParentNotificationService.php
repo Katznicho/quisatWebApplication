@@ -6,7 +6,6 @@ use App\Models\Fee;
 use App\Models\ParentGuardian;
 use App\Models\UserNotification;
 use App\Services\Concerns\ResolvesPushDeviceTokens;
-use Illuminate\Support\Collection;
 
 class FeeParentNotificationService
 {
@@ -18,58 +17,62 @@ class FeeParentNotificationService
 
     public function notifyCreated(Fee $fee): void
     {
-        $fee->loadMissing(['student.parentGuardian', 'term', 'business']);
-        $parent = $fee->student?->parentGuardian;
+        $fee->loadMissing(['student.parentGuardian', 'clinicPatient.parentGuardian', 'term', 'business']);
+        $parent = $fee->parentGuardian();
 
         if (! $parent instanceof ParentGuardian) {
             return;
         }
 
-        $studentName = $fee->student?->full_name ?? 'your child';
+        $name = $fee->billableName();
         $amount = number_format((float) $fee->balance, 0);
         $type = ucfirst((string) $fee->fee_type);
-        $title = 'School fee pending';
-        $body = "{$type} of UGX {$amount} is due for {$studentName}. Open Fees to pay.";
+        $isClinic = $fee->isClinicFee();
+        $title = $isClinic ? 'Clinic fee pending' : 'School fee pending';
+        $body = "{$type} of UGX {$amount} is due for {$name}. Open Fees to pay.";
 
-        $this->notify($parent, $title, $body, $fee, 'school_fee_created');
+        $this->notify($parent, $title, $body, $fee, $isClinic ? 'clinic_fee_created' : 'school_fee_created');
     }
 
     public function notifyPaid(Fee $fee): void
     {
-        $fee->loadMissing(['student.parentGuardian', 'term', 'business']);
-        $parent = $fee->student?->parentGuardian;
+        $fee->loadMissing(['student.parentGuardian', 'clinicPatient.parentGuardian', 'term', 'business']);
+        $parent = $fee->parentGuardian();
 
         if (! $parent instanceof ParentGuardian) {
             return;
         }
 
-        $studentName = $fee->student?->full_name ?? 'your child';
+        $name = $fee->billableName();
         $receipt = $fee->receipt_number ? " Receipt {$fee->receipt_number}." : '';
-        $title = $fee->remainingBalance() > 0 ? 'School fee payment received' : 'School fee paid';
+        $isClinic = $fee->isClinicFee();
+        $label = $isClinic ? 'Clinic fee' : 'School fee';
+        $title = $fee->remainingBalance() > 0 ? "{$label} payment received" : "{$label} paid";
         $body = $fee->remainingBalance() > 0
-            ? "UGX ".number_format((float) $fee->amount_paid, 0)." received for {$studentName}. Balance UGX ".number_format((float) $fee->remainingBalance(), 0).".{$receipt}"
-            : "Payment received for {$studentName}.{$receipt} Your receipt is available in Fees.";
+            ? 'UGX '.number_format((float) $fee->amount_paid, 0)." received for {$name}. Balance UGX ".number_format((float) $fee->remainingBalance(), 0).".{$receipt}"
+            : "Payment received for {$name}.{$receipt} Your receipt is available in Fees.";
 
-        $this->notify($parent, $title, $body, $fee, 'school_fee_paid');
+        $this->notify($parent, $title, $body, $fee, $isClinic ? 'clinic_fee_paid' : 'school_fee_paid');
     }
 
     public function notifyOverdue(Fee $fee): void
     {
-        $fee->loadMissing(['student.parentGuardian']);
-        $parent = $fee->student?->parentGuardian;
+        $fee->loadMissing(['student.parentGuardian', 'clinicPatient.parentGuardian']);
+        $parent = $fee->parentGuardian();
 
         if (! $parent instanceof ParentGuardian) {
             return;
         }
 
-        $studentName = $fee->student?->full_name ?? 'your child';
+        $name = $fee->billableName();
         $amount = number_format((float) $fee->remainingBalance(), 0);
+        $isClinic = $fee->isClinicFee();
         $this->notify(
             $parent,
-            'School fee overdue',
-            "A fee for {$studentName} is overdue. Balance due: UGX {$amount}.",
+            $isClinic ? 'Clinic fee overdue' : 'School fee overdue',
+            "A fee for {$name} is overdue. Balance due: UGX {$amount}.",
             $fee,
-            'school_fee_overdue'
+            $isClinic ? 'clinic_fee_overdue' : 'school_fee_overdue'
         );
     }
 
@@ -80,7 +83,9 @@ class FeeParentNotificationService
             'screen' => 'Fees',
             'fee_id' => (string) $fee->id,
             'fee_uuid' => (string) $fee->uuid,
-            'student_id' => (string) $fee->student_id,
+            'billing_context' => $fee->billingContext(),
+            'student_id' => $fee->student_id ? (string) $fee->student_id : null,
+            'clinic_patient_id' => $fee->clinic_patient_id ? (string) $fee->clinic_patient_id : null,
             'title' => $title,
         ];
 
@@ -100,5 +105,4 @@ class FeeParentNotificationService
 
         $this->pushService->sendExpoBatch($tokens, $title, $body, $data);
     }
-
 }

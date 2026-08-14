@@ -18,6 +18,7 @@ class Fee extends Model
     protected $fillable = [
         'business_id',
         'student_id',
+        'clinic_patient_id',
         'term_id',
         'fee_type',
         'amount',
@@ -29,6 +30,7 @@ class Fee extends Model
         'payment_date',
         'receipt_number',
         'invoice_document_id',
+        'clinic_invoice_document_id',
         'notes',
         'term_label',
         'external_payment_system',
@@ -65,6 +67,11 @@ class Fee extends Model
         return $this->belongsTo(Student::class);
     }
 
+    public function clinicPatient()
+    {
+        return $this->belongsTo(ClinicPatient::class);
+    }
+
     public function term()
     {
         return $this->belongsTo(Term::class);
@@ -75,9 +82,94 @@ class Fee extends Model
         return $this->belongsTo(StudentDocument::class, 'invoice_document_id');
     }
 
+    public function clinicInvoiceDocument()
+    {
+        return $this->belongsTo(ClinicPatientDocument::class, 'clinic_invoice_document_id');
+    }
+
     public function payments()
     {
         return $this->hasMany(FeePayment::class);
+    }
+
+    public function isClinicFee(): bool
+    {
+        return filled($this->clinic_patient_id);
+    }
+
+    public function isSchoolFee(): bool
+    {
+        return filled($this->student_id) && ! $this->isClinicFee();
+    }
+
+    public function billingContext(): string
+    {
+        return $this->isClinicFee() ? 'clinic' : 'school';
+    }
+
+    public function billableName(): string
+    {
+        if ($this->isClinicFee()) {
+            $this->loadMissing('clinicPatient');
+
+            return $this->clinicPatient?->full_name ?? 'patient';
+        }
+
+        $this->loadMissing('student');
+
+        return $this->student?->full_name ?? 'student';
+    }
+
+    public function billableCode(): ?string
+    {
+        if ($this->isClinicFee()) {
+            $this->loadMissing('clinicPatient');
+
+            return $this->clinicPatient?->patient_number;
+        }
+
+        $this->loadMissing('student');
+
+        return $this->student?->student_id;
+    }
+
+    public function parentGuardian(): ?ParentGuardian
+    {
+        if ($this->isClinicFee()) {
+            $this->loadMissing('clinicPatient.parentGuardian');
+
+            return $this->clinicPatient?->parentGuardian;
+        }
+
+        $this->loadMissing('student.parentGuardian');
+
+        return $this->student?->parentGuardian;
+    }
+
+    public function parentGuardianId(): ?int
+    {
+        if ($this->isClinicFee()) {
+            $this->loadMissing('clinicPatient');
+
+            return $this->clinicPatient?->parent_guardian_id;
+        }
+
+        $this->loadMissing('student');
+
+        return $this->student?->parent_guardian_id;
+    }
+
+    public function resolvedInvoiceDocument(): StudentDocument|ClinicPatientDocument|null
+    {
+        if ($this->isClinicFee()) {
+            $this->loadMissing('clinicInvoiceDocument');
+
+            return $this->clinicInvoiceDocument;
+        }
+
+        $this->loadMissing('invoiceDocument');
+
+        return $this->invoiceDocument;
     }
 
     public function displayTerm(): string
@@ -124,24 +216,23 @@ class Fee extends Model
 
     public function marzPayDescription(): string
     {
-        $this->loadMissing('student');
-        $type = ucfirst((string) ($this->fee_type ?: 'school'));
-        $student = $this->student?->full_name ?? 'student';
+        $type = ucfirst((string) ($this->fee_type ?: ($this->isClinicFee() ? 'clinic' : 'school')));
+        $name = $this->billableName();
 
-        return "School fee ({$type}) — {$student}";
+        return $this->isClinicFee()
+            ? "Clinic fee ({$type}) — {$name}"
+            : "School fee ({$type}) — {$name}";
     }
 
     public function marzPayPhoneNumber(): ?string
     {
-        $this->loadMissing('student.parentGuardian');
-
-        return $this->student?->parentGuardian?->phone;
+        return $this->parentGuardian()?->phone;
     }
 
     public function applyCompletedPayment(float $amount, string $method, array $meta = []): FeePayment
     {
         $payment = $this->payments()->create([
-            'parent_guardian_id' => $meta['parent_guardian_id'] ?? $this->student?->parent_guardian_id,
+            'parent_guardian_id' => $meta['parent_guardian_id'] ?? $this->parentGuardianId(),
             'amount' => $amount,
             'method' => $method,
             'status' => 'completed',
@@ -227,7 +318,15 @@ class Fee extends Model
 
     protected function finalizeReceiptAndNotify(): void
     {
-        $fresh = $this->fresh(['student.business', 'student.parentGuardian', 'term', 'payments']);
+        $fresh = $this->fresh([
+            'student.business',
+            'student.parentGuardian',
+            'clinicPatient.business',
+            'clinicPatient.parentGuardian',
+            'term',
+            'payments',
+            'business',
+        ]);
 
         if (! $fresh) {
             return;
@@ -236,17 +335,26 @@ class Fee extends Model
         try {
             app(FeeInvoiceService::class)->generate($fresh, true);
         } catch (\Throwable $e) {
-            Log::error('School fee invoice failed after payment', [
+            Log::error('Fee invoice failed after payment', [
                 'fee_id' => $this->id,
+                'context' => $fresh->billingContext(),
                 'message' => $e->getMessage(),
             ]);
         }
 
         try {
-            app(FeeParentNotificationService::class)->notifyPaid($fresh->fresh(['student.parentGuardian', 'term', 'business']) ?? $fresh);
+            app(FeeParentNotificationService::class)->notifyPaid(
+                $fresh->fresh([
+                    'student.parentGuardian',
+                    'clinicPatient.parentGuardian',
+                    'term',
+                    'business',
+                ]) ?? $fresh
+            );
         } catch (\Throwable $e) {
-            Log::error('School fee paid notification failed', [
+            Log::error('Fee paid notification failed', [
                 'fee_id' => $this->id,
+                'context' => $fresh->billingContext(),
                 'message' => $e->getMessage(),
             ]);
         }

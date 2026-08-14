@@ -26,16 +26,24 @@ class ParentFeeController extends Controller
         $childIds = $parent->students()
             ->where('business_id', $business->id)
             ->pluck('id');
+        $patientIds = $parent->clinicPatients()
+            ->where('business_id', $business->id)
+            ->pluck('id');
 
         $query = Fee::query()
             ->with([
                 'student:id,first_name,last_name,student_id,parent_guardian_id',
+                'clinicPatient:id,first_name,last_name,patient_number,parent_guardian_id',
                 'term:id,name,academic_year',
                 'invoiceDocument',
+                'clinicInvoiceDocument',
                 'payments',
             ])
             ->where('business_id', $business->id)
-            ->whereIn('student_id', $childIds)
+            ->where(function ($q) use ($childIds, $patientIds) {
+                $q->whereIn('student_id', $childIds)
+                    ->orWhereIn('clinic_patient_id', $patientIds);
+            })
             ->orderByRaw("FIELD(payment_status, 'overdue', 'pending', 'partial', 'paid', 'waived')")
             ->orderBy('due_date');
 
@@ -47,7 +55,26 @@ class ParentFeeController extends Controller
                     'message' => 'You are not authorized to view fees for this student.',
                 ], 403);
             }
-            $query->where('student_id', $studentId);
+            $query->where('student_id', $studentId)->whereNull('clinic_patient_id');
+        }
+
+        if ($request->filled('clinic_patient_id')) {
+            $patientId = (int) $request->clinic_patient_id;
+            if (! $patientIds->contains($patientId)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You are not authorized to view fees for this patient.',
+                ], 403);
+            }
+            $query->where('clinic_patient_id', $patientId);
+        }
+
+        if ($request->filled('context') && in_array($request->context, ['school', 'clinic'], true)) {
+            if ($request->context === 'clinic') {
+                $query->whereNotNull('clinic_patient_id');
+            } else {
+                $query->whereNotNull('student_id')->whereNull('clinic_patient_id');
+            }
         }
 
         if ($request->filled('status') && $request->status !== 'all') {
@@ -67,7 +94,7 @@ class ParentFeeController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'School fees loaded successfully.',
+            'message' => 'Fees loaded successfully.',
             'data' => [
                 'fees' => $fees,
                 'summary' => [
@@ -106,7 +133,14 @@ class ParentFeeController extends Controller
                     ? 'This fee is already paid.'
                     : 'This fee cannot be paid right now.',
                 'data' => [
-                    'fee' => $this->transform($record->load(['student', 'term', 'invoiceDocument', 'payments'])),
+                    'fee' => $this->transform($record->load([
+                        'student',
+                        'clinicPatient',
+                        'term',
+                        'invoiceDocument',
+                        'clinicInvoiceDocument',
+                        'payments',
+                    ])),
                 ],
             ], 422);
         }
@@ -157,7 +191,14 @@ class ParentFeeController extends Controller
                 'message' => 'Payment recorded. Your receipt is available in Fees.',
                 'payment_initiated' => false,
                 'data' => [
-                    'fee' => $this->transform($record->fresh(['student', 'term', 'invoiceDocument', 'payments'])),
+                    'fee' => $this->transform($record->fresh([
+                        'student',
+                        'clinicPatient',
+                        'term',
+                        'invoiceDocument',
+                        'clinicInvoiceDocument',
+                        'payments',
+                    ])),
                     'payment' => null,
                 ],
             ]);
@@ -175,6 +216,7 @@ class ParentFeeController extends Controller
 
         $record->marzPayChargeAmount = (int) round($payAmount);
         $checkout = app(MarzPayCheckoutService::class);
+        $promptLabel = $record->isClinicFee() ? 'clinic fee' : 'school fee';
 
         try {
             $paymentResult = $checkout->maybeInitiate(
@@ -184,8 +226,9 @@ class ParentFeeController extends Controller
                 (int) round($payAmount),
             );
         } catch (\Throwable $e) {
-            Log::error('School fee payment initiation failed', [
+            Log::error('Fee payment initiation failed', [
                 'fee_id' => $record->id,
+                'context' => $record->billingContext(),
                 'message' => $e->getMessage(),
             ]);
             $paymentResult = [
@@ -197,7 +240,7 @@ class ParentFeeController extends Controller
         $paymentMeta = $checkout->registrationPaymentMeta(
             $paymentResult,
             $method,
-            'Approve the MarzPay prompt to complete this school fee.',
+            "Approve the MarzPay prompt to complete this {$promptLabel}.",
             'Fee recorded.'
         );
 
@@ -209,7 +252,14 @@ class ParentFeeController extends Controller
             'payment_initiated' => $paymentMeta['payment_initiated'],
             'payment_error' => $paymentMeta['payment_error'],
             'data' => [
-                'fee' => $this->transform($record->fresh(['student', 'term', 'invoiceDocument', 'payments'])),
+                'fee' => $this->transform($record->fresh([
+                    'student',
+                    'clinicPatient',
+                    'term',
+                    'invoiceDocument',
+                    'clinicInvoiceDocument',
+                    'payments',
+                ])),
                 'payment' => $paymentMeta['payment'],
             ],
         ], $status);
@@ -262,11 +312,24 @@ class ParentFeeController extends Controller
         $childIds = $parent->students()
             ->where('business_id', $businessId)
             ->pluck('id');
+        $patientIds = $parent->clinicPatients()
+            ->where('business_id', $businessId)
+            ->pluck('id');
 
         return Fee::query()
-            ->with(['student.parentGuardian', 'term', 'invoiceDocument', 'payments'])
+            ->with([
+                'student.parentGuardian',
+                'clinicPatient.parentGuardian',
+                'term',
+                'invoiceDocument',
+                'clinicInvoiceDocument',
+                'payments',
+            ])
             ->where('business_id', $businessId)
-            ->whereIn('student_id', $childIds)
+            ->where(function ($query) use ($childIds, $patientIds) {
+                $query->whereIn('student_id', $childIds)
+                    ->orWhereIn('clinic_patient_id', $patientIds);
+            })
             ->where(function ($query) use ($identifier) {
                 $query->where('uuid', $identifier)->orWhere('id', $identifier);
             })
@@ -275,11 +338,12 @@ class ParentFeeController extends Controller
 
     public function transform(Fee $fee): array
     {
-        $invoice = $fee->invoiceDocument;
+        $invoice = $fee->resolvedInvoiceDocument();
 
         return [
             'id' => $fee->id,
             'uuid' => $fee->uuid,
+            'billing_context' => $fee->billingContext(),
             'fee_type' => $fee->fee_type,
             'amount' => (float) $fee->amount,
             'amount_paid' => (float) $fee->amount_paid,
@@ -301,6 +365,11 @@ class ParentFeeController extends Controller
                 'full_name' => $fee->student->full_name,
                 'student_id' => $fee->student->student_id,
             ] : null,
+            'clinic_patient' => $fee->clinicPatient ? [
+                'id' => $fee->clinicPatient->id,
+                'full_name' => $fee->clinicPatient->full_name,
+                'patient_number' => $fee->clinicPatient->patient_number,
+            ] : null,
             'term' => $fee->term ? [
                 'id' => $fee->term->id,
                 'name' => $fee->term->name,
@@ -309,7 +378,7 @@ class ParentFeeController extends Controller
             'invoice' => $invoice ? [
                 'id' => $invoice->id,
                 'title' => $invoice->title,
-                'url' => $invoice->file_url ?: ($invoice->file_path ? asset('storage/'.$invoice->file_path) : null),
+                'url' => $invoice->file_url ?? ($invoice->file_path ? asset('storage/'.$invoice->file_path) : null),
                 'mime_type' => $invoice->mime_type,
             ] : null,
             'payments' => $fee->payments->map(fn ($payment) => [

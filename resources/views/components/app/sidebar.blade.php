@@ -418,9 +418,16 @@
                         @endif
 
                         <!-- Financials -->
-                        @if ($business && $business->hasFeatureByName('Fee Management'))
+                        @if ($business && ($business->hasFeatureByName('Fee Management') || $business->hasFeatureByName('Kids Clinics')))
+                        @php
+                            $clinicFinancials = $business->hasFeatureByName('Kids Clinics')
+                                && ! $business->hasFeatureByName('Student Management');
+                            $financialsUrl = $clinicFinancials
+                                ? route('clinic-patients.index', ['tab' => 'fees'])
+                                : route('school-management.fees');
+                        @endphp
                         <li>
-                            <a href="{{ route('school-management.fees') }}"
+                            <a href="{{ $financialsUrl }}"
                                 class="flex items-center pl-4 pr-3 py-2 rounded-md text-gray-700 hover:text-blue-700 hover:bg-blue-50">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                                     stroke-width="1.5" stroke="currentColor" class="w-5 h-5 shrink-0">

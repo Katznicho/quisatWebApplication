@@ -93,6 +93,11 @@ class ParentGuardian extends Model
         return $this->hasMany(Student::class);
     }
 
+    public function clinicPatients()
+    {
+        return $this->hasMany(ClinicPatient::class);
+    }
+
     public function children()
     {
         return $this->hasMany(ParentChild::class);

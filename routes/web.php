@@ -276,6 +276,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
         })->name('exams');
 
         Route::get('/fees', function () {
+            $business = auth()->user()?->business;
+            if (
+                $business
+                && $business->hasFeatureByName('Kids Clinics')
+                && ! $business->hasFeatureByName('Student Management')
+            ) {
+                return redirect()->route('clinic-patients.index', ['tab' => 'fees']);
+            }
+
             return view('school-management.fees');
         })->name('fees');
         Route::get('/fees/report.csv', [\App\Http\Controllers\FeeReportController::class, 'csv'])->name('fees.report.csv');

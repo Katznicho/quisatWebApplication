@@ -142,7 +142,8 @@ class ListPaymentCollections extends Component implements HasForms, HasTable
             \App\Models\EventAttendee::class => 'Program: '.$payable->child_name,
             \App\Models\CalendarEventRegistration::class => 'School event: '.$payable->child_name,
             \App\Models\ClinicAppointment::class => 'Clinic appointment #'.$payable->getKey(),
-            \App\Models\Fee::class => 'School fee: '.($payable->student?->full_name ?? '#'.$payable->getKey()),
+            \App\Models\Fee::class => ($payable->isClinicFee() ? 'Clinic fee: ' : 'School fee: ')
+                .($payable->billableName()),
             default => class_basename($payable::class).' #'.$payable->getKey(),
         };
     }

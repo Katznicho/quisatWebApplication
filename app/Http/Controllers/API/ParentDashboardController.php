@@ -130,9 +130,22 @@ class ParentDashboardController extends Controller
         });
 
         $pendingFees = Fee::query()
-            ->with(['student:id,first_name,last_name,student_id', 'term:id,name,academic_year', 'invoiceDocument', 'payments'])
+            ->with([
+                'student:id,first_name,last_name,student_id',
+                'clinicPatient:id,first_name,last_name,patient_number',
+                'term:id,name,academic_year',
+                'invoiceDocument',
+                'clinicInvoiceDocument',
+                'payments',
+            ])
             ->where('business_id', $business->id)
-            ->whereIn('student_id', $children->pluck('id'))
+            ->where(function ($query) use ($children, $user, $business) {
+                $query->whereIn('student_id', $children->pluck('id'))
+                    ->orWhereIn(
+                        'clinic_patient_id',
+                        $user->clinicPatients()->where('business_id', $business->id)->pluck('id')
+                    );
+            })
             ->whereIn('payment_status', ['pending', 'partial', 'overdue'])
             ->where('balance', '>', 0)
             ->orderBy('due_date')

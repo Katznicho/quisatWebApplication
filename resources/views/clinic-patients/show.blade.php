@@ -3,7 +3,7 @@
 @section('content')
 @php
     $activeTab = request('tab', 'overview');
-    if (! in_array($activeTab, ['overview', 'appointments', 'visits', 'vaccinations', 'growth', 'documents'], true)) {
+    if (! in_array($activeTab, ['overview', 'appointments', 'visits', 'vaccinations', 'growth', 'documents', 'fees'], true)) {
         $activeTab = 'overview';
     }
     $statusClasses = $patient->status === 'active'
@@ -161,6 +161,10 @@
             <a href="{{ route('clinic-patients.show', ['clinic_patient' => $patient->id, 'tab' => 'documents']) }}"
                class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'documents' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
                 Documents
+            </a>
+            <a href="{{ route('clinic-patients.show', ['clinic_patient' => $patient->id, 'tab' => 'fees']) }}"
+               class="rounded-t-xl border-b-2 px-4 py-3 text-sm font-semibold {{ $activeTab === 'fees' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700' }}">
+                Fees
             </a>
         </nav>
     </div>
@@ -359,6 +363,10 @@
     @elseif($activeTab === 'documents')
         <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <livewire:clinic-patients.patient-documents-table :patient="$patient" :wire:key="'patient-documents-'.$patient->id" />
+        </div>
+    @elseif($activeTab === 'fees')
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <livewire:clinic-patients.fee-management :patient="$patient" :wire:key="'patient-fees-'.$patient->id" />
         </div>
     @endif
 </div>
