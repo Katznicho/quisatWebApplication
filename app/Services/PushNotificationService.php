@@ -199,6 +199,8 @@ class PushNotificationService
             'sound' => 'default',
             'priority' => 'high',
             'channelId' => $this->resolveAndroidChannel($data),
+            // Keep the message available long enough for offline Android devices.
+            'ttl' => 2419200,
         ];
 
         if ($badge !== null) {
@@ -252,6 +254,14 @@ class PushNotificationService
 
         if ($type === 'message' || str_contains($type, 'message')) {
             return 'messages';
+        }
+
+        if (
+            str_contains($type, 'fee')
+            || str_contains($type, 'billing')
+            || str_contains($type, 'payment')
+        ) {
+            return 'fees';
         }
 
         return 'default';
