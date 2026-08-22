@@ -34,8 +34,10 @@ class BusinessWalletController extends Controller
             ->limit(10)
             ->get();
 
-        $tiers = $this->feeService->globalTiers();
-        $bankTiers = $this->feeService->globalTiers(WithdrawalFeeService::CHANNEL_BANK_TRANSFER);
+        $tiers = $this->feeService->tiersFor($business);
+        $bankTiers = $this->feeService->tiersFor($business, WithdrawalFeeService::CHANNEL_BANK_TRANSFER);
+        $mobileMoneyMin = $this->feeService->minimumAmount($business);
+        $bankTransferMin = $this->feeService->minimumAmount($business, WithdrawalFeeService::CHANNEL_BANK_TRANSFER);
 
         return view('business-wallet.index', compact(
             'business',
@@ -43,6 +45,8 @@ class BusinessWalletController extends Controller
             'withdrawals',
             'tiers',
             'bankTiers',
+            'mobileMoneyMin',
+            'bankTransferMin',
         ));
     }
 
@@ -103,8 +107,10 @@ class BusinessWalletController extends Controller
     {
         $business = $this->authorizedBusiness();
 
+        $minAmount = $this->feeService->minimumAmount($business);
+
         $validated = $request->validate([
-            'amount' => 'required|numeric|min:500',
+            'amount' => 'required|numeric|min:'.$minAmount,
             'phone_number' => 'required|string|max:20',
             'pin' => 'required|digits_between:4,6',
             'notes' => 'nullable|string|max:1000',
@@ -129,8 +135,10 @@ class BusinessWalletController extends Controller
     {
         $business = $this->authorizedBusiness();
 
+        $minAmount = $this->feeService->minimumAmount($business, WithdrawalFeeService::CHANNEL_BANK_TRANSFER);
+
         $validated = $request->validate([
-            'amount' => 'required|numeric|min:2500',
+            'amount' => 'required|numeric|min:'.$minAmount,
             'bank_name' => 'required|string|max:120',
             'bank_account_number' => 'required|string|max:40',
             'bank_account_name' => 'nullable|string|max:120',

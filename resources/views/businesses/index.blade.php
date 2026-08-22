@@ -23,15 +23,15 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div class="rounded-lg border border-blue-200 bg-blue-50 p-4">
                         <p class="text-sm font-medium text-blue-700">Available Balance</p>
-                        <p class="text-2xl font-bold text-blue-900 mt-1">UGX {{ number_format($business->available_balance ?? 0, 0) }}</p>
+                        <p class="text-2xl font-bold text-blue-900 mt-1">{{ $business->displayCurrency() }} {{ number_format($business->available_balance ?? 0, 0) }}</p>
                     </div>
                     <div class="rounded-lg border border-amber-200 bg-amber-50 p-4">
                         <p class="text-sm font-medium text-amber-700">Held Balance</p>
-                        <p class="text-2xl font-bold text-amber-900 mt-1">UGX {{ number_format($business->held_balance ?? 0, 0) }}</p>
+                        <p class="text-2xl font-bold text-amber-900 mt-1">{{ $business->displayCurrency() }} {{ number_format($business->held_balance ?? 0, 0) }}</p>
                     </div>
                     <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
                         <p class="text-sm font-medium text-gray-700">Total Balance</p>
-                        <p class="text-2xl font-bold text-gray-900 mt-1">UGX {{ number_format($business->total_balance ?? 0, 0) }}</p>
+                        <p class="text-2xl font-bold text-gray-900 mt-1">{{ $business->displayCurrency() }} {{ number_format($business->total_balance ?? 0, 0) }}</p>
                     </div>
                 </div>
             </div>

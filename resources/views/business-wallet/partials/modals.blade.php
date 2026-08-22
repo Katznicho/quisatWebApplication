@@ -93,7 +93,7 @@
             @csrf
             <div>
                 <label class="block text-sm font-medium text-gray-700">Amount to receive ({{ $business->displayCurrency() }})</label>
-                <input type="number" name="amount" id="withdrawAmount" min="500" step="1" required
+                <input type="number" name="amount" id="withdrawAmount" min="{{ $mobileMoneyMin }}" step="1" required
                     class="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm">
                 <p class="text-xs text-gray-500 mt-1" id="feeEstimate">Fee: — · Total debited: —</p>
             </div>
@@ -123,11 +123,12 @@
 <script>
     const withdrawAmountInput = document.getElementById('withdrawAmount');
     const feeEstimate = document.getElementById('feeEstimate');
+    const mobileMoneyMin = {{ (int) $mobileMoneyMin }};
 
     if (withdrawAmountInput) {
         withdrawAmountInput.addEventListener('input', async function () {
             const amount = this.value;
-            if (!amount || amount < 500) {
+            if (!amount || amount < mobileMoneyMin) {
                 feeEstimate.textContent = 'Fee: — · Total debited: —';
                 return;
             }
@@ -157,7 +158,7 @@
             @csrf
             <div>
                 <label class="block text-sm font-medium text-gray-700">Amount to receive ({{ $business->displayCurrency() }})</label>
-                <input type="number" name="amount" id="bankWithdrawAmount" min="2500" step="1" required
+                <input type="number" name="amount" id="bankWithdrawAmount" min="{{ $bankTransferMin }}" step="1" required
                     class="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm">
                 <p class="text-xs text-gray-500 mt-1" id="bankFeeEstimate">Fee: — · Total debited: —</p>
             </div>
@@ -202,11 +203,12 @@
 <script>
     const bankWithdrawAmountInput = document.getElementById('bankWithdrawAmount');
     const bankFeeEstimate = document.getElementById('bankFeeEstimate');
+    const bankTransferMin = {{ (int) $bankTransferMin }};
 
     if (bankWithdrawAmountInput) {
         bankWithdrawAmountInput.addEventListener('input', async function () {
             const amount = this.value;
-            if (!amount || amount < 2500) {
+            if (!amount || amount < bankTransferMin) {
                 bankFeeEstimate.textContent = 'Fee: — · Total debited: —';
                 return;
             }

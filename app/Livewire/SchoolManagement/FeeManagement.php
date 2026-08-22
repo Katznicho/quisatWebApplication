@@ -84,6 +84,7 @@ class FeeManagement extends Component implements HasForms, HasTable
                 ]),
             TextInput::make('amount')
                 ->numeric()
+                ->prefix(fn () => TenantScope::displayCurrency())
                 ->required()
                 ->minValue(0)
                 ->placeholder('Enter amount'),
@@ -198,13 +199,13 @@ class FeeManagement extends Component implements HasForms, HasTable
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('amount')
-                    ->money('UGX')
+                    ->formatStateUsing(fn ($state) => TenantScope::displayCurrency().' '.number_format((float) $state, 0))
                     ->sortable(),
                 Tables\Columns\TextColumn::make('amount_paid')
-                    ->money('UGX')
+                    ->formatStateUsing(fn ($state) => TenantScope::displayCurrency().' '.number_format((float) $state, 0))
                     ->sortable(),
                 Tables\Columns\TextColumn::make('balance')
-                    ->money('UGX')
+                    ->formatStateUsing(fn ($state) => TenantScope::displayCurrency().' '.number_format((float) $state, 0))
                     ->sortable(),
                 Tables\Columns\TextColumn::make('due_date')
                     ->date()
@@ -355,6 +356,7 @@ class FeeManagement extends Component implements HasForms, HasTable
     {
         return view('livewire.school-management.fee-management', [
             'stats' => $this->stats(),
+            'currency' => TenantScope::displayCurrency(),
         ]);
     }
 }

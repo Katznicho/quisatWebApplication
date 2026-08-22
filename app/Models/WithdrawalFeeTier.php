@@ -10,6 +10,7 @@ class WithdrawalFeeTier extends Model
     protected $fillable = [
         'business_id',
         'channel',
+        'currency_code',
         'min_amount',
         'max_amount',
         'charge_amount',

@@ -6,7 +6,19 @@
                     <h2 class="text-xl font-bold text-gray-800 dark:text-white">Withdrawal Fee Tiers</h2>
                     <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
                         Mobile money collections withdraw to phone. Card collections can only be pushed to bank via MarzPay bank transfer.
+                        Kenya and Uganda use separate fee schedules.
                     </p>
+                </div>
+
+                <div class="mb-6 flex gap-2">
+                    <a href="{{ route('withdrawal.settings.edit', ['currency' => 'UGX']) }}"
+                        class="rounded px-4 py-2 text-sm font-semibold {{ $currency === 'UGX' ? 'bg-gray-900 text-white' : 'border border-gray-300 text-gray-700 hover:bg-gray-50' }}">
+                        Uganda (UGX)
+                    </a>
+                    <a href="{{ route('withdrawal.settings.edit', ['currency' => 'KSH']) }}"
+                        class="rounded px-4 py-2 text-sm font-semibold {{ $currency === 'KSH' ? 'bg-gray-900 text-white' : 'border border-gray-300 text-gray-700 hover:bg-gray-50' }}">
+                        Kenya (KSH)
+                    </a>
                 </div>
 
                 @if (session('success'))
@@ -18,6 +30,7 @@
                 <form method="POST" action="{{ route('withdrawal.settings.update') }}" class="space-y-8">
                     @csrf
                     @method('PUT')
+                    <input type="hidden" name="currency" value="{{ $currency }}">
 
                     <div>
                         <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-2">Mobile Money Withdrawal Fees</h3>
@@ -25,9 +38,9 @@
                             <table class="min-w-full text-sm" id="tiersTable">
                                 <thead class="bg-gray-900 text-white">
                                     <tr>
-                                        <th class="px-4 py-2 text-left">Min Amount (UGX)</th>
-                                        <th class="px-4 py-2 text-left">Max Amount (UGX)</th>
-                                        <th class="px-4 py-2 text-left">Charge (UGX)</th>
+                                        <th class="px-4 py-2 text-left">Min Amount ({{ $currency }})</th>
+                                        <th class="px-4 py-2 text-left">Max Amount ({{ $currency }})</th>
+                                        <th class="px-4 py-2 text-left">Charge ({{ $currency }})</th>
                                         <th class="px-4 py-2"></th>
                                     </tr>
                                 </thead>
@@ -66,9 +79,9 @@
                             <table class="min-w-full text-sm" id="bankTiersTable">
                                 <thead class="bg-indigo-900 text-white">
                                     <tr>
-                                        <th class="px-4 py-2 text-left">Min Amount (UGX)</th>
-                                        <th class="px-4 py-2 text-left">Max Amount (UGX)</th>
-                                        <th class="px-4 py-2 text-left">Charge (UGX)</th>
+                                        <th class="px-4 py-2 text-left">Min Amount ({{ $currency }})</th>
+                                        <th class="px-4 py-2 text-left">Max Amount ({{ $currency }})</th>
+                                        <th class="px-4 py-2 text-left">Charge ({{ $currency }})</th>
                                         <th class="px-4 py-2"></th>
                                     </tr>
                                 </thead>
@@ -100,7 +113,7 @@
 
                     <div class="flex justify-end">
                         <button type="submit" class="rounded bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700">
-                            Save Fee Tiers
+                            Save {{ $currency }} Fee Tiers
                         </button>
                     </div>
                 </form>

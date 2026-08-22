@@ -22,14 +22,14 @@ class BusinessController extends Controller
         if ($user->business_id != 1) {
             $business = Business::with(['registrationDocuments.documentType', 'businessCategory'])
                 ->findOrFail($user->business_id);
-            $withdrawalTiers = app(WithdrawalFeeService::class)->globalTiers();
+            $withdrawalTiers = app(WithdrawalFeeService::class)->tiersFor($business);
 
             return view('businesses.show', compact('business', 'withdrawalTiers'));
         }
         
         // For super business, show the table view plus own wallet summary
         $business = Business::findOrFail($user->business_id);
-        $withdrawalTiers = app(WithdrawalFeeService::class)->globalTiers();
+        $withdrawalTiers = app(WithdrawalFeeService::class)->tiersFor($business);
 
         return view('businesses.index', compact('business', 'withdrawalTiers'));
     }

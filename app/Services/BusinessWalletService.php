@@ -283,9 +283,11 @@ class BusinessWalletService
             ]);
         }
 
-        if ($amount < 500) {
+        $minAmount = $this->feeService->minimumAmount($business, WithdrawalFeeService::CHANNEL_MOBILE_MONEY);
+
+        if ($amount < $minAmount) {
             throw ValidationException::withMessages([
-                'amount' => 'Minimum withdrawal amount is '.$business->displayCurrency().' 500.',
+                'amount' => 'Minimum withdrawal amount is '.$business->displayCurrency().' '.number_format($minAmount).'.',
             ]);
         }
 
@@ -394,9 +396,11 @@ class BusinessWalletService
             ]);
         }
 
-        if ($amount < 2500) {
+        $minAmount = $this->feeService->minimumAmount($business, WithdrawalFeeService::CHANNEL_BANK_TRANSFER);
+
+        if ($amount < $minAmount) {
             throw ValidationException::withMessages([
-                'amount' => 'Minimum bank transfer amount is '.$business->displayCurrency().' 2,500.',
+                'amount' => 'Minimum bank transfer amount is '.$business->displayCurrency().' '.number_format($minAmount).'.',
             ]);
         }
 

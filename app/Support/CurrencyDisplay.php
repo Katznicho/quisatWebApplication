@@ -40,4 +40,12 @@ class CurrencyDisplay
 
         return $normalized === 'KHS' ? 'KSH' : $normalized;
     }
+
+    /**
+     * Supported withdrawal-fee schedules. Kenya maps to KSH; everything else uses UGX.
+     */
+    public static function feeScheduleCode(?string $code): string
+    {
+        return self::code($code) === 'KSH' ? 'KSH' : 'UGX';
+    }
 }

@@ -19,6 +19,11 @@ class TenantScope
         return (int) $user->business_id;
     }
 
+    public static function displayCurrency(): string
+    {
+        return Auth::user()?->business?->displayCurrency() ?? 'UGX';
+    }
+
     public static function isSuperAdmin(): bool
     {
         return self::businessId() === 1;

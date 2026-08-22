@@ -189,6 +189,7 @@ class FeeInvoiceService
             'childName' => $childName,
             'idLabel' => $idLabel,
             'idValue' => $idValue,
+            'currency' => $business->displayCurrency(),
         ])->setPaper('a4')->output();
     }
 

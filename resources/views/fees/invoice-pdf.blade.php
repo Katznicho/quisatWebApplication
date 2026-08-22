@@ -62,13 +62,13 @@
             <tr>
                 <td>{{ $fee->fee_type }}</td>
                 <td>{{ $termLabel ?: '—' }}</td>
-                <td>UGX {{ number_format((float) $fee->amount, 0) }}</td>
+                <td>{{ $currency }} {{ number_format((float) $fee->amount, 0) }}</td>
             </tr>
             @foreach($fee->payments as $payment)
                 <tr>
                     <td>Payment · {{ $payment->methodLabel() }} @if($payment->receipt_number) ({{ $payment->receipt_number }}) @endif</td>
                     <td>{{ optional($payment->paid_at)->format('d M Y') }}</td>
-                    <td>- UGX {{ number_format((float) $payment->amount, 0) }}</td>
+                    <td>- {{ $currency }} {{ number_format((float) $payment->amount, 0) }}</td>
                 </tr>
             @endforeach
         </tbody>
@@ -77,15 +77,15 @@
     <table class="totals">
         <tr>
             <td>Billed</td>
-            <td style="text-align:right">UGX {{ number_format((float) $fee->amount, 0) }}</td>
+            <td style="text-align:right">{{ $currency }} {{ number_format((float) $fee->amount, 0) }}</td>
         </tr>
         <tr>
             <td>Paid</td>
-            <td style="text-align:right" class="paid">UGX {{ number_format((float) $fee->amount_paid, 0) }}</td>
+            <td style="text-align:right" class="paid">{{ $currency }} {{ number_format((float) $fee->amount_paid, 0) }}</td>
         </tr>
         <tr class="grand">
             <td>{{ $fee->credit() > 0 ? 'Credit' : 'Balance due' }}</td>
-            <td style="text-align:right">UGX {{ number_format(abs($fee->remainingBalance()), 0) }}</td>
+            <td style="text-align:right">{{ $currency }} {{ number_format(abs($fee->remainingBalance()), 0) }}</td>
         </tr>
     </table>
 

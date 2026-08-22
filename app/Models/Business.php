@@ -149,6 +149,16 @@ class Business extends Model
         return CurrencyDisplay::code($this->currency_code);
     }
 
+    public function feeScheduleCode(): string
+    {
+        return CurrencyDisplay::feeScheduleCode($this->currency_code);
+    }
+
+    public function mobileMoneyNetworkLabel(): string
+    {
+        return $this->feeScheduleCode() === 'KSH' ? 'M-Pesa/Airtel' : 'MTN/Airtel';
+    }
+
     public function isStationeryVerified(): bool
     {
         return $this->stationery_verified_at !== null;

@@ -28,4 +28,14 @@ class CurrencyDisplayTest extends TestCase
         $this->assertSame('KES', CurrencyDisplay::storedCode('KES'));
         $this->assertSame('UGX', CurrencyDisplay::storedCode(null));
     }
+
+    public function test_fee_schedule_maps_kenya_to_ksh_and_others_to_ugx(): void
+    {
+        $this->assertSame('KSH', CurrencyDisplay::feeScheduleCode('KES'));
+        $this->assertSame('KSH', CurrencyDisplay::feeScheduleCode('KHS'));
+        $this->assertSame('KSH', CurrencyDisplay::feeScheduleCode('KSH'));
+        $this->assertSame('UGX', CurrencyDisplay::feeScheduleCode('UGX'));
+        $this->assertSame('UGX', CurrencyDisplay::feeScheduleCode('TZS'));
+        $this->assertSame('UGX', CurrencyDisplay::feeScheduleCode(null));
+    }
 }

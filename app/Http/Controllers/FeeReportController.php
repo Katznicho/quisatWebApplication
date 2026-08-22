@@ -39,6 +39,7 @@ class FeeReportController extends Controller
             'stats' => $stats,
             'methods' => $this->methodBreakdown($fees),
             'generatedAt' => now(),
+            'currency' => TenantScope::displayCurrency(),
         ])->setPaper('a4', 'landscape');
 
         return $pdf->download('fee-'.$type.'-'.now()->format('Ymd-His').'.pdf');

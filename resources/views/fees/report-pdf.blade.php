@@ -19,16 +19,16 @@
     <table class="stats">
         <tr>
             <td>Records: {{ $stats['count'] }}</td>
-            <td>Billed: UGX {{ number_format($stats['total_billed'], 0) }}</td>
-            <td>Paid: UGX {{ number_format($stats['total_paid'], 0) }}</td>
-            <td>Pending: UGX {{ number_format($stats['total_pending'], 0) }}</td>
-            <td>Arrears: UGX {{ number_format($stats['arrears'], 0) }}</td>
-            <td>Credits: UGX {{ number_format($stats['credits'], 0) }}</td>
+            <td>Billed: {{ $currency }} {{ number_format($stats['total_billed'], 0) }}</td>
+            <td>Paid: {{ $currency }} {{ number_format($stats['total_paid'], 0) }}</td>
+            <td>Pending: {{ $currency }} {{ number_format($stats['total_pending'], 0) }}</td>
+            <td>Arrears: {{ $currency }} {{ number_format($stats['arrears'], 0) }}</td>
+            <td>Credits: {{ $currency }} {{ number_format($stats['credits'], 0) }}</td>
         </tr>
         @if(!empty($methods))
         <tr>
             @foreach($methods as $label => $total)
-                <td>{{ $label }}: UGX {{ number_format($total, 0) }}</td>
+                <td>{{ $label }}: {{ $currency }} {{ number_format($total, 0) }}</td>
             @endforeach
         </tr>
         @endif

@@ -140,15 +140,15 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div class="rounded-lg bg-blue-50 border border-blue-200 p-4">
                         <p class="text-sm text-blue-700 font-medium">Available Balance</p>
-                        <p class="text-2xl font-bold text-blue-900 mt-1">UGX {{ number_format($business->available_balance ?? 0, 0) }}</p>
+                        <p class="text-2xl font-bold text-blue-900 mt-1">{{ $business->displayCurrency() }} {{ number_format($business->available_balance ?? 0, 0) }}</p>
                     </div>
                     <div class="rounded-lg bg-amber-50 border border-amber-200 p-4">
                         <p class="text-sm text-amber-700 font-medium">Held Balance</p>
-                        <p class="text-2xl font-bold text-amber-900 mt-1">UGX {{ number_format($business->held_balance ?? 0, 0) }}</p>
+                        <p class="text-2xl font-bold text-amber-900 mt-1">{{ $business->displayCurrency() }} {{ number_format($business->held_balance ?? 0, 0) }}</p>
                     </div>
                     <div class="rounded-lg bg-gray-50 border border-gray-200 p-4">
                         <p class="text-sm text-gray-700 font-medium">Total Balance</p>
-                        <p class="text-2xl font-bold text-gray-900 mt-1">UGX {{ number_format($business->total_balance ?? 0, 0) }}</p>
+                        <p class="text-2xl font-bold text-gray-900 mt-1">{{ $business->displayCurrency() }} {{ number_format($business->total_balance ?? 0, 0) }}</p>
                     </div>
                 </div>
                 <p class="text-sm text-gray-500 mt-4">
@@ -167,8 +167,8 @@
                         <table class="min-w-full text-sm">
                             <thead class="bg-gray-900 text-white">
                                 <tr>
-                                    <th class="px-4 py-2 text-left">Range (UGX)</th>
-                                    <th class="px-4 py-2 text-left">Charge (UGX)</th>
+                                    <th class="px-4 py-2 text-left">Range ({{ $business->displayCurrency() }})</th>
+                                    <th class="px-4 py-2 text-left">Charge ({{ $business->displayCurrency() }})</th>
                                 </tr>
                             </thead>
                             <tbody>

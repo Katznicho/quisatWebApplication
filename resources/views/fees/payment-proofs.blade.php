@@ -1,7 +1,7 @@
 <div class="space-y-4">
     @forelse($fee->payments as $payment)
         <div class="border rounded-lg p-3">
-            <p class="font-semibold">UGX {{ number_format((float) $payment->amount, 0) }} · {{ $payment->methodLabel() }}</p>
+            <p class="font-semibold">{{ $fee->business?->displayCurrency() ?? \App\Support\TenantScope::displayCurrency() }} {{ number_format((float) $payment->amount, 0) }} · {{ $payment->methodLabel() }}</p>
             <p class="text-sm text-gray-500">
                 {{ optional($payment->paid_at)->format('d M Y H:i') }}
                 @if($payment->receipt_number) · Receipt {{ $payment->receipt_number }} @endif

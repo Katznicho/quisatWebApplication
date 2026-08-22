@@ -58,7 +58,7 @@
                         <p class="text-3xl font-bold text-blue-900 mt-1">
                             {{ $currency }} {{ number_format($business->available_balance, 0) }}
                         </p>
-                        <p class="text-xs text-blue-600 mt-2">Withdraw to MTN/Airtel</p>
+                        <p class="text-xs text-blue-600 mt-2">Withdraw to {{ $business->mobileMoneyNetworkLabel() }}</p>
                     </div>
                     <div class="rounded-lg border border-amber-200 bg-amber-50 p-5">
                         <p class="text-sm font-medium text-amber-700">Mobile Money · Held</p>
@@ -108,7 +108,7 @@
                     <div>
                         <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-3">Mobile Money Withdrawal Fees</h3>
                         <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                            Applies when withdrawing MTN/Airtel collections to a phone number.
+                            Applies when withdrawing {{ $business->mobileMoneyNetworkLabel() }} collections to a phone number.
                         </p>
                         <div class="overflow-x-auto rounded-lg border border-gray-200">
                             <table class="min-w-full text-sm">
@@ -214,5 +214,9 @@
         </div>
     </div>
 
-    @include('business-wallet.partials.modals', ['business' => $business])
+    @include('business-wallet.partials.modals', [
+        'business' => $business,
+        'mobileMoneyMin' => $mobileMoneyMin,
+        'bankTransferMin' => $bankTransferMin,
+    ])
 </x-app-layout>
