@@ -129,32 +129,42 @@ class ParentDashboardController extends Controller
             ];
         });
 
-        $pendingFees = Fee::query()
-            ->with([
-                'student:id,first_name,last_name,student_id',
-                'clinicPatient:id,first_name,last_name,patient_number',
-                'term:id,name,academic_year',
-                'invoiceDocument',
-                'clinicInvoiceDocument',
-                'payments',
-            ])
-            ->where('business_id', $business->id)
-            ->where(function ($query) use ($children, $user, $business) {
-                $query->whereIn('student_id', $children->pluck('id'))
-                    ->orWhereIn(
-                        'clinic_patient_id',
-                        $user->clinicPatients()->where('business_id', $business->id)->pluck('id')
-                    );
-            })
-            ->whereIn('payment_status', ['pending', 'partial', 'overdue'])
-            ->where('balance', '>', 0)
-            ->orderBy('due_date')
-            ->limit(8)
-            ->get()
-            ->map(fn (Fee $fee) => app(ParentFeeController::class)->transform($fee))
-            ->values();
-
         $childIds = $children->pluck('id')->filter()->values();
+        $patientIds = $user->clinicPatients()->pluck('id');
+
+        $pendingFees = ($childIds->isEmpty() && $patientIds->isEmpty())
+            ? collect()
+            : Fee::query()
+                ->with([
+                    'business:id,currency_code',
+                    'student:id,first_name,last_name,student_id',
+                    'clinicPatient:id,first_name,last_name,patient_number',
+                    'term:id,name,academic_year',
+                    'invoiceDocument',
+                    'clinicInvoiceDocument',
+                    'payments',
+                ])
+                ->where(function ($query) use ($business, $childIds, $patientIds) {
+                    if ($childIds->isNotEmpty()) {
+                        $query->orWhere(function ($school) use ($business, $childIds) {
+                            $school->where('business_id', $business->id)
+                                ->whereIn('student_id', $childIds)
+                                ->whereNull('clinic_patient_id');
+                        });
+                    }
+
+                    if ($patientIds->isNotEmpty()) {
+                        $query->orWhereIn('clinic_patient_id', $patientIds);
+                    }
+                })
+                ->whereIn('payment_status', ['pending', 'partial', 'overdue'])
+                ->where('balance', '>', 0)
+                ->orderBy('due_date')
+                ->limit(8)
+                ->get()
+                ->map(fn (Fee $fee) => app(ParentFeeController::class)->transform($fee))
+                ->values();
+
         $latestAcademic = $childIds->isEmpty()
             ? null
             : StudentAcademicEntry::query()->whereIn('student_id', $childIds)->max('updated_at');

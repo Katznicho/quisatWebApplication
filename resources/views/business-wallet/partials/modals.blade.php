@@ -92,7 +92,7 @@
         <form method="POST" action="{{ route('business.wallet.withdraw') }}" class="space-y-4" id="withdrawForm">
             @csrf
             <div>
-                <label class="block text-sm font-medium text-gray-700">Amount to receive (UGX)</label>
+                <label class="block text-sm font-medium text-gray-700">Amount to receive ({{ $business->displayCurrency() }})</label>
                 <input type="number" name="amount" id="withdrawAmount" min="500" step="1" required
                     class="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm">
                 <p class="text-xs text-gray-500 mt-1" id="feeEstimate">Fee: — · Total debited: —</p>
@@ -136,7 +136,8 @@
                     headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
                 });
                 const data = await response.json();
-                feeEstimate.textContent = `Fee: UGX ${Number(data.fee).toLocaleString()} · Total debited: UGX ${Number(data.total).toLocaleString()}`;
+                const walletCurrency = @json($business->displayCurrency());
+                feeEstimate.textContent = `Fee: ${walletCurrency} ${Number(data.fee).toLocaleString()} · Total debited: ${walletCurrency} ${Number(data.total).toLocaleString()}`;
             } catch (e) {
                 feeEstimate.textContent = 'Could not estimate fee.';
             }
@@ -155,7 +156,7 @@
         <form method="POST" action="{{ route('business.wallet.withdraw-bank') }}" class="space-y-4" id="bankWithdrawForm">
             @csrf
             <div>
-                <label class="block text-sm font-medium text-gray-700">Amount to receive (UGX)</label>
+                <label class="block text-sm font-medium text-gray-700">Amount to receive ({{ $business->displayCurrency() }})</label>
                 <input type="number" name="amount" id="bankWithdrawAmount" min="2500" step="1" required
                     class="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm">
                 <p class="text-xs text-gray-500 mt-1" id="bankFeeEstimate">Fee: — · Total debited: —</p>
@@ -214,7 +215,8 @@
                     headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
                 });
                 const data = await response.json();
-                bankFeeEstimate.textContent = `Fee: UGX ${Number(data.fee).toLocaleString()} · Total debited: UGX ${Number(data.total).toLocaleString()}`;
+                const walletCurrency = @json($business->displayCurrency());
+                bankFeeEstimate.textContent = `Fee: ${walletCurrency} ${Number(data.fee).toLocaleString()} · Total debited: ${walletCurrency} ${Number(data.total).toLocaleString()}`;
             } catch (e) {
                 bankFeeEstimate.textContent = 'Could not estimate fee.';
             }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Country;
+use App\Support\CurrencyDisplay;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -38,7 +39,7 @@ class CountryController extends Controller
 
         Country::create([
             'name' => $validated['name'],
-            'currency_code' => strtoupper($validated['currency_code']),
+            'currency_code' => CurrencyDisplay::storedCode($validated['currency_code']),
             'currency_name' => $validated['currency_name'] ?? null,
             'exchange_rate' => $validated['exchange_rate'],
             'is_default' => !empty($validated['is_default']),
@@ -65,10 +66,15 @@ class CountryController extends Controller
 
         $country->update([
             'name' => $validated['name'],
-            'currency_code' => strtoupper($validated['currency_code']),
+            'currency_code' => CurrencyDisplay::storedCode($validated['currency_code']),
             'currency_name' => $validated['currency_name'] ?? null,
             'exchange_rate' => $validated['exchange_rate'],
             'is_default' => !empty($validated['is_default']),
+        ]);
+
+        $country->businesses()->update([
+            'currency_code' => $country->currency_code,
+            'exchange_rate' => $country->exchange_rate,
         ]);
 
         return redirect()->route('countries.index')->with('success', 'Country updated successfully.');

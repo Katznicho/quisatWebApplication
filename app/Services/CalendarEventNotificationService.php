@@ -84,9 +84,6 @@ class CalendarEventNotificationService
             ->where('status', 'active')
             ->get();
 
-        return $parents
-            ->merge($staff)
-            ->unique(fn (Model $owner) => $owner::class.'#'.$owner->getKey())
-            ->values();
+        return $this->collapseLinkedOwners($parents->merge($staff));
     }
 }

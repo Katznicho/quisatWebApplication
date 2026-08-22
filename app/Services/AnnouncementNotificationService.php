@@ -117,8 +117,6 @@ class AnnouncementNotificationService
             $recipients = $recipients->merge($staffQuery->get());
         }
 
-        return $recipients
-            ->unique(fn (Model $owner) => $owner::class.'#'.$owner->getKey())
-            ->values();
+        return $this->collapseLinkedOwners($recipients);
     }
 }

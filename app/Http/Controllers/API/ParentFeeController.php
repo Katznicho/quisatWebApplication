@@ -5,7 +5,6 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\Fee;
 use App\Models\ParentGuardian;
-use App\Services\FeeParentNotificationService;
 use App\Services\MarzPayCheckoutService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -23,29 +22,14 @@ class ParentFeeController extends Controller
         }
 
         $business = $request->get('business');
-        $childIds = $parent->students()
-            ->where('business_id', $business->id)
-            ->pluck('id');
-        $patientIds = $parent->clinicPatients()
-            ->where('business_id', $business->id)
-            ->pluck('id');
+        if (! $business) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Business not found. Please contact support.',
+            ], 403);
+        }
 
-        $query = Fee::query()
-            ->with([
-                'student:id,first_name,last_name,student_id,parent_guardian_id',
-                'clinicPatient:id,first_name,last_name,patient_number,parent_guardian_id',
-                'term:id,name,academic_year',
-                'invoiceDocument',
-                'clinicInvoiceDocument',
-                'payments',
-            ])
-            ->where('business_id', $business->id)
-            ->where(function ($q) use ($childIds, $patientIds) {
-                $q->whereIn('student_id', $childIds)
-                    ->orWhereIn('clinic_patient_id', $patientIds);
-            })
-            ->orderByRaw("FIELD(payment_status, 'overdue', 'pending', 'partial', 'paid', 'waived')")
-            ->orderBy('due_date');
+        [$childIds, $patientIds] = $this->billableIds($parent, (int) $business->id);
 
         if ($request->filled('student_id')) {
             $studentId = (int) $request->student_id;
@@ -55,7 +39,6 @@ class ParentFeeController extends Controller
                     'message' => 'You are not authorized to view fees for this student.',
                 ], 403);
             }
-            $query->where('student_id', $studentId)->whereNull('clinic_patient_id');
         }
 
         if ($request->filled('clinic_patient_id')) {
@@ -66,29 +49,56 @@ class ParentFeeController extends Controller
                     'message' => 'You are not authorized to view fees for this patient.',
                 ], 403);
             }
-            $query->where('clinic_patient_id', $patientId);
         }
 
-        if ($request->filled('context') && in_array($request->context, ['school', 'clinic'], true)) {
-            if ($request->context === 'clinic') {
-                $query->whereNotNull('clinic_patient_id');
-            } else {
-                $query->whereNotNull('student_id')->whereNull('clinic_patient_id');
-            }
+        $context = $request->filled('context') && in_array($request->context, ['school', 'clinic'], true)
+            ? $request->context
+            : null;
+
+        $wantsSchool = $context !== 'clinic';
+        $wantsClinic = $context !== 'school';
+        $scopedChildIds = $request->filled('student_id') ? collect([(int) $request->student_id]) : $childIds;
+        $scopedPatientIds = $request->filled('clinic_patient_id') ? collect([(int) $request->clinic_patient_id]) : $patientIds;
+
+        if (($wantsSchool && $scopedChildIds->isEmpty()) && ($wantsClinic && $scopedPatientIds->isEmpty())) {
+            return $this->emptyFeesResponse($business);
         }
+
+        $query = Fee::query()
+            ->with([
+                'business:id,currency_code',
+                'student:id,first_name,last_name,student_id,parent_guardian_id',
+                'clinicPatient:id,first_name,last_name,patient_number,parent_guardian_id',
+                'term:id,name,academic_year',
+                'invoiceDocument',
+                'clinicInvoiceDocument',
+                'payments',
+            ])
+            ->where(function ($q) use ($business, $scopedChildIds, $scopedPatientIds, $wantsSchool, $wantsClinic) {
+                if ($wantsSchool && $scopedChildIds->isNotEmpty()) {
+                    $q->orWhere(function ($school) use ($business, $scopedChildIds) {
+                        $school->where('business_id', $business->id)
+                            ->whereIn('student_id', $scopedChildIds)
+                            ->whereNull('clinic_patient_id');
+                    });
+                }
+
+                if ($wantsClinic && $scopedPatientIds->isNotEmpty()) {
+                    $q->orWhereIn('clinic_patient_id', $scopedPatientIds);
+                }
+            })
+            ->orderByRaw("CASE payment_status WHEN 'overdue' THEN 1 WHEN 'pending' THEN 2 WHEN 'partial' THEN 3 WHEN 'paid' THEN 4 ELSE 5 END")
+            ->orderBy('due_date');
 
         if ($request->filled('status') && $request->status !== 'all') {
             $query->where('payment_status', $request->status);
         }
 
-        $notifier = app(FeeParentNotificationService::class);
-        $fees = $query->get()->each(function (Fee $fee) use ($notifier) {
-            if ($fee->markOverdueIfNeeded()) {
-                $notifier->notifyOverdue($fee);
-            }
-        })->map(fn (Fee $fee) => $this->transform($fee))->values();
+        $fees = $query->get();
+        $fees->each(fn (Fee $fee) => $fee->markOverdueIfNeeded());
+        $payload = $fees->map(fn (Fee $fee) => $this->transform($fee))->values();
 
-        $outstanding = $fees
+        $outstanding = $payload
             ->filter(fn (array $fee) => $fee['is_payable'])
             ->sum(fn (array $fee) => $fee['balance']);
 
@@ -96,13 +106,14 @@ class ParentFeeController extends Controller
             'success' => true,
             'message' => 'Fees loaded successfully.',
             'data' => [
-                'fees' => $fees,
+                'fees' => $payload,
                 'summary' => [
+                    'currency' => $business->displayCurrency(),
                     'outstanding_balance' => (float) $outstanding,
-                    'pending_count' => $fees->where('is_payable', true)->count(),
-                    'paid_count' => $fees->where('payment_status', 'paid')->count(),
-                    'arrears' => (float) $fees->sum(fn (array $fee) => $fee['arrears']),
-                    'credits' => (float) $fees->sum(fn (array $fee) => $fee['credit']),
+                    'pending_count' => $payload->where('is_payable', true)->count(),
+                    'paid_count' => $payload->where('payment_status', 'paid')->count(),
+                    'arrears' => (float) $payload->sum(fn (array $fee) => $fee['arrears']),
+                    'credits' => (float) $payload->sum(fn (array $fee) => $fee['credit']),
                 ],
             ],
         ]);
@@ -309,15 +320,11 @@ class ParentFeeController extends Controller
 
     protected function findAuthorizedFee(ParentGuardian $parent, int $businessId, string $identifier): ?Fee
     {
-        $childIds = $parent->students()
-            ->where('business_id', $businessId)
-            ->pluck('id');
-        $patientIds = $parent->clinicPatients()
-            ->where('business_id', $businessId)
-            ->pluck('id');
+        [$childIds, $patientIds] = $this->billableIds($parent, $businessId);
 
         return Fee::query()
             ->with([
+                'business:id,currency_code',
                 'student.parentGuardian',
                 'clinicPatient.parentGuardian',
                 'term',
@@ -336,6 +343,40 @@ class ParentFeeController extends Controller
             ->first();
     }
 
+    /**
+     * @return array{0: \Illuminate\Support\Collection<int, int>, 1: \Illuminate\Support\Collection<int, int>}
+     */
+    protected function billableIds(ParentGuardian $parent, int $businessId): array
+    {
+        $childIds = $parent->students()
+            ->where('business_id', $businessId)
+            ->pluck('id');
+
+        // Clinic bills follow the child, not the school currently in session.
+        $patientIds = $parent->clinicPatients()->pluck('id');
+
+        return [$childIds, $patientIds];
+    }
+
+    protected function emptyFeesResponse($business)
+    {
+        return response()->json([
+            'success' => true,
+            'message' => 'Fees loaded successfully.',
+            'data' => [
+                'fees' => [],
+                'summary' => [
+                    'currency' => $business->displayCurrency(),
+                    'outstanding_balance' => 0,
+                    'pending_count' => 0,
+                    'paid_count' => 0,
+                    'arrears' => 0,
+                    'credits' => 0,
+                ],
+            ],
+        ]);
+    }
+
     public function transform(Fee $fee): array
     {
         $invoice = $fee->resolvedInvoiceDocument();
@@ -344,6 +385,7 @@ class ParentFeeController extends Controller
             'id' => $fee->id,
             'uuid' => $fee->uuid,
             'billing_context' => $fee->billingContext(),
+            'currency' => $fee->business?->displayCurrency() ?? 'UGX',
             'fee_type' => $fee->fee_type,
             'amount' => (float) $fee->amount,
             'amount_paid' => (float) $fee->amount_paid,

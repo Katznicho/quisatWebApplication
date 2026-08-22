@@ -122,7 +122,7 @@ class BusinessWalletController extends Controller
             return back()->withErrors($e->errors())->withInput();
         }
 
-        return back()->with('success', 'Withdrawal of UGX '.number_format($withdrawal->amount, 0).' sent to '.$withdrawal->phone_number.'. Reference: '.$withdrawal->uuid);
+        return back()->with('success', 'Withdrawal of '.$business->displayCurrency().' '.number_format($withdrawal->amount, 0).' sent to '.$withdrawal->phone_number.'. Reference: '.$withdrawal->uuid);
     }
 
     public function withdrawToBank(Request $request)
@@ -154,7 +154,7 @@ class BusinessWalletController extends Controller
             return back()->withErrors($e->errors())->withInput();
         }
 
-        return back()->with('success', 'Bank transfer of UGX '.number_format($withdrawal->amount, 0).' to '.$withdrawal->bank_name.' initiated. Reference: '.$withdrawal->uuid);
+        return back()->with('success', 'Bank transfer of '.$business->displayCurrency().' '.number_format($withdrawal->amount, 0).' to '.$withdrawal->bank_name.' initiated. Reference: '.$withdrawal->uuid);
     }
 
     public function updateTiers(Request $request)

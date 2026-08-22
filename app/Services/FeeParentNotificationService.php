@@ -25,11 +25,12 @@ class FeeParentNotificationService
         }
 
         $name = $fee->billableName();
+        $currency = $fee->business?->displayCurrency() ?? 'UGX';
         $amount = number_format((float) $fee->balance, 0);
         $type = ucfirst((string) $fee->fee_type);
         $isClinic = $fee->isClinicFee();
         $title = $isClinic ? 'Clinic fee pending' : 'School fee pending';
-        $body = "{$type} of UGX {$amount} is due for {$name}. Open Fees to pay.";
+        $body = "{$type} of {$currency} {$amount} is due for {$name}. Open Fees to pay.";
 
         $this->notify($parent, $title, $body, $fee, $isClinic ? 'clinic_fee_created' : 'school_fee_created');
     }
@@ -48,8 +49,9 @@ class FeeParentNotificationService
         $isClinic = $fee->isClinicFee();
         $label = $isClinic ? 'Clinic fee' : 'School fee';
         $title = $fee->remainingBalance() > 0 ? "{$label} payment received" : "{$label} paid";
+        $currency = $fee->business?->displayCurrency() ?? 'UGX';
         $body = $fee->remainingBalance() > 0
-            ? 'UGX '.number_format((float) $fee->amount_paid, 0)." received for {$name}. Balance UGX ".number_format((float) $fee->remainingBalance(), 0).".{$receipt}"
+            ? $currency.' '.number_format((float) $fee->amount_paid, 0)." received for {$name}. Balance {$currency} ".number_format((float) $fee->remainingBalance(), 0).".{$receipt}"
             : "Payment received for {$name}.{$receipt} Your receipt is available in Fees.";
 
         $this->notify($parent, $title, $body, $fee, $isClinic ? 'clinic_fee_paid' : 'school_fee_paid');
@@ -70,7 +72,7 @@ class FeeParentNotificationService
         $this->notify(
             $parent,
             $isClinic ? 'Clinic fee overdue' : 'School fee overdue',
-            "A fee for {$name} is overdue. Balance due: UGX {$amount}.",
+            "A fee for {$name} is overdue. Balance due: ".($fee->business?->displayCurrency() ?? 'UGX')." {$amount}.",
             $fee,
             $isClinic ? 'clinic_fee_overdue' : 'school_fee_overdue'
         );

@@ -285,7 +285,7 @@ class BusinessWalletService
 
         if ($amount < 500) {
             throw ValidationException::withMessages([
-                'amount' => 'Minimum withdrawal amount is UGX 500.',
+                'amount' => 'Minimum withdrawal amount is '.$business->displayCurrency().' 500.',
             ]);
         }
 
@@ -396,7 +396,7 @@ class BusinessWalletService
 
         if ($amount < 2500) {
             throw ValidationException::withMessages([
-                'amount' => 'Minimum bank transfer amount is UGX 2,500.',
+                'amount' => 'Minimum bank transfer amount is '.$business->displayCurrency().' 2,500.',
             ]);
         }
 

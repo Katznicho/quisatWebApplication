@@ -75,4 +75,26 @@ trait ResolvesPushDeviceTokens
             ->unique(fn (Model $owner) => $owner::class.'#'.$owner->getKey())
             ->values();
     }
+
+    /**
+     * One inbox row per person. A parent may exist as both User and ParentGuardian.
+     *
+     * @param  Collection<int, Model>  $owners
+     * @return Collection<int, Model>
+     */
+    protected function collapseLinkedOwners(Collection $owners): Collection
+    {
+        return $owners
+            ->unique(fn (Model $owner) => $owner::class.'#'.$owner->getKey())
+            ->groupBy(function (Model $owner) {
+                $email = strtolower(trim((string) ($owner->email ?? '')));
+
+                return $email !== '' ? $email : $owner::class.'#'.$owner->getKey();
+            })
+            ->map(function (Collection $group) {
+                return $group->first(fn (Model $owner) => $owner instanceof ParentGuardian)
+                    ?? $group->first();
+            })
+            ->values();
+    }
 }

@@ -1,6 +1,7 @@
 <x-app-layout>
     <div class="py-12">
         <div class="max-w-6xl mx-auto sm:px-6 lg:px-8 space-y-6">
+            @php $currency = $business->displayCurrency(); @endphp
             @if (session('success'))
                 <div class="rounded border border-green-300 bg-green-50 px-4 py-3 text-green-700">
                     {{ session('success') }}
@@ -55,21 +56,21 @@
                     <div class="rounded-lg border border-blue-200 bg-blue-50 p-5">
                         <p class="text-sm font-medium text-blue-700">Mobile Money · Available</p>
                         <p class="text-3xl font-bold text-blue-900 mt-1">
-                            UGX {{ number_format($business->available_balance, 0) }}
+                            {{ $currency }} {{ number_format($business->available_balance, 0) }}
                         </p>
                         <p class="text-xs text-blue-600 mt-2">Withdraw to MTN/Airtel</p>
                     </div>
                     <div class="rounded-lg border border-amber-200 bg-amber-50 p-5">
                         <p class="text-sm font-medium text-amber-700">Mobile Money · Held</p>
                         <p class="text-3xl font-bold text-amber-900 mt-1">
-                            UGX {{ number_format($business->held_balance ?? 0, 0) }}
+                            {{ $currency }} {{ number_format($business->held_balance ?? 0, 0) }}
                         </p>
                         <p class="text-xs text-amber-600 mt-2">Pending order delivery confirmation</p>
                     </div>
                     <div class="rounded-lg border border-gray-200 bg-gray-50 p-5">
                         <p class="text-sm font-medium text-gray-700">Mobile Money · Total</p>
                         <p class="text-3xl font-bold text-gray-900 mt-1">
-                            UGX {{ number_format($business->total_balance, 0) }}
+                            {{ $currency }} {{ number_format($business->total_balance, 0) }}
                         </p>
                     </div>
                 </div>
@@ -78,21 +79,21 @@
                     <div class="rounded-lg border border-indigo-200 bg-indigo-50 p-5">
                         <p class="text-sm font-medium text-indigo-700">Card Payments · Available</p>
                         <p class="text-3xl font-bold text-indigo-900 mt-1">
-                            UGX {{ number_format($business->card_available_balance ?? 0, 0) }}
+                            {{ $currency }} {{ number_format($business->card_available_balance ?? 0, 0) }}
                         </p>
                         <p class="text-xs text-indigo-600 mt-2">Withdraw to bank account only</p>
                     </div>
                     <div class="rounded-lg border border-violet-200 bg-violet-50 p-5">
                         <p class="text-sm font-medium text-violet-700">Card Payments · Held</p>
                         <p class="text-3xl font-bold text-violet-900 mt-1">
-                            UGX {{ number_format($business->card_held_balance ?? 0, 0) }}
+                            {{ $currency }} {{ number_format($business->card_held_balance ?? 0, 0) }}
                         </p>
                         <p class="text-xs text-violet-600 mt-2">Card orders pending delivery confirmation</p>
                     </div>
                     <div class="rounded-lg border border-gray-200 bg-gray-50 p-5">
                         <p class="text-sm font-medium text-gray-700">Card Payments · Total</p>
                         <p class="text-3xl font-bold text-gray-900 mt-1">
-                            UGX {{ number_format($business->card_total_balance ?? 0, 0) }}
+                            {{ $currency }} {{ number_format($business->card_total_balance ?? 0, 0) }}
                         </p>
                     </div>
                 </div>
@@ -113,8 +114,8 @@
                             <table class="min-w-full text-sm">
                                 <thead class="bg-gray-900 text-white">
                                     <tr>
-                                        <th class="px-4 py-2 text-left">Range (UGX)</th>
-                                        <th class="px-4 py-2 text-left">Charge (UGX)</th>
+                                        <th class="px-4 py-2 text-left">Range ({{ $currency }})</th>
+                                        <th class="px-4 py-2 text-left">Charge ({{ $currency }})</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -138,8 +139,8 @@
                             <table class="min-w-full text-sm">
                                 <thead class="bg-indigo-900 text-white">
                                     <tr>
-                                        <th class="px-4 py-2 text-left">Range (UGX)</th>
-                                        <th class="px-4 py-2 text-left">Charge (UGX)</th>
+                                        <th class="px-4 py-2 text-left">Range ({{ $currency }})</th>
+                                        <th class="px-4 py-2 text-left">Charge ({{ $currency }})</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -161,12 +162,12 @@
                         @forelse ($withdrawals as $withdrawal)
                             <div class="rounded border border-gray-200 p-3 text-sm">
                                 <div class="flex justify-between">
-                                    <span class="font-semibold">UGX {{ number_format($withdrawal->amount, 0) }}</span>
+                                    <span class="font-semibold">{{ $currency }} {{ number_format($withdrawal->amount, 0) }}</span>
                                     <span class="capitalize text-gray-600">{{ $withdrawal->status }}</span>
                                 </div>
                                 <p class="text-gray-500 mt-1">
                                     {{ $withdrawal->wallet_source === 'card' ? 'Bank: '.$withdrawal->bank_name.' · '.$withdrawal->bank_account_number : 'Mobile: '.$withdrawal->phone_number }}
-                                    · Fee: UGX {{ number_format($withdrawal->fee_amount, 0) }}
+                                    · Fee: {{ $currency }} {{ number_format($withdrawal->fee_amount, 0) }}
                                     · {{ $withdrawal->created_at->format('M j, Y H:i') }}
                                 </p>
                             </div>
@@ -197,9 +198,9 @@
                                     <td class="px-4 py-2 capitalize">{{ str_replace('_', ' ', $ledger->type) }}</td>
                                     <td class="px-4 py-2">{{ $ledger->description }}</td>
                                     <td class="px-4 py-2 text-right {{ $ledger->type === 'credit' ? 'text-green-600' : 'text-red-600' }}">
-                                        {{ $ledger->type === 'credit' ? '+' : '-' }}UGX {{ number_format($ledger->amount, 0) }}
+                                        {{ $ledger->type === 'credit' ? '+' : '-' }}{{ $currency }} {{ number_format($ledger->amount, 0) }}
                                     </td>
-                                    <td class="px-4 py-2 text-right">UGX {{ number_format($ledger->available_balance_after, 0) }}</td>
+                                    <td class="px-4 py-2 text-right">{{ $currency }} {{ number_format($ledger->available_balance_after, 0) }}</td>
                                 </tr>
                             @empty
                                 <tr>

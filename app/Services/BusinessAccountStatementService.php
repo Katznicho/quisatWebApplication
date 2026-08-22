@@ -59,7 +59,7 @@ class BusinessAccountStatementService
             'net_movement' => $totalCredits - $totalDebits - $totalFees,
             'entries' => $entries,
             'lines' => $lines,
-            'currency' => $business->currency_code ?: 'UGX',
+            'currency' => $business->displayCurrency(),
         ];
     }
 

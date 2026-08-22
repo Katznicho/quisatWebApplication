@@ -42,16 +42,16 @@ class PushAudienceResolver
     {
         $scopeToBusiness = $this->shouldScopeToBusiness($broadcast);
 
-        return match ($broadcast->audience) {
+        $owners = match ($broadcast->audience) {
             PushBroadcast::AUDIENCE_PARENTS => $this->parentsQuery($scopeToBusiness ? $broadcast->business_id : null)->get(),
             PushBroadcast::AUDIENCE_STAFF => $this->staffQuery($scopeToBusiness ? $broadcast->business_id : null)->get(),
             PushBroadcast::AUDIENCE_BUSINESS => $this->businessAudience($broadcast),
             default => $this->parentsQuery($scopeToBusiness ? $broadcast->business_id : null)
                 ->get()
-                ->merge($this->staffQuery($scopeToBusiness ? $broadcast->business_id : null)->get())
-                ->unique(fn (Model $owner) => $owner::class.'#'.$owner->getKey())
-                ->values(),
+                ->merge($this->staffQuery($scopeToBusiness ? $broadcast->business_id : null)->get()),
         };
+
+        return $this->collapseLinkedOwners($owners);
     }
 
     protected function shouldScopeToBusiness(PushBroadcast $broadcast): bool
@@ -110,9 +110,7 @@ class PushAudienceResolver
 
         return $this->parentsQuery((int) $broadcast->business_id)
             ->get()
-            ->merge($this->staffQuery((int) $broadcast->business_id)->get())
-            ->unique(fn (Model $owner) => $owner::class.'#'.$owner->getKey())
-            ->values();
+            ->merge($this->staffQuery((int) $broadcast->business_id)->get());
     }
 
     public function createInAppNotification(Model $owner, PushBroadcast $broadcast): UserNotification

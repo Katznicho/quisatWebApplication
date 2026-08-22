@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\CurrencyDisplay;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -141,6 +142,11 @@ class Business extends Model
     public function hasWithdrawalPin(): bool
     {
         return ! empty($this->withdrawal_pin);
+    }
+
+    public function displayCurrency(): string
+    {
+        return CurrencyDisplay::code($this->currency_code);
     }
 
     public function isStationeryVerified(): bool

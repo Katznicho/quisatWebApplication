@@ -38,15 +38,15 @@
                                                 {{ $attendee->programEvent->name }}
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white font-medium">
-                                                {{ $attendee->programEvent->currency->symbol ?? ($attendee->programEvent->business->currency_code ?? 'UGX') }}
+                                                {{ display_currency($attendee->programEvent->currency?->symbol ?? $attendee->programEvent->business?->currency_code) }}
                                                 {{ number_format($attendee->amount_due, 2) }}
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                                {{ $attendee->programEvent->currency->symbol ?? ($attendee->programEvent->business->currency_code ?? 'UGX') }}
+                                                {{ display_currency($attendee->programEvent->currency?->symbol ?? $attendee->programEvent->business?->currency_code) }}
                                                 {{ number_format($attendee->total_paid, 2) }}
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-red-600 dark:text-red-400 font-medium">
-                                                {{ $attendee->programEvent->currency->symbol ?? ($attendee->programEvent->business->currency_code ?? 'UGX') }}
+                                                {{ display_currency($attendee->programEvent->currency?->symbol ?? $attendee->programEvent->business?->currency_code) }}
                                                 {{ number_format($attendee->balance, 2) }}
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">

@@ -37,7 +37,7 @@
                                                 {{ $payment->eventAttendee->programEvent->name }}
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white font-medium">
-                                                {{ $payment->eventAttendee->programEvent->currency->symbol ?? ($payment->eventAttendee->programEvent->business->currency_code ?? 'UGX') }}
+                                                {{ display_currency($payment->eventAttendee->programEvent->currency?->symbol ?? $payment->eventAttendee->programEvent->business?->currency_code) }}
                                                 {{ number_format($payment->amount, 2) }}
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">

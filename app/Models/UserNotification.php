@@ -63,4 +63,23 @@ class UserNotification extends Model
             ->whereNull('read_at')
             ->count();
     }
+
+    public function deduplicationKey(): string
+    {
+        if ($this->push_broadcast_id) {
+            return 'broadcast:'.$this->push_broadcast_id;
+        }
+
+        $data = $this->data ?? [];
+
+        foreach (['broadcast_id', 'message_id', 'announcement_id', 'assignment_id', 'event_id', 'fee_id'] as $field) {
+            if (! empty($data[$field])) {
+                return $field.':'.$data[$field];
+            }
+        }
+
+        $created = $this->created_at?->format('Y-m-d H:i') ?? '';
+
+        return md5($this->title.'|'.$this->body.'|'.$created);
+    }
 }

@@ -114,6 +114,7 @@ class PushBroadcast extends Model
         }
 
         $data['type'] = $data['type'] ?? 'broadcast';
+        $data['broadcast_id'] = (string) $this->id;
 
         return $data === [] ? null : $data;
     }

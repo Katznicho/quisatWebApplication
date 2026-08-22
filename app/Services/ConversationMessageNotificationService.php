@@ -103,8 +103,6 @@ class ConversationMessageNotificationService
             }
         }
 
-        return $owners
-            ->unique(fn (Model $owner) => $owner::class.'#'.$owner->getKey())
-            ->values();
+        return $this->collapseLinkedOwners($owners);
     }
 }

@@ -35,7 +35,7 @@ class PushNotificationService
 
         $payload = $this->buildExpoPayload($expoToken, $title, $body, $data, $badge);
 
-        $request = Http::acceptJson()->asJson();
+        $request = Http::acceptJson()->asJson()->timeout(8)->connectTimeout(5);
 
         if ($accessToken = config('push.expo.access_token')) {
             $request = $request->withToken($accessToken);
@@ -141,7 +141,7 @@ class PushNotificationService
             return ['sent' => 0, 'failed' => 0];
         }
 
-        $request = Http::acceptJson()->asJson();
+        $request = Http::acceptJson()->asJson()->timeout(8)->connectTimeout(5);
 
         if ($accessToken = config('push.expo.access_token')) {
             $request = $request->withToken($accessToken);
@@ -201,6 +201,8 @@ class PushNotificationService
             'channelId' => $this->resolveAndroidChannel($data),
             // Keep the message available long enough for offline Android devices.
             'ttl' => 2419200,
+            // Show the system tray/banner even if the app is already open.
+            '_displayInForeground' => true,
         ];
 
         if ($badge !== null) {

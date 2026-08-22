@@ -9,26 +9,38 @@ use App\Models\UserNotification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 class UserNotificationController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $notifications = $this->notificationsQuery($request)
-            ->latest()
-            ->paginate(min((int) $request->get('per_page', 20), 50));
+        $perPage = min((int) $request->get('per_page', 20), 50);
+        $page = max((int) $request->get('page', 1), 1);
+
+        $notifications = $this->deduplicateNotifications(
+            $this->notificationsQuery($request)->latest()->limit(500)->get()
+        );
+
+        $pageItems = $notifications->forPage($page, $perPage)->values();
+        $paginator = new LengthAwarePaginator(
+            $pageItems,
+            $notifications->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
 
         return response()->json([
             'success' => true,
-            'data' => $notifications->through(fn (UserNotification $n) => $this->format($n)),
+            'data' => $paginator->through(fn (UserNotification $n) => $this->format($n)),
             'meta' => [
-                'current_page' => $notifications->currentPage(),
-                'last_page' => $notifications->lastPage(),
-                'per_page' => $notifications->perPage(),
-                'total' => $notifications->total(),
-                'unread_count' => $this->notificationsQuery($request)
-                    ->whereNull('read_at')
-                    ->count(),
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+                'unread_count' => $notifications->whereNull('read_at')->count(),
             ],
         ]);
     }
@@ -39,7 +51,9 @@ class UserNotificationController extends Controller
             ->where('uuid', $uuid)
             ->firstOrFail();
 
-        $notification->markAsRead();
+        $this->siblingNotifications($request, $notification)
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
 
         return response()->json([
             'success' => true,
@@ -66,7 +80,7 @@ class UserNotificationController extends Controller
             ->where('uuid', $uuid)
             ->firstOrFail();
 
-        $notification->delete();
+        $this->siblingNotifications($request, $notification)->delete();
 
         return response()->json([
             'success' => true,
@@ -144,5 +158,51 @@ class UserNotificationController extends Controller
         }
 
         return $owners;
+    }
+
+    /**
+     * @param  Collection<int, UserNotification>  $notifications
+     * @return Collection<int, UserNotification>
+     */
+    protected function deduplicateNotifications(Collection $notifications): Collection
+    {
+        $seen = [];
+
+        return $notifications
+            ->filter(function (UserNotification $notification) use (&$seen) {
+                $key = $notification->deduplicationKey();
+                if (isset($seen[$key])) {
+                    return false;
+                }
+
+                $seen[$key] = true;
+
+                return true;
+            })
+            ->values();
+    }
+
+    protected function siblingNotifications(Request $request, UserNotification $notification): Builder
+    {
+        $query = $this->notificationsQuery($request);
+
+        if ($notification->push_broadcast_id) {
+            return $query->where('push_broadcast_id', $notification->push_broadcast_id);
+        }
+
+        $data = $notification->data ?? [];
+        foreach (['broadcast_id', 'message_id', 'announcement_id', 'assignment_id', 'event_id', 'fee_id'] as $field) {
+            if (! empty($data[$field])) {
+                return $query->where("data->{$field}", (string) $data[$field]);
+            }
+        }
+
+        return $query
+            ->where('title', $notification->title)
+            ->where('body', $notification->body)
+            ->whereBetween('created_at', [
+                $notification->created_at?->copy()->subSeconds(5),
+                $notification->created_at?->copy()->addSeconds(5),
+            ]);
     }
 }

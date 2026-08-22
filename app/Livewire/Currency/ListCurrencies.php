@@ -3,6 +3,7 @@
 namespace App\Livewire\Currency;
 
 use App\Models\Currency;
+use App\Support\CurrencyDisplay;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Components\TextInput;
@@ -95,6 +96,12 @@ class ListCurrencies extends Component implements HasForms, HasTable
                         Toggle::make('is_default')
                             ->default(false),
                     ])
+                    ->mutateFormDataUsing(function (array $data): array {
+                        $data['code'] = CurrencyDisplay::storedCode($data['code'] ?? null);
+                        $data['symbol'] = CurrencyDisplay::code($data['symbol'] ?? ($data['code'] ?? null));
+
+                        return $data;
+                    })
                     ->successNotificationTitle('Currency updated successfully.')
                     ->after(function (Currency $record) {
                         if ($record->is_default) {
@@ -147,6 +154,12 @@ class ListCurrencies extends Component implements HasForms, HasTable
                             ->default(false),
                     ])
                     ->createAnother(false)
+                    ->mutateFormDataUsing(function (array $data): array {
+                        $data['code'] = CurrencyDisplay::storedCode($data['code'] ?? null);
+                        $data['symbol'] = CurrencyDisplay::code($data['symbol'] ?? ($data['code'] ?? null));
+
+                        return $data;
+                    })
                     ->after(function (Currency $record) {
                         if ($record->is_default) {
                             Currency::where('id', '!=', $record->id)->update(['is_default' => false]);

@@ -185,9 +185,14 @@ class Fee extends Model
         return round($amount - $paid, 2);
     }
 
+    public function isPastDue(): bool
+    {
+        return $this->due_date !== null && $this->due_date->lt(now()->startOfDay());
+    }
+
     public function arrears(): float
     {
-        if ($this->due_date && $this->due_date->isPast() && $this->remainingBalance() > 0) {
+        if ($this->isPastDue() && $this->remainingBalance() > 0) {
             return $this->remainingBalance();
         }
 
@@ -283,7 +288,7 @@ class Fee extends Model
 
     public function markOverdueIfNeeded(): bool
     {
-        if (! $this->isPayable() || ! $this->due_date?->isPast()) {
+        if (! $this->isPayable() || ! $this->isPastDue()) {
             return false;
         }
 

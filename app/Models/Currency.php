@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\CurrencyDisplay;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -33,5 +34,10 @@ class Currency extends Model
     public function getRouteKeyName()
     {
         return 'uuid';
+    }
+
+    public function displaySymbol(): string
+    {
+        return CurrencyDisplay::code($this->symbol ?: $this->code);
     }
 }

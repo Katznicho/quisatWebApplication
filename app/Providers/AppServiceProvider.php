@@ -5,9 +5,6 @@ namespace App\Providers;
 
 use App\Models\Business;
 use App\Models\Transaction;
-
-
-// Import models and observers
 use App\Models\User;
 use App\Observers\ModelActivityObserver;
 use Illuminate\Support\Facades\Auth;
@@ -22,7 +19,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        if (! function_exists('display_currency')) {
+            require_once app_path('Support/currency_helpers.php');
+        }
     }
 
     /**

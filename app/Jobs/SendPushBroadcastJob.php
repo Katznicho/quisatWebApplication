@@ -35,6 +35,7 @@ class SendPushBroadcastJob
         $pushSent = 0;
         $pushFailed = 0;
         $inAppCount = 0;
+        $sentPushTokens = [];
 
         try {
             foreach ($recipients as $recipient) {
@@ -51,6 +52,12 @@ class SendPushBroadcastJob
                 }
 
                 foreach ($tokens as $token) {
+                    $tokenKey = $token->push_token ?: (string) $token->id;
+                    if (isset($sentPushTokens[$tokenKey])) {
+                        continue;
+                    }
+                    $sentPushTokens[$tokenKey] = true;
+
                     $success = $pushService->sendToToken(
                         $token,
                         $broadcast->title,
