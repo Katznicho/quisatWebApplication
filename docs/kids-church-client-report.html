@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Quisat Kids Church &amp; Moments — Progress Report</title>
+  <style>
+    @page { size: A4; margin: 18mm 16mm 20mm 16mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      color: #1e293b;
+      font-size: 11.5pt;
+      line-height: 1.45;
+      margin: 0;
+    }
+    h1, h2, h3 { color: #011478; page-break-after: avoid; }
+    h1 { font-size: 24pt; margin: 0 0 6px; }
+    h2 { font-size: 14pt; margin: 28px 0 10px; border-bottom: 2px solid #011478; padding-bottom: 4px; }
+    h3 { font-size: 12pt; margin: 16px 0 6px; }
+    p { margin: 0 0 8px; }
+    .cover {
+      background: linear-gradient(135deg, #011478 0%, #1e3a8a 55%, #2563eb 100%);
+      color: #fff;
+      padding: 36px 32px;
+      border-radius: 16px;
+      margin-bottom: 22px;
+    }
+    .cover h1, .cover h2 { color: #fff; border: 0; }
+    .cover .kicker {
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-size: 9pt;
+      opacity: 0.85;
+      margin-bottom: 10px;
+    }
+    .meta { display: flex; gap: 28px; margin-top: 18px; font-size: 10pt; }
+    .badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.16);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 9pt;
+    }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0 14px; font-size: 10.5pt; }
+    th, td { border: 1px solid #dbe3f0; padding: 7px 9px; text-align: left; vertical-align: top; }
+    th { background: #011478; color: #fff; font-weight: 600; }
+    tr:nth-child(even) td { background: #f8fafc; }
+    .ok { color: #047857; font-weight: 700; }
+    .later { color: #b45309; font-weight: 700; }
+    ol, ul { margin: 4px 0 12px; padding-left: 20px; }
+    li { margin-bottom: 4px; }
+    .box {
+      background: #f1f5f9;
+      border-left: 4px solid #011478;
+      padding: 10px 14px;
+      margin: 10px 0 16px;
+      border-radius: 0 8px 8px 0;
+    }
+    .note {
+      background: #fff7ed;
+      border-left: 4px solid #ea580c;
+      padding: 10px 14px;
+      margin: 10px 0 16px;
+      border-radius: 0 8px 8px 0;
+    }
+    .footer {
+      margin-top: 28px;
+      font-size: 9.5pt;
+      color: #64748b;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 10px;
+    }
+    .step-title { font-weight: 700; color: #011478; }
+    code { font-family: ui-monospace, Menlo, monospace; font-size: 9.5pt; background: #eef2ff; padding: 1px 5px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <div class="kicker">Client progress report</div>
+    <h1>Kids Church &amp; Quisat Moments</h1>
+    <p style="font-size:13pt; opacity:0.95; margin:0;">What is live in Quisat, and how to test it.</p>
+    <div class="meta">
+      <div><strong>Prepared for</strong><br>Church / children’s ministry client</div>
+      <div><strong>Prepared by</strong><br>Quisat Innovations Limited</div>
+      <div><strong>Date</strong><br>11 September 2026</div>
+    </div>
+    <p style="margin-top:16px;"><span class="badge">Web admin</span> &nbsp; <span class="badge">Parent app</span> &nbsp; <span class="badge">Staff app</span></p>
+  </section>
+
+  <p>
+    This release turns Quisat into a children’s ministry workspace, organised the same way as Kids Clinics:
+    <strong>one Kids Church menu</strong> on the web, with clear tabs instead of scattered school links.
+    Parents and teachers use the Quisat app for check-in, pickup, photos, prayer, and this week’s lesson.
+  </p>
+
+  <h2>1. What we have delivered</h2>
+  <h3>Web — Kids Church dashboard</h3>
+  <p>Staff sign in at the Quisat admin portal. Churches see a single <strong>Kids Church</strong> item in the sidebar (next to Kids Clinics). It opens a dashboard with stats and tabs:</p>
+  <table>
+    <tr><th>Tab</th><th>What it is for</th></tr>
+    <tr><td>Overview</td><td>Sunday workflow, live counts, today’s birthdays, medical alerts, active lesson</td></tr>
+    <tr><td>Children</td><td>Register children, assign groups, store allergies and medical notes</td></tr>
+    <tr><td>Groups</td><td>Age groups / classes (Nursery, Kids, Teens)</td></tr>
+    <tr><td>Check-in</td><td>Today’s pickup codes and attendance. Checkout needs the code from check-in</td></tr>
+    <tr><td>Lessons</td><td>Weekly Bible lesson, crafts, teaching script, family challenge, pastor devotion, home resources</td></tr>
+    <tr><td>Incidents</td><td>Physical, behavioural, or health reports. Parent is notified in the app</td></tr>
+    <tr><td>Volunteers</td><td>Roster, role, background-check status, hours served</td></tr>
+    <tr><td>Moments</td><td>Private class / event photo albums</td></tr>
+    <tr><td>Prayer</td><td>Prayer box: Received → Being prayed for → Answered, plus praise report</td></tr>
+    <tr><td>Memory Wall</td><td>This week’s verse and prayer focus (shown on the parent home screen)</td></tr>
+    <tr><td>Events</td><td>Church calendar, camps, family days (parents can browse and pay where priced)</td></tr>
+    <tr><td>Parents</td><td>Link families with a Quisat code so they can check in and see Moments</td></tr>
+    <tr><td>Fees / Giving</td><td>Child fees and giving. Parents pay from Fees in the app</td></tr>
+  </table>
+
+  <h3>Parent app</h3>
+  <ul>
+    <li>Home shows this week’s verse, prayer focus, this week’s lesson, pastor’s devotion, and today’s pickup QR</li>
+    <li>Check-in / pickup codes for Sunday drop-off</li>
+    <li>Quisat Moments — view, like, comment (comments visible to teachers only), download HD</li>
+    <li>Prayer box — submit a request (optional anonymous)</li>
+    <li>Lessons &amp; faith — recap, memory verse, family challenge, home resources</li>
+    <li>Care reports — incident updates from staff</li>
+    <li>Events and Fees as before</li>
+    <li>Birthday push with a blessing verse (sent automatically at 07:00)</li>
+  </ul>
+
+  <h3>Staff / teacher app</h3>
+  <ul>
+    <li>Kids check-in and checkout (checkout requires the 4-digit pickup code)</li>
+    <li>Medical / allergy alerts on the child’s card at check-in</li>
+    <li>Create Moments albums (daily, event, or official class photo), tag children, publish to that group’s parents</li>
+    <li>Publish lessons and devotionals</li>
+    <li>Log care / incident reports (parent is notified immediately)</li>
+    <li>Update prayer request status and add a praise report</li>
+  </ul>
+
+  <h2>2. Feature checklist (against the agreed scope)</h2>
+  <table>
+    <tr><th>Requested</th><th>Status</th><th>Where to find it</th></tr>
+    <tr><td>Children’s ministry dashboard</td><td class="ok">Done</td><td>Web → Kids Church</td></tr>
+    <tr><td>Groups / classes by age</td><td class="ok">Done</td><td>Kids Church → Groups</td></tr>
+    <tr><td>Digital check-in / check-out</td><td class="ok">Done</td><td>Web Check-in tab + app Check-in</td></tr>
+    <tr><td>Secure pickup codes to parent phone</td><td class="ok">Done</td><td>4-digit code + QR in app; push notification after check-in</td></tr>
+    <tr><td>Allergy &amp; medical alerts</td><td class="ok">Done</td><td>Child profile; shown at check-in</td></tr>
+    <tr><td>Weekly Bible lessons, crafts, scripts</td><td class="ok">Done</td><td>Kids Church → Lessons; parent Lessons screen</td></tr>
+    <tr><td>Resources for home &amp; pastor devotion</td><td class="ok">Done</td><td>Lessons types: Home / Devotion</td></tr>
+    <tr><td>Memory Wall (verse + prayer focus)</td><td class="ok">Done</td><td>Memory Wall tab; parent home</td></tr>
+    <tr><td>Prayer request box (3 stages + praise)</td><td class="ok">Done</td><td>Prayer tab + app Prayer box</td></tr>
+    <tr><td>Volunteer roster, background check, hours</td><td class="ok">Done</td><td>Kids Church → Volunteers; reminders via Chat</td></tr>
+    <tr><td>Incident / health report + parent notify</td><td class="ok">Done</td><td>Incidents tab + app Care reports</td></tr>
+    <tr><td>Birthday messages + blessing verse</td><td class="ok">Done</td><td>Automatic daily at 07:00</td></tr>
+    <tr><td>Events, RSVP, payments / giving</td><td class="ok">Done</td><td>Events + Fees / Giving; parent Events &amp; Fees</td></tr>
+    <tr><td>Announcements / push notifications</td><td class="ok">Done</td><td>Existing broadcast + new lesson / pickup / incident / Moments pushes</td></tr>
+    <tr><td>Quisat Moments (private class albums)</td><td class="ok">Done</td><td>Moments tab + app Moments</td></tr>
+    <tr><td>Like, comment (teacher-only), tag child</td><td class="ok">Done</td><td>Album in the app</td></tr>
+    <tr><td>Physical QR door scanner / SMS barcode</td><td class="later">Not this release</td><td>Code + QR are in the app; no hardware scanner or SMS gateway</td></tr>
+    <tr><td>Paid HD albums / print on mug or T-shirt</td><td class="later">Not this release</td><td>Parents can save HD from the album; print shop is a later product</td></tr>
+  </table>
+
+  <div class="note">
+    <strong>Out of this release (by design):</strong> a physical door QR scanner, SMS barcodes, and a photo print shop.
+    Pickup still works with the 4-digit code, on-screen QR, and a push to the parent.
+  </div>
+
+  <h2>3. Before you test — enable the church</h2>
+  <ol>
+    <li>Sign in to the Quisat admin as a super admin.</li>
+    <li>Open the church business and enable the features <strong>Kids Church</strong> and <strong>Quisat Moments</strong>.</li>
+    <li>On the live server, also run the latest database update (your technical contact will run <code>php artisan migrate</code>).</li>
+    <li>Staff and parents need the <strong>latest Quisat app build</strong> for Lessons, Care reports, Moments tagging, and pickup QR.</li>
+  </ol>
+  <div class="box">
+    Web address: <strong>https://app.quisat.com</strong><br>
+    Kids Church page: after login, sidebar → <strong>Kids Church</strong> (or go to <code>/kids-church</code>).
+  </div>
+
+  <h2>4. How to test — church staff on the web</h2>
+  <p class="step-title">A. Dashboard</p>
+  <ol>
+    <li>Log in as church staff. Confirm the sidebar shows <strong>Kids Church</strong> (school-only items such as Terms and Exams should be hidden for a church-only tenant).</li>
+    <li>Open Kids Church. Confirm the hero stats (children, groups, checked in today, open pickup codes).</li>
+    <li>Open the Overview tab. Confirm birthdays, medical alerts, and active lesson if data exists.</li>
+  </ol>
+
+  <p class="step-title">B. Groups and children</p>
+  <ol>
+    <li>Tab <strong>Groups</strong> → add Nursery / Kids / Teens.</li>
+    <li>Tab <strong>Children</strong> → Add child, assign a group, fill Allergies and Medical notes.</li>
+    <li>Tab <strong>Parents</strong> → Add parent, or <strong>Link by Quisat code</strong> using the code from the parent’s Profile in the app.</li>
+    <li>Confirm Cancel / Save on a child form returns you to Kids Church, not a school students page.</li>
+  </ol>
+
+  <p class="step-title">C. Sunday check-in</p>
+  <ol>
+    <li>On the app (staff or parent), check a child in.</li>
+    <li>On the web, open <strong>Check-in</strong>. Confirm today’s pickup code appears and attendance is Present.</li>
+    <li>On the app, try checkout <em>without</em> the code — it should fail. Enter the correct 4-digit code — the child is released.</li>
+  </ol>
+
+  <p class="step-title">D. Lessons, prayer, memory wall</p>
+  <ol>
+    <li><strong>Lessons</strong> → add a Weekly Bible lesson with object lesson, crafts, memory verse, and family challenge. Set status to Published.</li>
+    <li>Add a Pastor devotion and a Home resource.</li>
+    <li><strong>Memory Wall</strong> → add this week’s verse and a prayer focus.</li>
+    <li><strong>Prayer</strong> → after a parent submits a request, change status to Being prayed for, then Answered, and add a praise report.</li>
+  </ol>
+
+  <p class="step-title">E. Incidents, volunteers, giving</p>
+  <ol>
+    <li><strong>Incidents</strong> → log a health or behavioural note. Confirm the parent gets an in-app notification.</li>
+    <li><strong>Volunteers</strong> → add a teacher/helper, set background check to Cleared, enter hours.</li>
+    <li><strong>Fees / Giving</strong> → create a fee. Confirm it appears under Fees in the parent app.</li>
+  </ol>
+
+  <p class="step-title">F. Quisat Moments (web)</p>
+  <ol>
+    <li>Tab <strong>Moments</strong> → Create album, choose Daily / Event / Official class photo, pick a group, upload photos, publish.</li>
+    <li>Only parents of that group should see the album in the app.</li>
+  </ol>
+
+  <h2>5. How to test — parent app</h2>
+  <ol>
+    <li>Log in as a parent linked to the church (or link with the Quisat code).</li>
+    <li>Home should show verse, prayer focus, this week’s lesson, and (after check-in) today’s pickup QR and 4-digit code.</li>
+    <li>Open <strong>Check-in</strong> → check the child in. Confirm a pickup code appears and a notification arrives.</li>
+    <li>Show the code (or QR) at pickup. Staff must enter that code to release the child.</li>
+    <li>Open <strong>Moments</strong> → open the album → like, leave a comment for the teacher, Download HD. Confirm the privacy note (do not post outside Quisat).</li>
+    <li>Open <strong>Prayer box</strong> → send a request (try anonymous as well).</li>
+    <li>Open <strong>Lessons</strong> → confirm the published lesson, home resource, and devotion.</li>
+    <li>If staff logged an incident, open <strong>Care reports</strong> and confirm the update.</li>
+    <li>Open <strong>Events</strong> and <strong>Fees</strong> as usual.</li>
+  </ol>
+
+  <h2>6. How to test — teacher / staff app</h2>
+  <ol>
+    <li>Log in as church staff.</li>
+    <li>Open <strong>Kids Check-in</strong>. Confirm allergy / medical alerts on children who have notes.</li>
+    <li>Check a child in. Confirm the pickup code. Check them out only after entering that code.</li>
+    <li>Open <strong>Moments</strong> → New album → select group, album type, tag children, add photos, Publish. Confirm parents of that group get a push (“New Photos…” / “Your child was tagged”).</li>
+    <li>Open <strong>Lessons</strong> → publish this Sunday’s material. Confirm parents are notified.</li>
+    <li>Open <strong>Care reports</strong> → log an incident. Confirm the parent is notified.</li>
+    <li>Open <strong>Prayer box</strong> → mark Praying, then Answered, and type a praise report.</li>
+  </ol>
+
+  <h2>7. Suggested demo script (10 minutes)</h2>
+  <ol>
+    <li>Web: walk the Kids Church dashboard tabs (30 seconds each).</li>
+    <li>Add a child with a peanut allergy → staff app check-in → show the medical warning.</li>
+    <li>Parent app: show the pickup QR → staff checkout with the wrong code (fail) then the right code (success).</li>
+    <li>Publish a lesson on the web → open it on the parent home.</li>
+    <li>Upload a Moments album for Nursery → open it on a Nursery parent phone (and confirm a Teens parent cannot see it).</li>
+    <li>Parent sends a prayer → staff marks Answered with a praise report.</li>
+  </ol>
+
+  <h2>8. Support notes</h2>
+  <ul>
+    <li>A tenant that is both a school and a church keeps school menus <em>and</em> Kids Church.</li>
+    <li>A church-only tenant should only see Kids Church (plus shared tools such as Chat, Staff, and Financials).</li>
+    <li>Pickup codes expire at the end of the day and can only be used once at checkout.</li>
+    <li>Moments albums are private to the group. They are not posted to Facebook or WhatsApp from Quisat.</li>
+  </ul>
+
+  <div class="footer">
+    Quisat Innovations Limited · Confidential client report · 11 September 2026<br>
+    Live admin: https://app.quisat.com · Questions: your Quisat account manager
+  </div>
+</body>
+</html>
