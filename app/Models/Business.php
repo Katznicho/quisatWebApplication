@@ -280,4 +280,21 @@ class Business extends Model
 
         return str_contains($category, 'church') || str_contains($category, 'ministry');
     }
+
+    public function usesKidsChurchHub(): bool
+    {
+        return $this->isChurch() && ! $this->isSchool();
+    }
+
+    public function kidsChurchHubUrl(string $tab = 'children'): string
+    {
+        return route('kids-church.index', ['tab' => $tab]);
+    }
+
+    public function kidsChurchOrRoute(string $routeName, string $tab): string
+    {
+        return $this->usesKidsChurchHub()
+            ? $this->kidsChurchHubUrl($tab)
+            : route($routeName);
+    }
 }

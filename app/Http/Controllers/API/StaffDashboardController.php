@@ -163,6 +163,7 @@ class StaffDashboardController extends Controller
                     'parents_total' => $parentsTotal,
                     'unread_messages' => $unreadMessagesCount,
                 ],
+                'is_church' => $business->isChurch(),
                 'today_schedule' => $schedule,
                 'upcoming_events' => $upcomingEvents,
                 'recent_announcements' => $recentAnnouncements,

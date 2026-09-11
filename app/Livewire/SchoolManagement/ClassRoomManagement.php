@@ -32,6 +32,8 @@ class ClassRoomManagement extends Component implements HasForms, HasTable
     public function table(Table $table): Table
     {
         $query = ClassRoom::query();
+        $isChurch = (bool) auth()->user()?->business?->isChurch();
+        $roomLabel = $isChurch ? 'Group' : 'Classroom';
         
         // Filter by business_id for non-admin users
         if (auth()->user()->business_id !== 1) {
@@ -78,16 +80,16 @@ class ClassRoomManagement extends Component implements HasForms, HasTable
             ])
             ->actions([
                 EditAction::make()
-                    ->modalHeading('Edit Classroom')
+                    ->modalHeading('Edit '.$roomLabel)
                     ->form([
                         Hidden::make('business_id')
                             ->default(auth()->user()->business_id),
                         TextInput::make('name')
                             ->required()
-                            ->placeholder('Enter classroom name'),
+                            ->placeholder($isChurch ? 'Enter group name' : 'Enter classroom name'),
                         TextInput::make('code')
                             ->required()
-                            ->placeholder('Enter classroom code')
+                            ->placeholder($isChurch ? 'Enter group code' : 'Enter classroom code')
                             ->rules(fn ($record) => [
                                 Rule::unique('class_rooms', 'code')->where('business_id', auth()->user()->business_id)->ignore($record?->id),
                             ]),
@@ -111,10 +113,10 @@ class ClassRoomManagement extends Component implements HasForms, HasTable
                             ->default('active')
                             ->required(),
                     ])
-                    ->successNotificationTitle('Classroom updated successfully.'),
+                    ->successNotificationTitle($roomLabel.' updated successfully.'),
                 DeleteAction::make()
-                    ->modalHeading('Delete Classroom')
-                    ->successNotificationTitle('Classroom deleted successfully (soft).'),
+                    ->modalHeading('Delete '.$roomLabel)
+                    ->successNotificationTitle($roomLabel.' deleted successfully (soft).'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -125,17 +127,17 @@ class ClassRoomManagement extends Component implements HasForms, HasTable
             ])
             ->headerActions([
                 CreateAction::make()
-                    ->label('Add Classroom')
-                    ->modalHeading('Add New Classroom')
+                    ->label('Add '.$roomLabel)
+                    ->modalHeading('Add New '.$roomLabel)
                     ->form([
                         Hidden::make('business_id')
                             ->default(auth()->user()->business_id),
                         TextInput::make('name')
                             ->required()
-                            ->placeholder('Enter classroom name'),
+                            ->placeholder($isChurch ? 'Enter group name' : 'Enter classroom name'),
                         TextInput::make('code')
                             ->required()
-                            ->placeholder('Enter classroom code')
+                            ->placeholder($isChurch ? 'Enter group code' : 'Enter classroom code')
                             ->rules(fn ($record) => [
                                 Rule::unique('class_rooms', 'code')->where('business_id', auth()->user()->business_id)->ignore($record?->id),
                             ]),
@@ -160,9 +162,9 @@ class ClassRoomManagement extends Component implements HasForms, HasTable
                             ->required(),
                     ])
                     ->createAnother(false)
-                    ->after(function (ClassRoom $record) {
+                    ->after(function (ClassRoom $record) use ($roomLabel) {
                         Notification::make()
-                            ->title('Classroom created successfully.')
+                            ->title($roomLabel.' created successfully.')
                             ->success()
                             ->send();
                     }),

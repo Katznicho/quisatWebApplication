@@ -11,6 +11,8 @@ use App\Http\Controllers\API\ClassAssignmentController;
 use App\Http\Controllers\API\ClinicController;
 use App\Http\Controllers\API\ConversationController;
 use App\Http\Controllers\API\DocumentController;
+use App\Http\Controllers\API\KidsIncidentController;
+use App\Http\Controllers\API\KidsLessonController;
 use App\Http\Controllers\API\KidsProgramController;
 use App\Http\Controllers\API\MarzPayPaymentController;
 use App\Http\Controllers\API\MarzPayWebhookController;
@@ -379,6 +381,14 @@ Route::prefix('v1')->group(function () {
             Route::prefix('memory-wall')->group(function () {
                 Route::get('/', [MemoryWallController::class, 'index']);
                 Route::post('/', [MemoryWallController::class, 'store']);
+            });
+            Route::prefix('kids-lessons')->group(function () {
+                Route::get('/', [KidsLessonController::class, 'index']);
+                Route::post('/', [KidsLessonController::class, 'store']);
+            });
+            Route::prefix('kids-incidents')->group(function () {
+                Route::get('/', [KidsIncidentController::class, 'index']);
+                Route::post('/', [KidsIncidentController::class, 'store']);
             });
             Route::get('documents', [DocumentController::class, 'index']);
             Route::post('documents', [DocumentController::class, 'store']);

@@ -57,7 +57,7 @@ class ParentGuardianController extends Controller
         $businessId = $business->id ?? null;
 
         if (! $businessId) {
-            return redirect()->route('school-management.parents')
+            return $this->redirectToParentsIndex()
                 ->with('error', 'No business associated with your account.');
         }
 
@@ -103,7 +103,7 @@ class ParentGuardianController extends Controller
                 $validated['relationship']
             );
 
-            return redirect()->route('school-management.parents')
+            return $this->redirectToParentsIndex()
                 ->with('success', 'Existing parent linked to this business successfully!');
         }
 
@@ -124,7 +124,7 @@ class ParentGuardianController extends Controller
             $validated['relationship']
         );
 
-        return redirect()->route('school-management.parents')
+        return $this->redirectToParentsIndex()
             ->with('success', 'Parent/Guardian created successfully!');
     }
 
@@ -201,7 +201,7 @@ class ParentGuardianController extends Controller
 
         $parent->update($data);
 
-        return redirect()->route('school-management.parents')
+        return $this->redirectToParentsIndex()
             ->with('success', 'Parent/Guardian updated successfully!');
     }
 
@@ -236,7 +236,7 @@ class ParentGuardianController extends Controller
         $businessId = $business->id ?? null;
 
         if (! $businessId) {
-            return redirect()->route('school-management.parents')
+            return $this->redirectToParentsIndex()
                 ->with('error', 'No business associated with your account.');
         }
 
@@ -365,7 +365,7 @@ class ParentGuardianController extends Controller
             }
         }
 
-        return redirect()->route('school-management.parents')
+        return $this->redirectToParentsIndex()
             ->with('success', $message)
             ->with('bulk_upload_errors', $errors);
     }
@@ -409,7 +409,9 @@ class ParentGuardianController extends Controller
 
         $childCount = $parent->children()->count();
         $studentCount = $parent->students()->where('business_id', $businessId)->count();
-        $redirectTo = $validated['redirect_to'] ?? route('school-management.parents');
+        $redirectTo = $validated['redirect_to']
+            ?? (Auth::user()?->business?->kidsChurchOrRoute('school-management.parents', 'parents')
+                ?? route('school-management.parents'));
         $message = $parent->full_name.' has been linked using their Quisat code.';
         if ($studentCount > 0) {
             $message .= " {$studentCount} child".($studentCount === 1 ? '' : 'ren').' imported from their profile.';
@@ -420,6 +422,16 @@ class ParentGuardianController extends Controller
         }
 
         return redirect()->to($redirectTo)->with('success', $message);
+    }
+
+    protected function redirectToParentsIndex()
+    {
+        $business = Auth::user()?->business;
+        if ($business?->usesKidsChurchHub()) {
+            return redirect()->route('kids-church.index', ['tab' => 'parents']);
+        }
+
+        return redirect()->route('school-management.parents');
     }
 
     protected function canManageParent(ParentGuardian $parent, ?int $businessId): bool

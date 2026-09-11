@@ -48,7 +48,7 @@ class AttendanceManagement extends Component implements HasForms, HasTable
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('student.classRoom.name')
-                    ->label('Class')
+                    ->label(auth()->user()?->business?->isChurch() ? 'Group' : 'Class')
                     ->sortable(),
                 Tables\Columns\BadgeColumn::make('status')
                     ->colors([

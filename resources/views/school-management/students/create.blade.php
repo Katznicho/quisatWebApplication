@@ -1,9 +1,14 @@
 <x-app-layout>
+    @php
+        $isChurch = (bool) auth()->user()?->business?->isChurch();
+        $studentsIndexUrl = auth()->user()?->business?->kidsChurchOrRoute('school-management.students', 'children')
+            ?? route('school-management.students');
+    @endphp
     <div class="py-12">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
             <div class="mb-8">
                 <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                    {{ __('Add New Student') }}
+                    {{ $isChurch ? __('Add New Child') : __('Add New Student') }}
                 </h2>
             </div>
 
@@ -162,18 +167,18 @@
 
                         <!-- Student Information -->
                         <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
-                            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Student Information</h3>
+                            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">{{ $isChurch ? 'Child Information' : 'Student Information' }}</h3>
                             
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <label for="student_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Student ID <span class="text-red-500">*</span>
+                                        {{ $isChurch ? 'Child ID' : 'Student ID' }} <span class="text-red-500">*</span>
                                     </label>
                                     <input type="text" 
                                            name="student_id" 
                                            id="student_id" 
                                            value="{{ old('student_id') }}"
-                                           placeholder="Enter student ID"
+                                           placeholder="{{ $isChurch ? 'Enter child ID' : 'Enter student ID' }}"
                                            required
                                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
                                     @error('student_id')
@@ -183,7 +188,7 @@
 
                                 <div>
                                     <label for="admission_date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Admission Date <span class="text-red-500">*</span>
+                                        {{ $isChurch ? 'Enrollment Date' : 'Admission Date' }} <span class="text-red-500">*</span>
                                     </label>
                                     <input type="date" 
                                            name="admission_date" 
@@ -216,12 +221,12 @@
 
                                 <div>
                                     <label for="class_room_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        Class
+                                        {{ $isChurch ? 'Group' : 'Class' }}
                                     </label>
                                     <select name="class_room_id" 
                                             id="class_room_id" 
                                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
-                                        <option value="">Select class (optional)</option>
+                                        <option value="">{{ $isChurch ? 'Select group (optional)' : 'Select class (optional)' }}</option>
                                         @foreach($classRooms as $id => $name)
                                             <option value="{{ $id }}" {{ old('class_room_id') == $id ? 'selected' : '' }}>{{ $name }}</option>
                                         @endforeach
@@ -327,13 +332,13 @@
                     </div>
 
                     <div class="mt-6 flex justify-end space-x-3">
-                        <a href="{{ route('school-management.students') }}" 
+                        <a href="{{ $studentsIndexUrl }}" 
                            class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                             Cancel
                         </a>
                         <button type="submit" 
                                 class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
-                            Create Student
+                            {{ $isChurch ? 'Create Child' : 'Create Student' }}
                         </button>
                     </div>
                 </form>

@@ -78,8 +78,8 @@ class StudentController extends Controller
 
         Student::create($validated);
 
-        return redirect()->route('school-management.students')
-            ->with('success', 'Student created successfully!');
+        return $this->redirectToStudentsIndex()
+            ->with('success', $business?->isChurch() ? 'Child created successfully!' : 'Student created successfully!');
     }
 
     /**
@@ -185,8 +185,10 @@ class StudentController extends Controller
 
         $student->update($data);
 
-        return redirect()->route('school-management.students')
-            ->with('success', 'Student updated successfully!');
+        $business = Auth::user()?->business;
+
+        return $this->redirectToStudentsIndex()
+            ->with('success', $business?->isChurch() ? 'Child updated successfully!' : 'Student updated successfully!');
     }
 
     /**
@@ -369,9 +371,19 @@ class StudentController extends Controller
             }
         }
 
-        return redirect()->route('school-management.students')
+        return $this->redirectToStudentsIndex()
             ->with('success', $message)
             ->with('bulk_upload_errors', $errors);
+    }
+
+    protected function redirectToStudentsIndex()
+    {
+        $business = Auth::user()?->business;
+        if ($business?->usesKidsChurchHub()) {
+            return redirect()->route('kids-church.index', ['tab' => 'children']);
+        }
+
+        return redirect()->route('school-management.students');
     }
 
     protected function resolveClassRoomId(string $classValue, int $businessId): ?int

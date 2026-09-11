@@ -1,4 +1,8 @@
 <x-app-layout>
+    @php
+        $parentsIndexUrl = auth()->user()?->business?->kidsChurchOrRoute('school-management.parents', 'parents')
+            ?? route('school-management.parents');
+    @endphp
     <div class="py-12">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
             <div class="mb-8">
@@ -11,7 +15,7 @@
                             Upload multiple parents/guardians at once using a CSV file
                         </p>
                     </div>
-                    <a href="{{ route('school-management.parents') }}" 
+                    <a href="{{ $parentsIndexUrl }}" 
                        class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>

@@ -110,6 +110,12 @@ class AttendanceController extends Controller
                 $pickup->update(['used_at' => null]);
             }
 
+            try {
+                app(\App\Services\KidsChurchNotificationService::class)->notifyPickupCode($pickup);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Pickup code notification failed: '.$e->getMessage());
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Check-in recorded successfully.',
@@ -121,6 +127,9 @@ class AttendanceController extends Controller
                         'id' => $student->id,
                         'full_name' => $student->full_name,
                         'allergies' => $student->allergies,
+                        'medical_notes' => $student->medical_notes,
+                        'dietary_restrictions' => $student->dietary_restrictions,
+                        'emergency_contacts' => $student->emergency_contacts,
                         'has_medical_alert' => $student->hasMedicalAlert(),
                     ],
                 ],
@@ -368,6 +377,9 @@ class AttendanceController extends Controller
                 'full_name' => $student->full_name,
                 'class' => $student->classRoom?->name,
                 'allergies' => $student->allergies,
+                'medical_notes' => $student->medical_notes,
+                'dietary_restrictions' => $student->dietary_restrictions,
+                'emergency_contacts' => $student->emergency_contacts,
                 'has_medical_alert' => $student->hasMedicalAlert(),
             ],
             'today_pickup_code' => $todayCode && ! $todayCode->used_at ? $todayCode->code : null,

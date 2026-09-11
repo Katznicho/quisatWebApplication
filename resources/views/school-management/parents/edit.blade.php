@@ -1,4 +1,8 @@
 <x-app-layout>
+    @php
+        $parentsIndexUrl = auth()->user()?->business?->kidsChurchOrRoute('school-management.parents', 'parents')
+            ?? route('school-management.parents');
+    @endphp
     <div class="py-12">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
             <div class="mb-8">
@@ -266,7 +270,7 @@
                     </div>
 
                     <div class="mt-6 flex justify-end space-x-3">
-                        <a href="{{ route('school-management.parents') }}"
+                        <a href="{{ $parentsIndexUrl }}"
                            class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                             Cancel
                         </a>

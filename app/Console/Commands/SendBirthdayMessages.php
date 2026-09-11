@@ -42,10 +42,11 @@ class SendBirthdayMessages extends Command
             }
 
             $age = optional($student->date_of_birth)->age;
+            $verse = $this->blessingVerse((int) $student->id);
             $title = 'Happy Birthday, '.$student->first_name.'!';
             $body = $age
-                ? "{$student->full_name} turns {$age} today. Celebrate with them!"
-                : "Today is {$student->full_name}'s birthday. Celebrate with them!";
+                ? "{$student->full_name} turns {$age} today. {$verse}"
+                : "Today is {$student->full_name}'s birthday. {$verse}";
 
             $data = [
                 'type' => 'birthday',
@@ -72,5 +73,18 @@ class SendBirthdayMessages extends Command
         $this->info("Birthday messages sent for {$sent} child(ren).");
 
         return self::SUCCESS;
+    }
+
+    protected function blessingVerse(int $seed): string
+    {
+        $verses = [
+            'The Lord bless you and keep you. — Numbers 6:24',
+            'I have loved you with an everlasting love. — Jeremiah 31:3',
+            'Children are a heritage from the Lord. — Psalm 127:3',
+            'Let the little children come to me. — Matthew 19:14',
+            'The Lord your God is with you, the Mighty Warrior who saves. — Zephaniah 3:17',
+        ];
+
+        return $verses[$seed % count($verses)];
     }
 }

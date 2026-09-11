@@ -7,6 +7,7 @@ use App\Models\BroadcastAnnouncement;
 use App\Models\CalendarEvent;
 use App\Models\ClassAssignment;
 use App\Models\Fee;
+use App\Models\KidsLesson;
 use App\Models\MemoryWallItem;
 use App\Models\ParentGuardian;
 use App\Models\PickupCode;
@@ -15,6 +16,7 @@ use App\Models\StudentAcademicEntry;
 use App\Models\StudentCharacterReport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class ParentDashboardController extends Controller
@@ -203,6 +205,23 @@ class ParentDashboardController extends Controller
                 ])
                 ->values();
 
+        $lessons = collect();
+        if (Schema::hasTable('kids_lessons')) {
+            $lessonsQuery = KidsLesson::query()
+                ->where('business_id', $business->id)
+                ->published()
+                ->orderByDesc('lesson_date')
+                ->orderByDesc('id');
+
+            if ($classRoomIds->isNotEmpty()) {
+                $lessonsQuery->where(function ($q) use ($classRoomIds) {
+                    $q->whereNull('class_room_id')->orWhereIn('class_room_id', $classRoomIds);
+                });
+            }
+
+            $lessons = $lessonsQuery->get();
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Parent dashboard data loaded successfully.',
@@ -222,6 +241,9 @@ class ParentDashboardController extends Controller
                 'memory_verse' => $memoryItems->firstWhere('type', 'memory_verse'),
                 'prayer_focus' => $memoryItems->firstWhere('type', 'prayer_focus'),
                 'pickup_codes' => $pickupCodes,
+                'this_week_lesson' => $lessons->firstWhere('type', 'bible_lesson'),
+                'home_resource' => $lessons->firstWhere('type', 'home_resource'),
+                'pastor_devotional' => $lessons->firstWhere('type', 'pastor_devotional'),
             ],
         ]);
     }

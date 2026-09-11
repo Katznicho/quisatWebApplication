@@ -192,6 +192,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('clinic-patients/link-by-quisat-code', [\App\Http\Controllers\SchoolManagement\ParentGuardianController::class, 'linkByQuisatCode'])
         ->name('clinic-patients.link-by-quisat-code');
 
+    Route::get('kids-church', [\App\Http\Controllers\KidsChurchController::class, 'index'])->name('kids-church.index');
+
     // Admin Management Routes
     Route::prefix('admin')->name('admin.')->middleware('super.admin')->group(function () {
         Route::get('/dashboard', [AdminManagementController::class, 'index'])->name('dashboard');
@@ -239,9 +241,18 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     // School Management Routes
     Route::prefix('school-management')->name('school-management.')->group(function () {
-        Route::get('/students', function () {
-            return view('school-management.students');
-        })->name('students');
+        $kidsChurchHubOrView = function (string $tab, string $view) {
+            return function () use ($tab, $view) {
+                $business = auth()->user()?->business;
+                if ($business?->usesKidsChurchHub()) {
+                    return redirect()->route('kids-church.index', ['tab' => $tab]);
+                }
+
+                return view($view);
+            };
+        };
+
+        Route::get('/students', $kidsChurchHubOrView('children', 'school-management.students'))->name('students');
 
         Route::get('/students/create', [StudentController::class, 'create'])->name('students.create');
         Route::post('/students', [StudentController::class, 'store'])->name('students.store');
@@ -251,17 +262,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/students/download-template', [StudentController::class, 'downloadTemplate'])->name('students.download-template');
         Route::post('/students/bulk-upload', [StudentController::class, 'bulkUpload'])->name('students.bulk-upload');
 
-        Route::get('/attendance', function () {
-            return view('school-management.attendance');
-        })->name('attendance');
+        Route::get('/attendance', $kidsChurchHubOrView('check-in', 'school-management.attendance'))->name('attendance');
 
-        Route::get('/calendar-events', function () {
-            return view('school-management.calendar-events');
-        })->name('calendar-events');
+        Route::get('/calendar-events', $kidsChurchHubOrView('events', 'school-management.calendar-events'))->name('calendar-events');
 
-        Route::get('/classrooms', function () {
-            return view('school-management.classrooms');
-        })->name('classrooms');
+        Route::get('/classrooms', $kidsChurchHubOrView('groups', 'school-management.classrooms'))->name('classrooms');
 
         Route::get('/subjects', function () {
             return view('school-management.subjects');
@@ -285,6 +290,10 @@ Route::middleware(['auth:sanctum'])->group(function () {
                 return redirect()->route('clinic-patients.index', ['tab' => 'fees']);
             }
 
+            if ($business && $business->usesKidsChurchHub()) {
+                return redirect()->route('kids-church.index', ['tab' => 'fees']);
+            }
+
             return view('school-management.fees');
         })->name('fees');
         Route::get('/fees/report.csv', [\App\Http\Controllers\FeeReportController::class, 'csv'])->name('fees.report.csv');
@@ -294,9 +303,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
             return view('school-management.timetable');
         })->name('timetable');
 
-        Route::get('/parents', function () {
-            return view('school-management.parents');
-        })->name('parents');
+        Route::get('/parents', $kidsChurchHubOrView('parents', 'school-management.parents'))->name('parents');
 
         Route::get('/parents/create', [ParentGuardianController::class, 'create'])->name('parents.create');
         Route::post('/parents', [ParentGuardianController::class, 'store'])->name('parents.store');
@@ -311,17 +318,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
             return view('school-management.terms');
         })->name('terms');
 
-        Route::get('/moments', function () {
-            return view('school-management.moments');
-        })->name('moments');
+        Route::get('/moments', $kidsChurchHubOrView('moments', 'school-management.moments'))->name('moments');
 
-        Route::get('/prayer-requests', function () {
-            return view('school-management.prayer-requests');
-        })->name('prayer-requests');
+        Route::get('/prayer-requests', $kidsChurchHubOrView('prayer', 'school-management.prayer-requests'))->name('prayer-requests');
 
-        Route::get('/memory-wall', function () {
-            return view('school-management.memory-wall');
-        })->name('memory-wall');
+        Route::get('/memory-wall', $kidsChurchHubOrView('memory-wall', 'school-management.memory-wall'))->name('memory-wall');
     });
 
     Route::get('/test-mail-view', function () {

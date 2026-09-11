@@ -34,6 +34,7 @@ class StudentManagement extends Component implements HasForms, HasTable
     public function table(Table $table): Table
     {
         $query = Student::query();
+        $isChurch = (bool) auth()->user()?->business?->isChurch();
         
         // Filter by business_id for non-admin users
         if (auth()->user()->business_id !== 1) {
@@ -68,10 +69,10 @@ class StudentManagement extends Component implements HasForms, HasTable
                 Tables\Columns\TextColumn::make('phone')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('student_id')
-                    ->label('Student ID')
+                    ->label($isChurch ? 'Child ID' : 'Student ID')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('classRoom.name')
-                    ->label('Class')
+                    ->label($isChurch ? 'Group' : 'Class')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('parentGuardian.first_name')
                     ->label('Parent/Guardian')
@@ -110,7 +111,7 @@ class StudentManagement extends Component implements HasForms, HasTable
                     ->url(fn (Student $record): string => route('school-management.students.edit', $record))
                     ->visible(fn (Student $record): bool => auth()->user()->business_id === 1 || $record->business_id === auth()->user()->business_id),
                 DeleteAction::make()
-                    ->modalHeading('Delete Student')
+                    ->modalHeading($isChurch ? 'Delete Child' : 'Delete Student')
                     ->action(function (Student $record): void {
                         DB::transaction(function () use ($record) {
                             // Remove any linked login account using same email, then permanently remove student.
@@ -125,19 +126,19 @@ class StudentManagement extends Component implements HasForms, HasTable
                             $record->forceDelete();
                         });
                     })
-                    ->successNotificationTitle('Student deleted permanently.'),
+                    ->successNotificationTitle($isChurch ? 'Child deleted permanently.' : 'Student deleted permanently.'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\BulkAction::make('assign_class')
-                        ->label('Assign to class')
+                        ->label($isChurch ? 'Assign to group' : 'Assign to class')
                         ->icon('heroicon-o-academic-cap')
-                        ->form(function (\Illuminate\Support\Collection $records) {
+                        ->form(function (\Illuminate\Support\Collection $records) use ($isChurch) {
                             $businessId = $this->resolveBulkBusinessId($records);
 
                             return [
                                 Select::make('class_room_id')
-                                    ->label('Class')
+                                    ->label($isChurch ? 'Group' : 'Class')
                                     ->options(
                                         ClassRoom::query()
                                             ->where('business_id', $businessId)
@@ -146,17 +147,21 @@ class StudentManagement extends Component implements HasForms, HasTable
                                     )
                                     ->searchable()
                                     ->required()
-                                    ->helperText('All selected students will be assigned to this class.'),
+                                    ->helperText($isChurch
+                                        ? 'All selected children will be assigned to this group.'
+                                        : 'All selected students will be assigned to this class.'),
                             ];
                         })
-                        ->action(function (\Illuminate\Support\Collection $records, array $data): void {
+                        ->action(function (\Illuminate\Support\Collection $records, array $data) use ($isChurch): void {
                             $businessId = $this->resolveBulkBusinessId($records);
 
                             foreach ($records as $record) {
                                 if ((int) $record->business_id !== $businessId) {
                                     Notification::make()
                                         ->danger()
-                                        ->title('Selected students must belong to the same school.')
+                                        ->title($isChurch
+                                            ? 'Selected children must belong to the same church.'
+                                            : 'Selected students must belong to the same school.')
                                         ->send();
 
                                     return;
@@ -169,7 +174,7 @@ class StudentManagement extends Component implements HasForms, HasTable
 
                             Notification::make()
                                 ->success()
-                                ->title('Students assigned to class successfully.')
+                                ->title($isChurch ? 'Children assigned to group successfully.' : 'Students assigned to class successfully.')
                                 ->send();
                         })
                         ->deselectRecordsAfterCompletion(),

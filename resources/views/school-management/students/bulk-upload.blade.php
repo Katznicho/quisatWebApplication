@@ -1,22 +1,27 @@
 <x-app-layout>
+    @php
+        $isChurch = (bool) auth()->user()?->business?->isChurch();
+        $studentsIndexUrl = auth()->user()?->business?->kidsChurchOrRoute('school-management.students', 'children')
+            ?? route('school-management.students');
+    @endphp
     <div class="py-12">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
             <div class="mb-8">
                 <div class="flex items-center justify-between">
                     <div>
                         <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                            {{ __('Bulk Upload Students') }}
+                            {{ $isChurch ? __('Bulk Upload Children') : __('Bulk Upload Students') }}
                         </h2>
                         <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                            Upload multiple students at once using a CSV file
+                            {{ $isChurch ? 'Upload multiple children at once using a CSV file' : 'Upload multiple students at once using a CSV file' }}
                         </p>
                     </div>
-                    <a href="{{ route('school-management.students') }}" 
+                    <a href="{{ $studentsIndexUrl }}" 
                        class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
                         </svg>
-                        Back to Students
+                        {{ $isChurch ? 'Back to Children' : 'Back to Students' }}
                     </a>
                 </div>
             </div>
