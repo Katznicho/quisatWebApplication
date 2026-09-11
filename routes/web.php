@@ -310,6 +310,18 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/terms', function () {
             return view('school-management.terms');
         })->name('terms');
+
+        Route::get('/moments', function () {
+            return view('school-management.moments');
+        })->name('moments');
+
+        Route::get('/prayer-requests', function () {
+            return view('school-management.prayer-requests');
+        })->name('prayer-requests');
+
+        Route::get('/memory-wall', function () {
+            return view('school-management.memory-wall');
+        })->name('memory-wall');
     });
 
     Route::get('/test-mail-view', function () {
@@ -338,6 +350,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('products/bulk-upload', [ProductController::class, 'bulkUpload'])->name('products.bulk-upload');
     Route::get('products/catalog', [\App\Http\Controllers\ProductCatalogController::class, 'index'])->name('products.catalog.index');
     Route::get('products/catalog/export', [\App\Http\Controllers\ProductCatalogController::class, 'export'])->name('products.catalog.export');
+    Route::delete('products/{product}/images/{image}', [ProductController::class, 'destroyImage'])->name('products.images.destroy');
     Route::resource('products', ProductController::class);
     Route::get('orders', [OrderController::class, 'index'])->name('orders.index');
     Route::get('reviews', [\App\Http\Controllers\ReviewController::class, 'index'])->name('reviews.index');

@@ -204,6 +204,13 @@ class ProductController extends Controller
                 ->withInput();
         }
 
+        if ($request->boolean('remove_main_image') && ! $request->hasFile('image_path')) {
+            if ($product->image_path) {
+                Storage::disk('public')->delete($product->image_path);
+            }
+            $validated['image_path'] = null;
+        }
+
         if ($request->hasFile('image_path')) {
             if ($product->image_path) {
                 Storage::disk('public')->delete($product->image_path);
@@ -214,6 +221,7 @@ class ProductController extends Controller
         $validated['sizes'] = $this->parseSizes($validated['sizes'] ?? null);
 
         $product->update($validated);
+        $this->deleteSelectedImages($request, $product);
         $this->storeAdditionalImages($request, $product);
 
         return redirect()->route('products.index', ['hub' => $hub])
@@ -240,6 +248,23 @@ class ProductController extends Controller
 
         return redirect()->route('products.index', ['hub' => $hub])
             ->with('success', 'Product deleted successfully!');
+    }
+
+    public function destroyImage(Product $product, ProductImage $image)
+    {
+        $this->authorizeProduct($product);
+
+        if ((int) $image->product_id !== (int) $product->id) {
+            abort(404);
+        }
+
+        if ($image->image_url) {
+            Storage::disk('public')->delete($image->image_url);
+        }
+
+        $image->delete();
+
+        return back()->with('success', 'Image removed.');
     }
 
     public function bulkUploadPage(Request $request)
@@ -343,6 +368,22 @@ class ProductController extends Controller
         $sku = strtoupper(trim((string) $sku));
 
         return $sku !== '' ? $sku : null;
+    }
+
+    protected function deleteSelectedImages(Request $request, Product $product): void
+    {
+        $ids = $request->input('delete_image_ids', []);
+        if (! is_array($ids) || $ids === []) {
+            return;
+        }
+
+        $images = $product->images()->whereIn('id', $ids)->get();
+        foreach ($images as $image) {
+            if ($image->image_url) {
+                Storage::disk('public')->delete($image->image_url);
+            }
+            $image->delete();
+        }
     }
 
     protected function storeAdditionalImages(Request $request, Product $product): void

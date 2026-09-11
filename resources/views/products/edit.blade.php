@@ -169,9 +169,15 @@
                     <label class="block text-sm font-medium text-gray-700 mb-2">
                         Current Main Image
                     </label>
-                    <img src="{{ Storage::url($product->image_path) }}" 
-                         alt="{{ $product->name }}" 
-                         class="h-32 w-32 object-cover rounded border">
+                    <div class="flex items-start gap-4">
+                        <img src="{{ Storage::url($product->image_path) }}"
+                             alt="{{ $product->name }}"
+                             class="h-32 w-32 object-cover rounded border">
+                        <label class="inline-flex items-center gap-2 text-sm text-red-600">
+                            <input type="checkbox" name="remove_main_image" value="1" class="rounded border-gray-300">
+                            Remove this image
+                        </label>
+                    </div>
                 </div>
                 @endif
 
@@ -180,11 +186,12 @@
                     <label for="image_path" class="block text-sm font-medium text-gray-700 mb-2">
                         {{ $product->image_path ? 'Replace Main Product Image' : 'Main Product Image' }}
                     </label>
-                    <input type="file" 
-                           name="image_path" 
-                           id="image_path" 
+                    <input type="file"
+                           name="image_path"
+                           id="image_path"
                            accept="image/*"
                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    <div id="main-image-preview" class="mt-3 flex flex-wrap gap-4"></div>
                     <p class="mt-1 text-xs text-gray-500">Max file size: 2MB. Allowed formats: JPEG, PNG, JPG, GIF, WEBP</p>
                     @error('image_path')
                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -197,15 +204,27 @@
                     <label class="block text-sm font-medium text-gray-700 mb-2">
                         Current Additional Images
                     </label>
+                    <p class="text-xs text-gray-500 mb-3">Remove a single image without deleting the product.</p>
                     <div class="flex flex-wrap gap-4">
                         @foreach($product->images as $image)
                             <div class="relative">
-                                <img src="{{ Storage::url($image->image_url) }}" 
-                                     alt="Product image" 
+                                <img src="{{ Storage::url($image->image_url) }}"
+                                     alt="Product image"
                                      class="h-24 w-24 object-cover rounded border">
+                                <form action="{{ route('products.images.destroy', [$product, $image]) }}"
+                                      method="POST"
+                                      class="absolute -top-2 -right-2"
+                                      onsubmit="return confirm('Remove this image? The product will stay published.');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit"
+                                            class="flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-white text-sm"
+                                            title="Remove this image">×</button>
+                                </form>
                             </div>
                         @endforeach
                     </div>
+                    <p class="mt-2 text-xs text-gray-500">Use the × on an image to remove it without deleting the product.</p>
                 </div>
                 @endif
 
@@ -214,13 +233,14 @@
                     <label for="images" class="block text-sm font-medium text-gray-700 mb-2">
                         Add More Images
                     </label>
-                    <input type="file" 
-                           name="images[]" 
-                           id="images" 
+                    <input type="file"
+                           name="images[]"
+                           id="images"
                            accept="image/*"
                            multiple
                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                    <p class="mt-1 text-xs text-gray-500">You can select multiple images. Max file size: 2MB each.</p>
+                    <div id="gallery-preview" class="mt-3 flex flex-wrap gap-4"></div>
+                    <p class="mt-1 text-xs text-gray-500">You can select multiple images and remove any one before saving. Max file size: 2MB each.</p>
                     @error('images.*')
                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                     @enderror
@@ -241,3 +261,7 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+    @include('products._image-picker-script')
+@endpush

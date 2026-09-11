@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Mail\ParentLinkedToBusinessMail;
 use App\Models\Business;
 use App\Models\ClinicPatient;
 use App\Models\ParentChild;
@@ -9,6 +10,7 @@ use App\Models\ParentGuardian;
 use App\Models\ParentGuardianBusiness;
 use App\Models\Student;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class ParentUniversalCodeService
@@ -132,14 +134,19 @@ class ParentUniversalCodeService
     /**
      * Idempotently attach a parent to a business and upgrade guest → linked.
      * Also imports any children the parent registered in the app.
+     *
+     * @param  bool  $sendNotification  Set false for backfills so historical links are not emailed.
      */
     public function attachToBusiness(
         ParentGuardian $parent,
         int $businessId,
         string $joinedVia,
-        ?string $relationship = null
+        ?string $relationship = null,
+        bool $sendNotification = true
     ): ParentGuardianBusiness {
-        return DB::transaction(function () use ($parent, $businessId, $joinedVia, $relationship) {
+        $createdNewMembership = false;
+
+        $membership = DB::transaction(function () use ($parent, $businessId, $joinedVia, $relationship, &$createdNewMembership) {
             $membership = ParentGuardianBusiness::query()
                 ->where('parent_guardian_id', $parent->id)
                 ->where('business_id', $businessId)
@@ -159,6 +166,7 @@ class ParentUniversalCodeService
                     $membership->fill($updates)->save();
                 }
             } else {
+                $createdNewMembership = true;
                 $membership = ParentGuardianBusiness::create([
                     'parent_guardian_id' => $parent->id,
                     'business_id' => $businessId,
@@ -188,6 +196,16 @@ class ParentUniversalCodeService
 
             return $membership->fresh(['business']);
         });
+
+        if ($sendNotification && $createdNewMembership && $membership?->business && filled($parent->email)) {
+            try {
+                Mail::to($parent->email)->send(new ParentLinkedToBusinessMail($parent->fresh(), $membership->business));
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        return $membership;
     }
 
     /**
@@ -235,6 +253,8 @@ class ParentUniversalCodeService
                     'business_id' => $businessId,
                     'parent_guardian_id' => $parent->id,
                     'status' => 'active',
+                    'allergies' => $child->allergies,
+                    'medical_notes' => $child->medical_notes,
                 ]);
                 $studentsCreated++;
             }

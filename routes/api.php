@@ -22,6 +22,9 @@ use App\Http\Controllers\API\ParentUniversalAccountController;
 use App\Http\Controllers\API\ProductController;
 use App\Http\Controllers\API\ProductReviewController;
 use App\Http\Controllers\API\ProgramRegistrationController;
+use App\Http\Controllers\API\PrayerRequestController;
+use App\Http\Controllers\API\MemoryWallController;
+use App\Http\Controllers\API\QuisatAlbumController;
 use App\Http\Controllers\API\PublicAdvertisementsController;
 use App\Http\Controllers\API\PublicCountryController;
 use App\Http\Controllers\API\PublicKidsEventsController;
@@ -334,6 +337,7 @@ Route::prefix('v1')->group(function () {
                 Route::post('{conversation}/messages', [ConversationController::class, 'storeMessage']);
                 Route::post('{conversation}/read', [ConversationController::class, 'markAsRead']);
                 Route::post('{conversation}/clear', [ConversationController::class, 'clear']);
+                Route::delete('{conversation}/messages/{message}', [ConversationController::class, 'destroyMessage']);
             });
 
             Route::get('staff/dashboard', [StaffDashboardController::class, 'index']);
@@ -353,6 +357,29 @@ Route::prefix('v1')->group(function () {
             Route::get('attendance/history', [AttendanceController::class, 'studentHistory']);
             Route::post('attendance/check-in', [AttendanceController::class, 'checkIn']);
             Route::post('attendance/check-out', [AttendanceController::class, 'checkOut']);
+            Route::get('attendance/pickup-codes', [AttendanceController::class, 'pickupCodes']);
+
+            Route::prefix('moments')->group(function () {
+                Route::get('/', [QuisatAlbumController::class, 'index']);
+                Route::post('/', [QuisatAlbumController::class, 'store']);
+                Route::get('{album}', [QuisatAlbumController::class, 'show']);
+                Route::post('{album}/media', [QuisatAlbumController::class, 'addMedia']);
+                Route::delete('{album}/media/{media}', [QuisatAlbumController::class, 'destroyMedia']);
+                Route::post('{album}/like', [QuisatAlbumController::class, 'like']);
+                Route::delete('{album}/like', [QuisatAlbumController::class, 'unlike']);
+                Route::post('{album}/comments', [QuisatAlbumController::class, 'comment']);
+            });
+
+            Route::prefix('prayer-requests')->group(function () {
+                Route::get('/', [PrayerRequestController::class, 'index']);
+                Route::post('/', [PrayerRequestController::class, 'store']);
+                Route::patch('{prayerRequest}', [PrayerRequestController::class, 'update']);
+            });
+
+            Route::prefix('memory-wall')->group(function () {
+                Route::get('/', [MemoryWallController::class, 'index']);
+                Route::post('/', [MemoryWallController::class, 'store']);
+            });
             Route::get('documents', [DocumentController::class, 'index']);
             Route::post('documents', [DocumentController::class, 'store']);
             Route::delete('documents/{document}', [DocumentController::class, 'destroy']);

@@ -7,7 +7,9 @@ use App\Models\BroadcastAnnouncement;
 use App\Models\CalendarEvent;
 use App\Models\ClassAssignment;
 use App\Models\Fee;
+use App\Models\MemoryWallItem;
 use App\Models\ParentGuardian;
+use App\Models\PickupCode;
 use App\Models\Student;
 use App\Models\StudentAcademicEntry;
 use App\Models\StudentCharacterReport;
@@ -78,6 +80,9 @@ class ParentDashboardController extends Controller
                     'description' => $event->description,
                     'start_date' => optional($event->start_date)->toIso8601String(),
                     'end_date' => optional($event->end_date)->toIso8601String(),
+                    'start_time' => $event->is_all_day ? null : optional($event->start_date)->format('H:i'),
+                    'end_time' => $event->is_all_day ? null : optional($event->end_date)->format('H:i'),
+                    'is_all_day' => (bool) $event->is_all_day,
                     'location' => $event->location,
                     'event_type' => $event->event_type,
                 ];
@@ -126,6 +131,8 @@ class ParentDashboardController extends Controller
                 'access_code' => $student->ensureAccessCode(),
                 'photo_url' => $this->resolvePhotoUrl($student->photo),
                 'avatar_url' => "https://ui-avatars.com/api/?name=" . urlencode($student->full_name) . "&background=4A90E2&color=ffffff",
+                'allergies' => $student->allergies,
+                'has_medical_alert' => $student->hasMedicalAlert(),
             ];
         });
 
@@ -175,6 +182,27 @@ class ParentDashboardController extends Controller
             ->filter()
             ->implode('|');
 
+        $memoryItems = MemoryWallItem::query()
+            ->where('business_id', $business->id)
+            ->current()
+            ->latest()
+            ->get();
+
+        $pickupCodes = $childIds->isEmpty()
+            ? collect()
+            : PickupCode::query()
+                ->where('business_id', $business->id)
+                ->whereIn('student_id', $childIds)
+                ->whereDate('code_date', $today->toDateString())
+                ->whereNull('used_at')
+                ->get()
+                ->map(fn (PickupCode $code) => [
+                    'student_id' => $code->student_id,
+                    'code' => $code->code,
+                    'expires_at' => optional($code->expires_at)->toIso8601String(),
+                ])
+                ->values();
+
         return response()->json([
             'success' => true,
             'message' => 'Parent dashboard data loaded successfully.',
@@ -184,12 +212,16 @@ class ParentDashboardController extends Controller
                     'full_name' => $user->full_name,
                     'photo_url' => $this->resolvePhotoUrl($user->photo),
                 ],
+                'is_church' => $business->isChurch(),
                 'children' => $childrenData,
                 'announcements' => $announcements,
                 'upcoming_events' => $events,
                 'upcoming_assignments' => $assignments,
                 'pending_fees' => $pendingFees,
                 'progress_revision' => $progressRevision ?: null,
+                'memory_verse' => $memoryItems->firstWhere('type', 'memory_verse'),
+                'prayer_focus' => $memoryItems->firstWhere('type', 'prayer_focus'),
+                'pickup_codes' => $pickupCodes,
             ],
         ]);
     }

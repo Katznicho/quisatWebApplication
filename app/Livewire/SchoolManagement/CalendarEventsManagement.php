@@ -23,6 +23,7 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
@@ -102,11 +103,13 @@ class CalendarEventsManagement extends Component implements HasForms, HasTable
                         DatePicker::make('start_date')
                             ->required(),
                         TimePicker::make('start_time')
-                            ->label('Start Time'),
+                            ->label('Start Time')
+                            ->seconds(false),
                         DatePicker::make('end_date')
                             ->required(),
                         TimePicker::make('end_time')
-                            ->label('End Time'),
+                            ->label('End Time')
+                            ->seconds(false),
                         TextInput::make('location')
                             ->maxLength(255)
                             ->placeholder('Enter event location'),
@@ -145,35 +148,11 @@ class CalendarEventsManagement extends Component implements HasForms, HasTable
                             ->default('medium')
                             ->required(),
                     ])
+                    ->mutateRecordDataUsing(fn (array $data): array => $this->splitEventDateTimes($data))
                     ->using(function (array $data, CalendarEvent $record): CalendarEvent {
                         $data['business_id'] = Auth::user()->business_id;
                         $data['created_by'] = Auth::id();
-
-                        // Combine date and time for start_date
-                        if (isset($data['start_date'])) {
-                            if (isset($data['start_time'])) {
-                                $data['start_date'] = $data['start_date'].' '.$data['start_time'];
-                                unset($data['start_time']);
-                            } else {
-                                $data['start_date'] = $data['start_date'].' 00:00:00';
-                            }
-                        }
-
-                        // Combine date and time for end_date
-                        if (isset($data['end_date'])) {
-                            if (isset($data['end_time'])) {
-                                $data['end_date'] = $data['end_date'].' '.$data['end_time'];
-                                unset($data['end_time']);
-                            } else {
-                                $data['end_date'] = $data['end_date'].' 23:59:59';
-                            }
-                        }
-
-                        if (array_key_exists('max_participants', $data) && $data['max_participants'] === '') {
-                            $data['max_participants'] = null;
-                        }
-
-                        $data['price'] = $data['price'] ?? 0;
+                        $data = $this->combineEventDateTimes($data);
 
                         $record->fill($data);
                         $record->save();
@@ -217,11 +196,13 @@ class CalendarEventsManagement extends Component implements HasForms, HasTable
                         DatePicker::make('start_date')
                             ->required(),
                         TimePicker::make('start_time')
-                            ->label('Start Time'),
+                            ->label('Start Time')
+                            ->seconds(false),
                         DatePicker::make('end_date')
                             ->required(),
                         TimePicker::make('end_time')
-                            ->label('End Time'),
+                            ->label('End Time')
+                            ->seconds(false),
                         TextInput::make('location')
                             ->maxLength(255)
                             ->placeholder('Enter event location'),
@@ -265,32 +246,7 @@ class CalendarEventsManagement extends Component implements HasForms, HasTable
                         $data['business_id'] = Auth::user()->business_id;
                         $data['created_by'] = Auth::id();
                         $data['status'] = 'published';
-
-                        // Combine date and time for start_date
-                        if (isset($data['start_date'])) {
-                            if (isset($data['start_time'])) {
-                                $data['start_date'] = $data['start_date'].' '.$data['start_time'];
-                                unset($data['start_time']);
-                            } else {
-                                $data['start_date'] = $data['start_date'].' 00:00:00';
-                            }
-                        }
-
-                        // Combine date and time for end_date
-                        if (isset($data['end_date'])) {
-                            if (isset($data['end_time'])) {
-                                $data['end_date'] = $data['end_date'].' '.$data['end_time'];
-                                unset($data['end_time']);
-                            } else {
-                                $data['end_date'] = $data['end_date'].' 23:59:59';
-                            }
-                        }
-
-                        if (array_key_exists('max_participants', $data) && $data['max_participants'] === '') {
-                            $data['max_participants'] = null;
-                        }
-
-                        $data['price'] = $data['price'] ?? 0;
+                        $data = $this->combineEventDateTimes($data);
 
                         return CalendarEvent::create($data);
                     })
@@ -312,5 +268,75 @@ class CalendarEventsManagement extends Component implements HasForms, HasTable
     public function render(): View
     {
         return view('livewire.school-management.calendar-events-management');
+    }
+
+    /**
+     * Split stored datetimes into date + time form fields so edits keep the original times.
+     */
+    private function splitEventDateTimes(array $data): array
+    {
+        if (! empty($data['start_date'])) {
+            $start = Carbon::parse($data['start_date']);
+            $data['start_date'] = $start->toDateString();
+            $data['start_time'] = $start->format('H:i');
+        }
+
+        if (! empty($data['end_date'])) {
+            $end = Carbon::parse($data['end_date']);
+            $data['end_date'] = $end->toDateString();
+            $data['end_time'] = $end->format('H:i');
+        }
+
+        return $data;
+    }
+
+    /**
+     * Merge date and time picker values into the datetime columns.
+     */
+    private function combineEventDateTimes(array $data): array
+    {
+        if (array_key_exists('start_date', $data)) {
+            $data['start_date'] = $this->combineDateAndTime(
+                $data['start_date'] ?? null,
+                $data['start_time'] ?? null,
+                '00:00:00'
+            );
+            unset($data['start_time']);
+        }
+
+        if (array_key_exists('end_date', $data)) {
+            $fallbackEnd = ! empty($data['is_all_day']) ? '23:59:59' : '00:00:00';
+            $data['end_date'] = $this->combineDateAndTime(
+                $data['end_date'] ?? null,
+                $data['end_time'] ?? null,
+                $fallbackEnd
+            );
+            unset($data['end_time']);
+        }
+
+        if (array_key_exists('max_participants', $data) && $data['max_participants'] === '') {
+            $data['max_participants'] = null;
+        }
+
+        $data['price'] = $data['price'] ?? 0;
+
+        return $data;
+    }
+
+    private function combineDateAndTime(mixed $date, mixed $time, string $fallbackTime): ?string
+    {
+        if ($date === null || $date === '') {
+            return null;
+        }
+
+        $dateString = Carbon::parse($date)->toDateString();
+
+        if ($time === null || $time === '') {
+            return $dateString.' '.$fallbackTime;
+        }
+
+        $timeString = Carbon::parse($time)->format('H:i:s');
+
+        return $dateString.' '.$timeString;
     }
 }

@@ -301,6 +301,29 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Medical Information -->
+                        <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
+                            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Medical information</h3>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Shown to staff at check-in so allergies and care notes are visible before pickup.</p>
+                            <div class="grid grid-cols-1 gap-6">
+                                <div>
+                                    <label for="allergies" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Allergies</label>
+                                    <textarea name="allergies" id="allergies" rows="2" placeholder="Peanuts, bee stings, etc."
+                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">{{ old('allergies') }}</textarea>
+                                </div>
+                                <div>
+                                    <label for="dietary_restrictions" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Dietary restrictions</label>
+                                    <textarea name="dietary_restrictions" id="dietary_restrictions" rows="2" placeholder="Vegetarian, no pork, etc."
+                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">{{ old('dietary_restrictions') }}</textarea>
+                                </div>
+                                <div>
+                                    <label for="medical_notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Medical notes</label>
+                                    <textarea name="medical_notes" id="medical_notes" rows="3" placeholder="Asthma inhaler, seizure plan, etc."
+                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">{{ old('medical_notes') }}</textarea>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="mt-6 flex justify-end space-x-3">

@@ -239,12 +239,17 @@ class StudentController extends Controller
                 'city' => $parent->city,
                 'country' => $parent->country,
             ]] : [],
+            'allergies' => $student->allergies,
+            'medical_notes' => $student->medical_notes,
+            'dietary_restrictions' => $student->dietary_restrictions,
+            'has_medical_alert' => $student->hasMedicalAlert(),
         ];
 
         if ($includeDetails) {
             $data['address'] = $student->address;
             $data['city'] = $student->city;
             $data['country'] = $student->country;
+            $data['emergency_contacts'] = $student->emergency_contacts;
         }
 
         return $data;

@@ -263,5 +263,21 @@ class Business extends Model
         return str_contains($category, 'school');
     }
 
-   
+    public function isChurch(): bool
+    {
+        if ($this->hasFeatureByName('Kids Church')) {
+            return true;
+        }
+
+        $type = strtolower((string) $this->type);
+        if (str_contains($type, 'church') || str_contains($type, 'ministry')) {
+            return true;
+        }
+
+        $category = strtolower((string) ($this->relationLoaded('businessCategory')
+            ? ($this->businessCategory?->name ?? '')
+            : ($this->businessCategory()->value('name') ?? '')));
+
+        return str_contains($category, 'church') || str_contains($category, 'ministry');
+    }
 }

@@ -8,9 +8,11 @@ use App\Models\Message;
 use App\Models\User;
 use App\Models\ParentGuardian;
 use App\Services\ConversationMessageNotificationService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class ConversationController extends Controller
 {
@@ -49,17 +51,18 @@ class ConversationController extends Controller
                 $query->where('user_id', $user->id);
             });
 
-        // If user is a parent, filter to only show conversations with staff (not other parents)
+        // Parents can see group chats they belong to, but 1:1 chats only with staff
         if ($isParent) {
-            // Exclude conversations where any other participant is a parent
-            // We check if any participant's email exists in the ParentGuardian table
-            $conversationsQuery->whereDoesntHave('users', function ($query) use ($user, $businessId) {
-                $query->where('users.id', '!=', $user->id)
-                    ->whereExists(function ($subQuery) use ($businessId) {
-                        $subQuery->select(DB::raw(1))
-                            ->from('parent_guardians')
-                            ->where('business_id', $businessId)
-                            ->whereColumn(DB::raw('LOWER(TRIM(parent_guardians.email))'), DB::raw('LOWER(TRIM(users.email))'));
+            $conversationsQuery->where(function ($query) use ($user, $businessId) {
+                $query->where('type', 'group')
+                    ->orWhereDoesntHave('users', function ($subQuery) use ($user, $businessId) {
+                        $subQuery->where('users.id', '!=', $user->id)
+                            ->whereExists(function ($exists) use ($businessId) {
+                                $exists->select(DB::raw(1))
+                                    ->from('parent_guardians')
+                                    ->where('business_id', $businessId)
+                                    ->whereColumn(DB::raw('LOWER(TRIM(parent_guardians.email))'), DB::raw('LOWER(TRIM(users.email))'));
+                            });
                     });
             });
         }
@@ -318,9 +321,11 @@ class ConversationController extends Controller
             }
 
             $validated = $request->validate([
-                'participant_ids' => 'nullable|array|min:1',
+                'participant_ids' => 'nullable|array',
                 'participant_ids.*' => 'required|integer|exists:users,id',
                 'parent_email' => 'nullable|email',
+                'parent_emails' => 'nullable|array',
+                'parent_emails.*' => 'email',
                 'type' => 'nullable|string|in:direct,group',
                 'title' => 'nullable|string|max:255',
                 'message_content' => 'nullable|string|max:2000',
@@ -344,85 +349,15 @@ class ConversationController extends Controller
 
         $participantIds = $validated['participant_ids'] ?? [];
 
-        // If parent_email is provided, find or create user for that parent
-        if (!empty($validated['parent_email'])) {
-            $parentEmail = strtolower(trim($validated['parent_email']));
-            
-            // Use case-insensitive email matching
-            $parent = ParentGuardian::whereRaw('LOWER(TRIM(email)) = ?', [$parentEmail])
-                ->where('business_id', $businessId)
-                ->first();
+        $parentEmails = $validated['parent_emails'] ?? [];
+        if (! empty($validated['parent_email'])) {
+            $parentEmails[] = $validated['parent_email'];
+        }
 
-            if (!$parent) {
-                // If parent not found, try to find a user with that email (could be staff)
-                $parentUser = User::whereRaw('LOWER(TRIM(email)) = ?', [$parentEmail])
-                    ->where('business_id', $businessId)
-                    ->first();
-
-                if ($parentUser) {
-                    $participantIds[] = $parentUser->id;
-                } else {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'User not found with the provided email.',
-                    ], 404);
-                }
-            } else {
-                // Find user with same email, or create one
-                // Use case-insensitive email matching
-                $parentEmailLower = strtolower(trim($parent->email));
-                
-                // First try to find by email and business_id
-                $parentUser = User::whereRaw('LOWER(TRIM(email)) = ?', [$parentEmailLower])
-                    ->where('business_id', $businessId)
-                    ->first();
-
-                // If not found, try to find by email only (in case business_id doesn't match)
-                if (!$parentUser) {
-                    $parentUser = User::whereRaw('LOWER(TRIM(email)) = ?', [$parentEmailLower])->first();
-                }
-
-                if (!$parentUser) {
-                    try {
-                        // Create a user account for the parent
-                        $parentUser = User::create([
-                            'name' => $parent->full_name,
-                            'email' => $parent->email,
-                            'business_id' => $businessId,
-                            'status' => 'active',
-                            'branch_id' => null, // Parents don't belong to a branch
-                            'password' => '', // Empty password - parent uses ParentGuardian login
-                        ]);
-                    } catch (\Illuminate\Database\QueryException $e) {
-                        // Handle unique constraint violation (email already exists)
-                        if ($e->getCode() == 23000) {
-                            // Email already exists, try to find it again
-                            $parentUser = User::where('email', $parent->email)->first();
-                            if (!$parentUser) {
-                                return response()->json([
-                                    'success' => false,
-                                    'message' => 'Unable to create or find user account for parent.',
-                                    'error' => 'Database constraint violation',
-                                ], 500);
-                            }
-                        } else {
-                            throw $e;
-                        }
-                    } catch (\Exception $e) {
-                        Log::error('Error creating user for parent in conversation: ' . $e->getMessage(), [
-                            'parent_email' => $parent->email,
-                            'business_id' => $businessId,
-                            'trace' => $e->getTraceAsString(),
-                        ]);
-                        return response()->json([
-                            'success' => false,
-                            'message' => 'Unable to create user account for parent.',
-                            'error' => $e->getMessage(),
-                        ], 500);
-                    }
-                }
-
-                $participantIds[] = $parentUser->id;
+        foreach (array_unique($parentEmails) as $rawParentEmail) {
+            $resolved = $this->appendParentParticipant((string) $rawParentEmail, $businessId, $participantIds);
+            if ($resolved instanceof JsonResponse) {
+                return $resolved;
             }
         }
 
@@ -438,7 +373,30 @@ class ConversationController extends Controller
         if (!in_array($user->id, $participantIds)) {
             $participantIds[] = $user->id;
         }
-        $participantIds = array_unique($participantIds);
+        $participantIds = array_values(array_unique($participantIds));
+
+        if ($conversationType === 'group') {
+            if ($authenticatedUser instanceof ParentGuardian) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only school staff can create group chats.',
+                ], 403);
+            }
+
+            if (empty($validated['title'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'A group name is required.',
+                ], 422);
+            }
+
+            if (count($participantIds) < 2) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Select at least one other member for the group.',
+                ], 422);
+            }
+        }
 
         // For direct conversations, check if one already exists
         if ($conversationType === 'direct' && count($participantIds) === 2) {
@@ -635,6 +593,136 @@ class ConversationController extends Controller
             'success' => true,
             'message' => 'Chat cleared. Messages are hidden for you only.',
         ]);
+    }
+
+    public function destroyMessage(Request $request, Conversation $conversation, Message $message)
+    {
+        $businessId = $request->get('business_id');
+        $authenticatedUser = $request->get('authenticated_user');
+
+        $user = $this->getUserForConversation($authenticatedUser, $businessId);
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to find user account for conversations.',
+            ], 404);
+        }
+
+        if ($conversation->business_id !== $businessId || ! $this->userInConversation($conversation, $user)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Access denied.',
+            ], 403);
+        }
+
+        if ((int) $message->conversation_id !== (int) $conversation->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Message not found in this conversation.',
+            ], 404);
+        }
+
+        if ((int) $message->sender_id !== (int) $user->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You can only delete your own messages.',
+            ], 403);
+        }
+
+        if ($message->attachment_path) {
+            Storage::disk('public')->delete($message->attachment_path);
+        }
+
+        $message->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Message deleted.',
+        ]);
+    }
+
+    /**
+     * Resolve a parent email to a users.id and append it to $participantIds.
+     */
+    protected function appendParentParticipant(string $parentEmail, int $businessId, array &$participantIds): ?JsonResponse
+    {
+        $parentEmail = strtolower(trim($parentEmail));
+        if ($parentEmail === '') {
+            return null;
+        }
+
+        $parent = ParentGuardian::whereRaw('LOWER(TRIM(email)) = ?', [$parentEmail])
+            ->where('business_id', $businessId)
+            ->first();
+
+        if (! $parent) {
+            $parentUser = User::whereRaw('LOWER(TRIM(email)) = ?', [$parentEmail])
+                ->where('business_id', $businessId)
+                ->first();
+
+            if ($parentUser) {
+                $participantIds[] = $parentUser->id;
+
+                return null;
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'User not found with the provided email.',
+            ], 404);
+        }
+
+        $parentEmailLower = strtolower(trim($parent->email));
+
+        $parentUser = User::whereRaw('LOWER(TRIM(email)) = ?', [$parentEmailLower])
+            ->where('business_id', $businessId)
+            ->first();
+
+        if (! $parentUser) {
+            $parentUser = User::whereRaw('LOWER(TRIM(email)) = ?', [$parentEmailLower])->first();
+        }
+
+        if (! $parentUser) {
+            try {
+                $parentUser = User::create([
+                    'name' => $parent->full_name,
+                    'email' => $parent->email,
+                    'business_id' => $businessId,
+                    'status' => 'active',
+                    'branch_id' => null,
+                    'password' => '',
+                ]);
+            } catch (\Illuminate\Database\QueryException $e) {
+                if ($e->getCode() == 23000) {
+                    $parentUser = User::where('email', $parent->email)->first();
+                    if (! $parentUser) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Unable to create or find user account for parent.',
+                            'error' => 'Database constraint violation',
+                        ], 500);
+                    }
+                } else {
+                    throw $e;
+                }
+            } catch (\Exception $e) {
+                Log::error('Error creating user for parent in conversation: '.$e->getMessage(), [
+                    'parent_email' => $parent->email,
+                    'business_id' => $businessId,
+                    'trace' => $e->getTraceAsString(),
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unable to create user account for parent.',
+                    'error' => $e->getMessage(),
+                ], 500);
+            }
+        }
+
+        $participantIds[] = $parentUser->id;
+
+        return null;
     }
 
     protected function transformConversation(Conversation $conversation, User $user): array

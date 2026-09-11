@@ -62,6 +62,9 @@ class StudentController extends Controller
             'country' => 'nullable|string|max:255',
             'status' => 'required|in:active,inactive,graduated,transferred',
             'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            'allergies' => 'nullable|string|max:2000',
+            'medical_notes' => 'nullable|string|max:2000',
+            'dietary_restrictions' => 'nullable|string|max:2000',
         ]);
 
         $business = Auth::user()->business;
@@ -142,6 +145,9 @@ class StudentController extends Controller
             'country' => 'nullable|string|max:255',
             'status' => 'required|in:active,inactive,graduated,transferred',
             'photo' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            'allergies' => 'nullable|string|max:2000',
+            'medical_notes' => 'nullable|string|max:2000',
+            'dietary_restrictions' => 'nullable|string|max:2000',
         ]);
 
         // Handle photo upload (replace existing file if a new one is provided).
@@ -169,6 +175,9 @@ class StudentController extends Controller
             'country' => $validated['country'] ?? null,
             'status' => $validated['status'],
             'photo' => $photoPath,
+            'allergies' => $validated['allergies'] ?? null,
+            'medical_notes' => $validated['medical_notes'] ?? null,
+            'dietary_restrictions' => $validated['dietary_restrictions'] ?? null,
         ];
 
         // Keep student's original business unless admin changed it (we don't expose business_id in UI).

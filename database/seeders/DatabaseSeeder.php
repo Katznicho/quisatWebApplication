@@ -5,6 +5,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Database\Seeders\QuisatSeeder;
+use Database\Seeders\KidsChurchFeatureSeeder;
 
 
 class DatabaseSeeder extends Seeder
@@ -19,6 +20,7 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             QuisatSeeder::class,
+            KidsChurchFeatureSeeder::class,
         ]);
     }
 }

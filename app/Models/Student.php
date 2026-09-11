@@ -30,11 +30,16 @@ class Student extends Model
         'parent_guardian_id',
         'status',
         'photo',
+        'allergies',
+        'medical_notes',
+        'dietary_restrictions',
+        'emergency_contacts',
     ];
 
     protected $casts = [
         'date_of_birth' => 'date',
         'admission_date' => 'date',
+        'emergency_contacts' => 'array',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
@@ -80,6 +85,16 @@ class Student extends Model
     public function attendances()
     {
         return $this->hasMany(Attendance::class);
+    }
+
+    public function pickupCodes()
+    {
+        return $this->hasMany(PickupCode::class);
+    }
+
+    public function hasMedicalAlert(): bool
+    {
+        return filled($this->allergies) || filled($this->medical_notes) || filled($this->dietary_restrictions);
     }
 
     public function fees()

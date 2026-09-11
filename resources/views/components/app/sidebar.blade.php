@@ -267,6 +267,9 @@
 
                     <!-- School Features (Hidden for business_id == 1) -->
                     @if (auth()->user()->business_id != 1)
+                        @php
+                            $isChurch = $business && $business->isChurch();
+                        @endphp
                         <!-- Terms -->
                         @if ($business && $business->hasFeatureByName('Term Management'))
                         <li>
@@ -292,7 +295,7 @@
                                     <path stroke-linecap="round" stroke-linejoin="round"
                                         d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5" />
                                 </svg>
-                                <span class="ml-3">Classes</span>
+                                <span class="ml-3">{{ $isChurch ? 'Groups' : 'Classes' }}</span>
                             </a>
                         </li>
                         @endif
@@ -322,7 +325,7 @@
                                     <path stroke-linecap="round" stroke-linejoin="round"
                                         d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
                                 </svg>
-                                <span class="ml-3">Students</span>
+                                <span class="ml-3">{{ $isChurch ? 'Children' : 'Students' }}</span>
                             </a>
                         </li>
                         @endif
@@ -337,7 +340,46 @@
                                     <path stroke-linecap="round" stroke-linejoin="round"
                                         d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
-                                <span class="ml-3">Attendance Tracking</span>
+                                <span class="ml-3">{{ $isChurch ? 'Check-in' : 'Attendance Tracking' }}</span>
+                            </a>
+                        </li>
+                        @endif
+
+                        @if ($business && ($business->hasFeatureByName('Quisat Moments') || $business->hasFeatureByName('Student Management') || $isChurch))
+                        <li>
+                            <a href="{{ route('school-management.moments') }}"
+                                class="flex items-center pl-4 pr-3 py-2 rounded-md text-gray-700 hover:text-blue-700 hover:bg-blue-50">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                    stroke-width="1.5" stroke="currentColor" class="w-5 h-5 shrink-0">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
+                                </svg>
+                                <span class="ml-3">Quisat Moments</span>
+                            </a>
+                        </li>
+                        @endif
+
+                        @if ($business && $isChurch)
+                        <li>
+                            <a href="{{ route('school-management.prayer-requests') }}"
+                                class="flex items-center pl-4 pr-3 py-2 rounded-md text-gray-700 hover:text-blue-700 hover:bg-blue-50">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                    stroke-width="1.5" stroke="currentColor" class="w-5 h-5 shrink-0">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+                                </svg>
+                                <span class="ml-3">Prayer requests</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('school-management.memory-wall') }}"
+                                class="flex items-center pl-4 pr-3 py-2 rounded-md text-gray-700 hover:text-blue-700 hover:bg-blue-50">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                    stroke-width="1.5" stroke="currentColor" class="w-5 h-5 shrink-0">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                                </svg>
+                                <span class="ml-3">Memory Wall</span>
                             </a>
                         </li>
                         @endif

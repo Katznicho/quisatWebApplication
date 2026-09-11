@@ -8,6 +8,7 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Observers\ModelActivityObserver;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -29,6 +30,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if (! $this->app->environment(['local', 'testing'])) {
+            URL::forceScheme('https');
+        }
+
         View::composer('*', function ($view) {
             if (Auth::check()) {
                 // Refresh the business relationship to ensure we have the latest data

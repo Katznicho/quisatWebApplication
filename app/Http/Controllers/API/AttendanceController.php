@@ -4,14 +4,21 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
+use App\Models\ParentGuardian;
+use App\Models\PickupCode;
 use App\Models\Student;
 use App\Models\Term;
 use App\Models\User;
+use App\Services\PickupCodeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
 class AttendanceController extends Controller
 {
+    public function __construct(
+        protected PickupCodeService $pickupCodes
+    ) {}
+
     public function studentHistory(Request $request)
     {
         $business = $request->get('business');
@@ -37,34 +44,10 @@ class AttendanceController extends Controller
             ], 404);
         }
 
-        $attendanceRecords = Attendance::query()
-            ->with('classRoom:id,name,code')
-            ->where('business_id', $business->id)
-            ->where('student_id', $student->id)
-            ->orderByDesc('attendance_date')
-            ->limit($limit)
-            ->get()
-            ->map(function (Attendance $attendance) {
-                return [
-                    'id' => $attendance->id,
-                    'attendance_date' => optional($attendance->attendance_date)->toDateString(),
-                    'status' => $attendance->status,
-                    'class_room' => $attendance->classRoom?->name,
-                    'marked_by' => $attendance->marked_by,
-                ];
-            });
-
         return response()->json([
             'success' => true,
             'message' => 'Attendance history loaded successfully.',
-            'data' => [
-                'student' => [
-                    'id' => $student->id,
-                    'full_name' => $student->full_name,
-                    'class' => $student->classRoom?->name,
-                ],
-                'attendance' => $attendanceRecords,
-            ],
+            'data' => $this->historyPayload($business->id, $student, $limit),
         ]);
     }
 
@@ -106,58 +89,39 @@ class AttendanceController extends Controller
                 ], 404);
             }
 
-            // Get user ID for marked_by
-            // If user is a ParentGuardian, find or create a User record
-            $markedByUserId = null;
-            if ($user instanceof \App\Models\ParentGuardian) {
-                // Find or create a User record for the parent
-                $parentUser = User::where('email', $user->email)
-                    ->where('business_id', $business->id)
-                    ->first();
-                
-                if (!$parentUser) {
-                    // Create a user account for the parent if it doesn't exist
-                    $parentUser = User::create([
-                        'name' => $user->full_name,
-                        'email' => $user->email,
-                        'business_id' => $business->id,
-                        'status' => 'active',
-                        'branch_id' => null,
-                        'password' => '', // Empty password - parent uses ParentGuardian login
-                    ]);
-                }
-                
-                $markedByUserId = $parentUser->id;
-            } elseif ($user instanceof \App\Models\User) {
-                $markedByUserId = $user->id;
-            }
+            $record = Attendance::firstOrNew([
+                'business_id' => $business->id,
+                'student_id' => $student->id,
+                'class_room_id' => $student->class_room_id,
+                'attendance_date' => Carbon::today(),
+            ]);
 
-            $record = Attendance::updateOrCreate(
-                [
-                    'business_id' => $business->id,
-                    'student_id' => $student->id,
-                    'class_room_id' => $student->class_room_id,
-                    'attendance_date' => Carbon::today(),
-                ],
-                [
-                    'status' => 'present',
-                    'marked_by' => $markedByUserId,
-                    'remarks' => (!empty($validated['parent_identifier'] ?? null)) 
-                        ? 'Checked in by ' . ($validated['parent_name'] ?? 'Parent/Guardian') . ' (' . ($validated['parent_identifier'] ?? '') . ')'
-                        : ('Checked in by ' . ($validated['parent_name'] ?? 'Parent/Guardian')),
-                ]
-            );
+            $record->status = 'present';
+            $record->marked_by = $this->markedByUserId($user, $business->id);
+            $record->remarks = $this->attendanceRemark('Checked in', $validated);
+            if (! $record->check_in_time) {
+                $record->check_in_time = Carbon::now()->format('H:i:s');
+            }
+            $record->check_out_time = null;
+            $record->save();
+
+            $pickup = $this->pickupCodes->issueForAttendance($record);
+            if ($pickup->used_at) {
+                $pickup->update(['used_at' => null]);
+            }
 
             return response()->json([
                 'success' => true,
                 'message' => 'Check-in recorded successfully.',
                 'data' => [
-                    'attendance' => [
-                        'id' => $record->id,
-                        'attendance_date' => optional($record->attendance_date)->toDateString(),
-                        'status' => $record->status,
-                        'marked_by' => $record->marked_by,
-                        'remarks' => $record->remarks,
+                    'attendance' => $this->transformAttendance($record->fresh()),
+                    'pickup_code' => $pickup->code,
+                    'pickup_expires_at' => optional($pickup->expires_at)->toIso8601String(),
+                    'student' => [
+                        'id' => $student->id,
+                        'full_name' => $student->full_name,
+                        'allergies' => $student->allergies,
+                        'has_medical_alert' => $student->hasMedicalAlert(),
                     ],
                 ],
             ]);
@@ -179,6 +143,7 @@ class AttendanceController extends Controller
 
             $validated = $request->validate([
                 'student_id' => 'required|exists:students,id',
+                'pickup_code' => 'required|string|max:8',
                 'parent_name' => 'nullable|string|max:255',
                 'parent_identifier' => 'nullable|string|max:255',
             ]);
@@ -209,61 +174,47 @@ class AttendanceController extends Controller
                 ], 404);
             }
 
-            // Get user ID for marked_by
-            // If user is a ParentGuardian, find or create a User record
-            $markedByUserId = null;
-            if ($user instanceof \App\Models\ParentGuardian) {
-                // Find or create a User record for the parent
-                $parentUser = User::where('email', $user->email)
-                    ->where('business_id', $business->id)
-                    ->first();
-                
-                if (!$parentUser) {
-                    // Create a user account for the parent if it doesn't exist
-                    $parentUser = User::create([
-                        'name' => $user->full_name,
-                        'email' => $user->email,
-                        'business_id' => $business->id,
-                        'status' => 'active',
-                        'branch_id' => null,
-                        'password' => '', // Empty password - parent uses ParentGuardian login
-                    ]);
-                }
-                
-                $markedByUserId = $parentUser->id;
-            } elseif ($user instanceof \App\Models\User) {
-                $markedByUserId = $user->id;
+            $record = Attendance::query()
+                ->where('business_id', $business->id)
+                ->where('student_id', $student->id)
+                ->whereDate('attendance_date', Carbon::today())
+                ->first();
+
+            if (! $record || ! $record->check_in_time) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This child has not been checked in today.',
+                ], 422);
             }
 
-            $record = Attendance::updateOrCreate(
-                [
-                    'business_id' => $business->id,
-                    'student_id' => $student->id,
-                    'class_room_id' => $student->class_room_id,
-                    'attendance_date' => Carbon::today(),
-                ],
-                [
-                    'status' => 'excused',
-                    'marked_by' => $markedByUserId,
-                    'remarks' => (!empty($validated['parent_identifier'] ?? null)) 
-                        ? 'Checked out by ' . ($validated['parent_name'] ?? 'Parent/Guardian') . ' (' . ($validated['parent_identifier'] ?? '') . ')'
-                        : ('Checked out by ' . ($validated['parent_name'] ?? 'Parent/Guardian')),
-                ]
-            );
+            if ($record->check_out_time) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Child is already checked out.',
+                    'data' => [
+                        'attendance' => $this->transformAttendance($record),
+                    ],
+                ]);
+            }
+
+            $this->pickupCodes->redeem($student, $validated['pickup_code'], $business->id);
+
+            $record->update([
+                'status' => 'present',
+                'check_out_time' => Carbon::now()->format('H:i:s'),
+                'marked_by' => $this->markedByUserId($user, $business->id) ?: $record->marked_by,
+                'remarks' => $this->attendanceRemark('Checked out', $validated),
+            ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Check-out recorded successfully.',
                 'data' => [
-                    'attendance' => [
-                        'id' => $record->id,
-                        'attendance_date' => optional($record->attendance_date)->toDateString(),
-                        'status' => $record->status,
-                        'marked_by' => $record->marked_by,
-                        'remarks' => $record->remarks,
-                    ],
+                    'attendance' => $this->transformAttendance($record->fresh()),
                 ],
             ]);
+        } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
+            throw $e;
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Error creating attendance record: ' . $e->getMessage());
             return response()->json([
@@ -272,6 +223,43 @@ class AttendanceController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    public function pickupCodes(Request $request)
+    {
+        $business = $request->get('business');
+        $user = $request->get('authenticated_user');
+
+        $query = PickupCode::query()
+            ->with(['student:id,first_name,last_name,class_room_id'])
+            ->where('business_id', $business->id)
+            ->whereDate('code_date', Carbon::today())
+            ->latest('id');
+
+        if ($user instanceof ParentGuardian) {
+            $studentIds = Student::query()
+                ->where('parent_guardian_id', $user->id)
+                ->where('business_id', $business->id)
+                ->pluck('id');
+            $query->whereIn('student_id', $studentIds);
+        } elseif (! $user instanceof User) {
+            return response()->json(['success' => false, 'message' => 'Access denied.'], 403);
+        }
+
+        $codes = $query->get()->map(function (PickupCode $code) {
+            return [
+                'student_id' => $code->student_id,
+                'student_name' => $code->student?->full_name,
+                'code' => $code->code,
+                'used' => (bool) $code->used_at,
+                'expires_at' => optional($code->expires_at)->toIso8601String(),
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => ['pickup_codes' => $codes],
+        ]);
     }
 
     /**
@@ -291,34 +279,10 @@ class AttendanceController extends Controller
         $limit = (int) $request->query('limit', 20);
         $limit = $limit > 0 ? min($limit, 100) : 20;
 
-        $attendanceRecords = Attendance::query()
-            ->with('classRoom:id,name,code')
-            ->where('business_id', $business->id)
-            ->where('student_id', $student->id)
-            ->orderByDesc('attendance_date')
-            ->limit($limit)
-            ->get()
-            ->map(function (Attendance $attendance) {
-                return [
-                    'id' => $attendance->id,
-                    'attendance_date' => optional($attendance->attendance_date)->toDateString(),
-                    'status' => $attendance->status,
-                    'class_room' => $attendance->classRoom?->name,
-                    'marked_by' => $attendance->marked_by,
-                ];
-            });
-
         return response()->json([
             'success' => true,
             'message' => 'Attendance history loaded successfully.',
-            'data' => [
-                'student' => [
-                    'id' => $student->id,
-                    'full_name' => $student->full_name,
-                    'class' => $student->classRoom?->name,
-                ],
-                'attendance' => $attendanceRecords,
-            ],
+            'data' => $this->historyPayload($business->id, $student, $limit),
         ]);
     }
 
@@ -380,5 +344,90 @@ class AttendanceController extends Controller
                 ],
             ],
         ]);
+    }
+
+    protected function historyPayload(int $businessId, Student $student, int $limit): array
+    {
+        $todayCode = PickupCode::query()
+            ->where('student_id', $student->id)
+            ->whereDate('code_date', Carbon::today())
+            ->first();
+
+        $attendanceRecords = Attendance::query()
+            ->with('classRoom:id,name,code')
+            ->where('business_id', $businessId)
+            ->where('student_id', $student->id)
+            ->orderByDesc('attendance_date')
+            ->limit($limit)
+            ->get()
+            ->map(fn (Attendance $attendance) => $this->transformAttendance($attendance));
+
+        return [
+            'student' => [
+                'id' => $student->id,
+                'full_name' => $student->full_name,
+                'class' => $student->classRoom?->name,
+                'allergies' => $student->allergies,
+                'has_medical_alert' => $student->hasMedicalAlert(),
+            ],
+            'today_pickup_code' => $todayCode && ! $todayCode->used_at ? $todayCode->code : null,
+            'attendance' => $attendanceRecords,
+        ];
+    }
+
+    protected function transformAttendance(Attendance $attendance): array
+    {
+        $checkIn = $attendance->check_in_time;
+        $checkOut = $attendance->check_out_time;
+
+        return [
+            'id' => $attendance->id,
+            'attendance_date' => optional($attendance->attendance_date)->toDateString(),
+            'status' => $attendance->status,
+            'checked_out' => (bool) $checkOut,
+            'check_in_time' => $checkIn ? Carbon::parse($checkIn)->format('H:i') : null,
+            'check_out_time' => $checkOut ? Carbon::parse($checkOut)->format('H:i') : null,
+            'class_room' => $attendance->classRoom?->name,
+            'marked_by' => $attendance->marked_by,
+            'remarks' => $attendance->remarks,
+        ];
+    }
+
+    protected function attendanceRemark(string $action, array $validated): string
+    {
+        $name = $validated['parent_name'] ?? 'Parent/Guardian';
+        $identifier = $validated['parent_identifier'] ?? '';
+
+        return $identifier !== ''
+            ? "{$action} by {$name} ({$identifier})"
+            : "{$action} by {$name}";
+    }
+
+    protected function markedByUserId($user, int $businessId): ?int
+    {
+        if ($user instanceof ParentGuardian) {
+            $parentUser = User::where('email', $user->email)
+                ->where('business_id', $businessId)
+                ->first();
+
+            if (! $parentUser) {
+                $parentUser = User::create([
+                    'name' => $user->full_name,
+                    'email' => $user->email,
+                    'business_id' => $businessId,
+                    'status' => 'active',
+                    'branch_id' => null,
+                    'password' => '',
+                ]);
+            }
+
+            return $parentUser->id;
+        }
+
+        if ($user instanceof User) {
+            return $user->id;
+        }
+
+        return null;
     }
 }
