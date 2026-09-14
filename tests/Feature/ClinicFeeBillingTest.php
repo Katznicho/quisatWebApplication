@@ -6,6 +6,7 @@ use App\Models\Business;
 use App\Models\ClinicPatient;
 use App\Models\Fee;
 use App\Models\ParentGuardian;
+use App\Models\Student;
 use App\Services\FeeParentNotificationService;
 use App\Services\MarzPayPayableResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -30,6 +31,53 @@ class ClinicFeeBillingTest extends TestCase
             ->assertJsonPath('data.fees.0.uuid', $fee->uuid)
             ->assertJsonPath('data.fees.0.billing_context', 'clinic')
             ->assertJsonPath('data.fees.0.clinic_patient.patient_number', $fee->clinicPatient->patient_number);
+
+        $this->getJson('/api/v1/parent/fees?context=clinic')
+            ->assertOk()
+            ->assertJsonPath('data.summary.pending_count', 1)
+            ->assertJsonPath('data.fees.0.uuid', $fee->uuid);
+    }
+
+    public function test_clinic_context_does_not_leak_other_people_or_business_fees(): void
+    {
+        [, $otherFee, $business] = $this->seedClinicFee();
+
+        $schoolParent = ParentGuardian::factory()->linked($business->id)->create();
+        Student::create([
+            'first_name' => 'School',
+            'last_name' => 'Child',
+            'email' => 'school.'.Str::random(6).'@example.com',
+            'date_of_birth' => now()->subYears(8)->toDateString(),
+            'gender' => 'female',
+            'student_id' => 'STU-'.strtoupper(Str::random(6)),
+            'admission_date' => now()->toDateString(),
+            'business_id' => $business->id,
+            'parent_guardian_id' => $schoolParent->id,
+            'status' => 'active',
+        ]);
+
+        Sanctum::actingAs($schoolParent);
+
+        $this->getJson('/api/v1/parent/fees?context=clinic')
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.fees', [])
+            ->assertJsonPath('data.summary.pending_count', 0)
+            ->assertJsonMissing(['uuid' => $otherFee->uuid]);
+    }
+
+    public function test_parent_cannot_see_another_parents_clinic_fee(): void
+    {
+        [, $fee, $business] = $this->seedClinicFee();
+        $stranger = ParentGuardian::factory()->linked($business->id)->create();
+
+        Sanctum::actingAs($stranger);
+
+        $this->getJson('/api/v1/parent/fees?context=clinic')
+            ->assertOk()
+            ->assertJsonPath('data.fees', [])
+            ->assertJsonPath('data.summary.pending_count', 0)
+            ->assertJsonMissing(['uuid' => $fee->uuid]);
     }
 
     public function test_parent_dashboard_includes_clinic_pending_fees(): void

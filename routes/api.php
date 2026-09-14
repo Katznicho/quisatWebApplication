@@ -359,6 +359,7 @@ Route::prefix('v1')->group(function () {
             Route::get('attendance/history', [AttendanceController::class, 'studentHistory']);
             Route::post('attendance/check-in', [AttendanceController::class, 'checkIn']);
             Route::post('attendance/check-out', [AttendanceController::class, 'checkOut']);
+            Route::post('attendance/ensure-pickup-codes', [AttendanceController::class, 'ensurePickupCodes']);
             Route::get('attendance/pickup-codes', [AttendanceController::class, 'pickupCodes']);
 
             Route::prefix('moments')->group(function () {

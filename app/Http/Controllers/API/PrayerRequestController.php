@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Models\Business;
 use App\Models\ParentGuardian;
 use App\Models\PrayerRequest;
 use App\Models\User;
@@ -16,13 +17,15 @@ class PrayerRequestController extends Controller
         $user = $request->get('authenticated_user');
 
         $query = PrayerRequest::query()
-            ->with(['student:id,first_name,last_name'])
-            ->where('business_id', $businessId)
-            ->latest();
+            ->with(['student:id,first_name,last_name', 'parentGuardian:id,first_name,last_name']);
 
         if ($user instanceof ParentGuardian) {
             $query->where('parent_guardian_id', $user->id);
+        } else {
+            $query->forBusiness((int) $businessId);
         }
+
+        $query->latest();
 
         if ($status = $request->query('status')) {
             $query->where('status', $status);
@@ -45,7 +48,6 @@ class PrayerRequestController extends Controller
 
     public function store(Request $request)
     {
-        $businessId = $request->get('business_id');
         $user = $request->get('authenticated_user');
 
         $validated = $request->validate([
@@ -55,7 +57,7 @@ class PrayerRequestController extends Controller
         ]);
 
         $item = PrayerRequest::create([
-            'business_id' => $businessId,
+            'business_id' => $this->resolveStoreBusinessId($request),
             'parent_guardian_id' => $user instanceof ParentGuardian ? $user->id : null,
             'student_id' => $validated['student_id'] ?? null,
             'body' => $validated['body'],
@@ -73,7 +75,13 @@ class PrayerRequestController extends Controller
     public function update(Request $request, PrayerRequest $prayerRequest)
     {
         $user = $request->get('authenticated_user');
-        if (! $user instanceof User || (int) $prayerRequest->business_id !== (int) $request->get('business_id')) {
+        $businessId = (int) $request->get('business_id');
+        $canManage = $user instanceof User && PrayerRequest::query()
+            ->forBusiness($businessId)
+            ->whereKey($prayerRequest->id)
+            ->exists();
+
+        if (! $canManage) {
             return response()->json(['success' => false, 'message' => 'Access denied.'], 403);
         }
 
@@ -107,7 +115,32 @@ class PrayerRequestController extends Controller
             'is_anonymous' => (bool) $item->is_anonymous,
             'praise_report' => $item->praise_report,
             'student_name' => $anonymous ? null : $item->student?->full_name,
+            'parent_name' => $anonymous ? null : $item->parentGuardian?->full_name,
             'created_at' => optional($item->created_at)->toIso8601String(),
         ];
+    }
+
+    protected function resolveStoreBusinessId(Request $request): int
+    {
+        $scopedId = (int) $request->get('business_id');
+        $business = $request->get('business');
+        $user = $request->get('authenticated_user');
+
+        if ($business instanceof Business && $business->isChurch()) {
+            return $scopedId;
+        }
+
+        if ($user instanceof ParentGuardian) {
+            $church = $user->businesses()
+                ->wherePivot('status', 'active')
+                ->get()
+                ->first(fn (Business $item) => $item->isChurch());
+
+            if ($church) {
+                return (int) $church->id;
+            }
+        }
+
+        return $scopedId;
     }
 }

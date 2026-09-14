@@ -193,7 +193,6 @@ class ParentDashboardController extends Controller
         $pickupCodes = $childIds->isEmpty()
             ? collect()
             : PickupCode::query()
-                ->where('business_id', $business->id)
                 ->whereIn('student_id', $childIds)
                 ->whereDate('code_date', $today->toDateString())
                 ->whereNull('used_at')
@@ -232,6 +231,7 @@ class ParentDashboardController extends Controller
                     'photo_url' => $this->resolvePhotoUrl($user->photo),
                 ],
                 'is_church' => $business->isChurch(),
+                'business_name' => $business->name,
                 'children' => $childrenData,
                 'announcements' => $announcements,
                 'upcoming_events' => $events,

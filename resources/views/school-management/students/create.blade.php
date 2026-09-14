@@ -214,6 +214,15 @@
                                             <option value="{{ $id }}" {{ old('parent_guardian_id') == $id ? 'selected' : '' }}>{{ $name }}</option>
                                         @endforeach
                                     </select>
+                                    @if(empty($parentGuardians))
+                                        <p class="mt-1 text-sm text-amber-700">
+                                            No parents are linked yet.
+                                            <a href="{{ auth()->user()?->business?->kidsChurchOrRoute('school-management.parents', 'parents') }}" class="underline font-medium">Link a parent with their Quisat code</a>
+                                            first, then return here.
+                                        </p>
+                                    @else
+                                        <p class="mt-1 text-sm text-gray-500">Parents linked to this {{ $isChurch ? 'church' : 'school' }}, including those added with a Quisat code.</p>
+                                    @endif
                                     @error('parent_guardian_id')
                                         <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                                     @enderror

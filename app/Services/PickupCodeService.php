@@ -9,6 +9,31 @@ use Illuminate\Support\Carbon;
 
 class PickupCodeService
 {
+    public function ensureForStudent(Student $student, int $businessId, ?int $markedBy = null): PickupCode
+    {
+        $today = Carbon::today(config('app.timezone', 'Africa/Nairobi'));
+
+        $attendance = Attendance::firstOrNew([
+            'business_id' => $businessId,
+            'student_id' => $student->id,
+            'class_room_id' => $student->class_room_id,
+            'attendance_date' => $today->toDateString(),
+        ]);
+
+        if (! $attendance->check_in_time && ! $attendance->check_out_time) {
+            $attendance->status = 'present';
+            $attendance->check_in_time = now()->format('H:i:s');
+            $attendance->marked_by = $markedBy ?: $attendance->marked_by;
+            $attendance->remarks = $attendance->remarks ?: 'Auto check-in via parent app';
+        }
+
+        if (! $attendance->exists || $attendance->isDirty()) {
+            $attendance->save();
+        }
+
+        return $this->issueForAttendance($attendance);
+    }
+
     public function issueForAttendance(Attendance $attendance): PickupCode
     {
         $date = Carbon::parse($attendance->attendance_date)->toDateString();

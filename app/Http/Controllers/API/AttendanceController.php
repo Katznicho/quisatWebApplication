@@ -234,6 +234,51 @@ class AttendanceController extends Controller
         }
     }
 
+    public function ensurePickupCodes(Request $request)
+    {
+        $business = $request->get('business');
+        $user = $request->get('authenticated_user');
+
+        if (! $user instanceof ParentGuardian) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only parents can generate pickup codes automatically.',
+            ], 403);
+        }
+
+        $students = $user->students()->get();
+
+        $codes = $students->map(function (Student $student) use ($user) {
+            $pickup = $this->pickupCodes->ensureForStudent(
+                $student,
+                (int) $student->business_id,
+                $this->markedByUserId($user, (int) $student->business_id)
+            );
+
+            if ($pickup->wasRecentlyCreated) {
+                try {
+                    app(\App\Services\KidsChurchNotificationService::class)->notifyPickupCode($pickup);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('Pickup code notification failed: '.$e->getMessage());
+                }
+            }
+
+            return [
+                'student_id' => $student->id,
+                'student_name' => $student->full_name,
+                'code' => $pickup->code,
+                'used' => (bool) $pickup->used_at,
+                'expires_at' => optional($pickup->expires_at)->toIso8601String(),
+            ];
+        })->values();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Pickup codes are ready.',
+            'data' => ['pickup_codes' => $codes],
+        ]);
+    }
+
     public function pickupCodes(Request $request)
     {
         $business = $request->get('business');

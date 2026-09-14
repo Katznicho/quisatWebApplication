@@ -59,8 +59,11 @@ class ParentFeeController extends Controller
         $wantsClinic = $context !== 'school';
         $scopedChildIds = $request->filled('student_id') ? collect([(int) $request->student_id]) : $childIds;
         $scopedPatientIds = $request->filled('clinic_patient_id') ? collect([(int) $request->clinic_patient_id]) : $patientIds;
+        $canQuerySchool = $wantsSchool && $scopedChildIds->isNotEmpty();
+        $canQueryClinic = $wantsClinic && $scopedPatientIds->isNotEmpty();
 
-        if (($wantsSchool && $scopedChildIds->isEmpty()) && ($wantsClinic && $scopedPatientIds->isEmpty())) {
+        // An empty WHERE group would return every fee in the system.
+        if (! $canQuerySchool && ! $canQueryClinic) {
             return $this->emptyFeesResponse($business);
         }
 
@@ -74,8 +77,8 @@ class ParentFeeController extends Controller
                 'clinicInvoiceDocument',
                 'payments',
             ])
-            ->where(function ($q) use ($business, $scopedChildIds, $scopedPatientIds, $wantsSchool, $wantsClinic) {
-                if ($wantsSchool && $scopedChildIds->isNotEmpty()) {
+            ->where(function ($q) use ($business, $scopedChildIds, $scopedPatientIds, $canQuerySchool, $canQueryClinic) {
+                if ($canQuerySchool) {
                     $q->orWhere(function ($school) use ($business, $scopedChildIds) {
                         $school->where('business_id', $business->id)
                             ->whereIn('student_id', $scopedChildIds)
@@ -83,9 +86,13 @@ class ParentFeeController extends Controller
                     });
                 }
 
-                if ($wantsClinic && $scopedPatientIds->isNotEmpty()) {
+                if ($canQueryClinic) {
                     $q->orWhereIn('clinic_patient_id', $scopedPatientIds);
                 }
+            })
+            ->where(function ($q) use ($parent) {
+                $q->whereHas('student', fn ($student) => $student->where('parent_guardian_id', $parent->id))
+                    ->orWhereHas('clinicPatient', fn ($patient) => $patient->where('parent_guardian_id', $parent->id));
             })
             ->orderByRaw("CASE payment_status WHEN 'overdue' THEN 1 WHEN 'pending' THEN 2 WHEN 'partial' THEN 3 WHEN 'paid' THEN 4 ELSE 5 END")
             ->orderBy('due_date');

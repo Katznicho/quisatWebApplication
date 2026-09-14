@@ -24,9 +24,32 @@ class PrayerRequestsManagement extends Component implements HasForms, HasTable
     public function table(Table $table): Table
     {
         return $table
-            ->query(PrayerRequest::query()->where('business_id', Auth::user()->business_id))
+            ->query(
+                PrayerRequest::query()
+                    ->with(['student', 'parentGuardian'])
+                    ->forBusiness((int) Auth::user()->business_id)
+            )
             ->columns([
-                Tables\Columns\TextColumn::make('body')->limit(80)->wrap(),
+                Tables\Columns\TextColumn::make('body')
+                    ->limit(80)
+                    ->wrap()
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('parentGuardian.full_name')
+                    ->label('Parent')
+                    ->placeholder('—')
+                    ->formatStateUsing(function (?string $state, PrayerRequest $record): string {
+                        if ($record->is_anonymous) {
+                            return 'Anonymous';
+                        }
+
+                        return $state ?: '—';
+                    })
+                    ->searchable(query: function ($query, string $search) {
+                        return $query->whereHas('parentGuardian', function ($parent) use ($search) {
+                            $parent->where('first_name', 'like', "%{$search}%")
+                                ->orWhere('last_name', 'like', "%{$search}%");
+                        });
+                    }),
                 Tables\Columns\IconColumn::make('is_anonymous')->boolean()->label('Anonymous'),
                 Tables\Columns\TextColumn::make('student.full_name')->label('Child'),
                 Tables\Columns\TextColumn::make('status')

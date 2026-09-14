@@ -407,6 +407,8 @@ class ParentGuardianController extends Controller
                 ->withErrors(['universal_code' => 'Unable to link this parent. '.$e->getMessage()]);
         }
 
+        $parent->unsetRelation('children');
+        $parent->unsetRelation('students');
         $childCount = $parent->children()->count();
         $studentCount = $parent->students()->where('business_id', $businessId)->count();
         $redirectTo = $validated['redirect_to']

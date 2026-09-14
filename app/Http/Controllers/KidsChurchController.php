@@ -54,7 +54,7 @@ class KidsChurchController extends Controller
                 ? PickupCode::where('business_id', $businessId)->whereDate('code_date', $today)->whereNull('used_at')->count()
                 : 0,
             'prayer_requests' => Schema::hasTable('prayer_requests')
-                ? PrayerRequest::where('business_id', $businessId)->whereIn('status', ['received', 'being_prayed_for'])->count()
+                ? PrayerRequest::query()->forBusiness($businessId)->whereIn('status', ['received', 'being_prayed_for'])->count()
                 : 0,
             'albums' => Schema::hasTable('quisat_albums')
                 ? QuisatAlbum::where('business_id', $businessId)->count()
@@ -120,6 +120,16 @@ class KidsChurchController extends Controller
             ? KidsLesson::where('business_id', $businessId)->published()->orderByDesc('lesson_date')->orderByDesc('id')->first()
             : null;
 
-        return view('kids-church.index', compact('stats', 'birthdayChildren', 'medicalAlertChildren', 'activeLesson'));
+        $openPrayerRequests = Schema::hasTable('prayer_requests')
+            ? PrayerRequest::query()
+                ->with('parentGuardian:id,first_name,last_name')
+                ->forBusiness($businessId)
+                ->whereIn('status', ['received', 'being_prayed_for'])
+                ->latest()
+                ->limit(5)
+                ->get()
+            : collect();
+
+        return view('kids-church.index', compact('stats', 'birthdayChildren', 'medicalAlertChildren', 'activeLesson', 'openPrayerRequests'));
     }
 }

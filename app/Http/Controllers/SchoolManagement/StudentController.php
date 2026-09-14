@@ -21,14 +21,8 @@ class StudentController extends Controller
         $business = Auth::user()->business;
         $businessId = $business->id ?? null;
 
-        // Get parent/guardians for dropdown
-        $parentGuardians = ParentGuardian::where('business_id', $businessId)
-            ->orderBy('first_name')
-            ->orderBy('last_name')
-            ->get()
-            ->mapWithKeys(function ($parent) {
-                return [$parent->id => $parent->full_name];
-            });
+        // Include parents linked by Quisat code (memberships), not only legacy business_id.
+        $parentGuardians = ParentGuardian::optionsForBusiness((int) $businessId);
 
         // Get classrooms for dropdown
         $classRooms = ClassRoom::where('business_id', $businessId)
@@ -99,13 +93,7 @@ class StudentController extends Controller
             abort(403, 'Unauthorized');
         }
 
-        $parentGuardians = ParentGuardian::where('business_id', $student->business_id)
-            ->orderBy('first_name')
-            ->orderBy('last_name')
-            ->get()
-            ->mapWithKeys(function ($parent) {
-                return [$parent->id => $parent->full_name];
-            });
+        $parentGuardians = ParentGuardian::optionsForBusiness((int) $student->business_id);
 
         $classRooms = ClassRoom::where('business_id', $student->business_id)
             ->orderBy('name')

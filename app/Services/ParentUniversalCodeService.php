@@ -192,7 +192,7 @@ class ParentUniversalCodeService
             }
 
             $this->ensureCode($parent);
-            $this->importChildrenToBusiness($parent->fresh(['children']), $businessId);
+            $this->importChildrenToBusiness($parent->fresh(['children', 'students', 'clinicPatients']), $businessId);
 
             return $membership->fresh(['business']);
         });
@@ -209,8 +209,8 @@ class ParentUniversalCodeService
     }
 
     /**
-     * Create school student records (and clinic patients when applicable)
-     * from the parent's registered children profiles.
+     * Create Kids Church / school student records from every child on the parent account:
+     * app child profiles, students at other schools, and clinic patients.
      *
      * @return array{students: int, patients: int}
      */
@@ -221,64 +221,243 @@ class ParentUniversalCodeService
             return ['students' => 0, 'patients' => 0];
         }
 
-        $parent->loadMissing('children');
         $studentsCreated = 0;
         $patientsCreated = 0;
         $isClinic = $this->isClinicBusiness($business);
         $clinicImporter = $isClinic ? app(ClinicPatientImportService::class) : null;
 
-        foreach ($parent->children as $child) {
-            /** @var ParentChild $child */
-            $student = Student::query()
-                ->where('parent_guardian_id', $parent->id)
-                ->where('business_id', $businessId)
-                ->where('first_name', $child->first_name)
-                ->where('last_name', $child->last_name)
-                ->whereDate('date_of_birth', $child->date_of_birth->toDateString())
-                ->first();
+        foreach ($this->childProfilesForImport($parent) as $profile) {
+            $this->ensureParentChildFromProfile($parent, $profile);
+
+            $student = $this->findStudentForParent(
+                $parent,
+                $businessId,
+                $profile['first_name'],
+                $profile['last_name'],
+                $profile['date_of_birth']
+            );
 
             if (! $student) {
                 $student = Student::create([
-                    'first_name' => $child->first_name,
-                    'last_name' => $child->last_name,
-                    'email' => $this->uniqueChildEmail($parent, $child),
-                    'phone' => $child->phone ?: $parent->phone,
-                    'date_of_birth' => $child->date_of_birth,
-                    'gender' => $child->gender,
-                    'address' => $child->address ?: $parent->address,
-                    'city' => $child->city ?: $parent->city,
-                    'country' => $child->country ?: $parent->country,
+                    'first_name' => $profile['first_name'],
+                    'last_name' => $profile['last_name'],
+                    'email' => $this->uniqueStudentEmail($parent, $profile['seed']),
+                    'phone' => $profile['phone'] ?: $parent->phone,
+                    'date_of_birth' => $profile['date_of_birth'],
+                    'gender' => $profile['gender'],
+                    'address' => $profile['address'] ?: $parent->address,
+                    'city' => $profile['city'] ?: $parent->city,
+                    'country' => $profile['country'] ?: $parent->country,
                     'student_id' => $this->uniqueStudentId(),
                     'admission_date' => now()->toDateString(),
                     'business_id' => $businessId,
                     'parent_guardian_id' => $parent->id,
                     'status' => 'active',
-                    'allergies' => $child->allergies,
-                    'medical_notes' => $child->medical_notes,
+                    'photo' => $profile['photo'],
+                    'allergies' => $profile['allergies'],
+                    'medical_notes' => $profile['medical_notes'],
+                    'dietary_restrictions' => $profile['dietary_restrictions'],
+                    'emergency_contacts' => $profile['emergency_contacts'],
                 ]);
                 $studentsCreated++;
             }
 
-            if ($clinicImporter) {
-                $existed = ClinicPatient::query()
-                    ->where('business_id', $businessId)
-                    ->where('student_id', $student->id)
-                    ->exists();
-
-                $clinicImporter->attachStudentToClinic($student, $business);
-
-                if (! $existed) {
-                    $patientsCreated++;
-                }
-            }
+            $patientsCreated += $this->attachClinicPatientIfNeeded($clinicImporter, $business, $businessId, $student);
         }
 
         return ['students' => $studentsCreated, 'patients' => $patientsCreated];
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected function childProfilesForImport(ParentGuardian $parent): array
+    {
+        $parent->loadMissing(['children', 'students', 'clinicPatients.student']);
+        $profiles = [];
+
+        foreach ($parent->children as $child) {
+            $this->mergeChildProfile($profiles, [
+                'first_name' => $child->first_name,
+                'last_name' => $child->last_name,
+                'date_of_birth' => optional($child->date_of_birth)->toDateString(),
+                'gender' => $child->gender,
+                'phone' => $child->phone,
+                'address' => $child->address,
+                'city' => $child->city,
+                'country' => $child->country,
+                'photo' => null,
+                'allergies' => $child->allergies,
+                'medical_notes' => $child->medical_notes,
+                'dietary_restrictions' => null,
+                'emergency_contacts' => null,
+                'seed' => (string) ($child->uuid ?: Str::uuid()),
+            ]);
+        }
+
+        foreach ($parent->students as $student) {
+            $this->mergeChildProfile($profiles, [
+                'first_name' => $student->first_name,
+                'last_name' => $student->last_name,
+                'date_of_birth' => optional($student->date_of_birth)->toDateString(),
+                'gender' => $student->gender,
+                'phone' => $student->phone,
+                'address' => $student->address,
+                'city' => $student->city,
+                'country' => $student->country,
+                'photo' => $student->photo,
+                'allergies' => $this->textFromMaybeArray($student->allergies),
+                'medical_notes' => $student->medical_notes,
+                'dietary_restrictions' => $student->dietary_restrictions,
+                'emergency_contacts' => $student->emergency_contacts,
+                'seed' => (string) ($student->uuid ?: Str::uuid()),
+            ]);
+        }
+
+        foreach ($parent->clinicPatients as $patient) {
+            if ($patient->student && empty($patient->student->parent_guardian_id)) {
+                $patient->student->update(['parent_guardian_id' => $parent->id]);
+            }
+
+            $this->mergeChildProfile($profiles, [
+                'first_name' => $patient->first_name,
+                'last_name' => $patient->last_name,
+                'date_of_birth' => optional($patient->date_of_birth)->toDateString(),
+                'gender' => $patient->gender,
+                'phone' => $parent->phone,
+                'address' => $parent->address,
+                'city' => $parent->city,
+                'country' => $parent->country,
+                'photo' => $patient->photo,
+                'allergies' => $this->textFromMaybeArray($patient->allergies),
+                'medical_notes' => null,
+                'dietary_restrictions' => null,
+                'emergency_contacts' => $patient->emergency_contacts,
+                'seed' => (string) ($patient->uuid ?: Str::uuid()),
+            ]);
+        }
+
+        return array_values($profiles);
+    }
+
+    protected function mergeChildProfile(array &$profiles, array $profile): void
+    {
+        $first = trim((string) ($profile['first_name'] ?? ''));
+        $last = trim((string) ($profile['last_name'] ?? ''));
+        if ($first === '' || $last === '') {
+            return;
+        }
+
+        $profile['first_name'] = $first;
+        $profile['last_name'] = $last;
+        $key = Str::lower($first.'|'.$last.'|'.($profile['date_of_birth'] ?? ''));
+
+        if (! isset($profiles[$key])) {
+            $profiles[$key] = $profile;
+
+            return;
+        }
+
+        foreach ($profile as $field => $value) {
+            if (($profiles[$key][$field] === null || $profiles[$key][$field] === '') && $value) {
+                $profiles[$key][$field] = $value;
+            }
+        }
+    }
+
+    protected function findStudentForParent(
+        ParentGuardian $parent,
+        int $businessId,
+        string $firstName,
+        string $lastName,
+        ?string $dateOfBirth
+    ): ?Student {
+        $query = Student::query()
+            ->where('parent_guardian_id', $parent->id)
+            ->where('business_id', $businessId)
+            ->where('first_name', $firstName)
+            ->where('last_name', $lastName);
+
+        if ($dateOfBirth) {
+            $query->whereDate('date_of_birth', $dateOfBirth);
+        }
+
+        return $query->first();
+    }
+
+    protected function ensureParentChildFromProfile(ParentGuardian $parent, array $profile): void
+    {
+        if (! filled($profile['first_name']) || ! filled($profile['last_name']) || empty($profile['date_of_birth'])) {
+            return;
+        }
+
+        $gender = strtolower((string) ($profile['gender'] ?? ''));
+        if (! in_array($gender, ['male', 'female', 'other'], true)) {
+            $gender = 'other';
+        }
+
+        $exists = ParentChild::query()
+            ->where('parent_guardian_id', $parent->id)
+            ->where('first_name', $profile['first_name'])
+            ->where('last_name', $profile['last_name'])
+            ->whereDate('date_of_birth', $profile['date_of_birth'])
+            ->exists();
+
+        if ($exists) {
+            return;
+        }
+
+        $parent->children()->create([
+            'first_name' => $profile['first_name'],
+            'last_name' => $profile['last_name'],
+            'date_of_birth' => $profile['date_of_birth'],
+            'gender' => $gender,
+            'phone' => $profile['phone'] ?: $parent->phone,
+            'address' => $profile['address'] ?: $parent->address,
+            'city' => $profile['city'] ?: $parent->city,
+            'country' => $profile['country'] ?: $parent->country,
+            'medical_notes' => $profile['medical_notes'],
+            'allergies' => $this->textFromMaybeArray($profile['allergies']),
+        ]);
+    }
+
+    protected function textFromMaybeArray(mixed $value): ?string
+    {
+        if (is_array($value)) {
+            $parts = array_filter(array_map(fn ($item) => is_scalar($item) ? trim((string) $item) : '', $value));
+
+            return $parts === [] ? null : implode(', ', $parts);
+        }
+
+        $text = trim((string) $value);
+
+        return $text === '' ? null : $text;
+    }
+
+    protected function attachClinicPatientIfNeeded($clinicImporter, Business $business, int $businessId, Student $student): int
+    {
+        if (! $clinicImporter) {
+            return 0;
+        }
+
+        $existed = ClinicPatient::query()
+            ->where('business_id', $businessId)
+            ->where('student_id', $student->id)
+            ->exists();
+
+        $clinicImporter->attachStudentToClinic($student, $business);
+
+        return $existed ? 0 : 1;
+    }
+
     protected function uniqueChildEmail(ParentGuardian $parent, ParentChild $child): string
     {
-        $base = 'child.'.Str::lower(Str::substr((string) ($child->uuid ?: Str::uuid()), 0, 8)).'.'.$parent->id;
+        return $this->uniqueStudentEmail($parent, (string) ($child->uuid ?: Str::uuid()));
+    }
+
+    protected function uniqueStudentEmail(ParentGuardian $parent, string $seed): string
+    {
+        $base = 'child.'.Str::lower(Str::substr($seed, 0, 8)).'.'.$parent->id;
         $email = $base.'@quisat.parent';
         $i = 1;
         while (Student::withTrashed()->where('email', $email)->exists()) {

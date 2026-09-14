@@ -3,6 +3,7 @@
 namespace App\Exceptions;
 
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Throwable;
 
 class Handler extends ExceptionHandler
@@ -25,6 +26,19 @@ class Handler extends ExceptionHandler
     {
         $this->reportable(function (Throwable $e) {
             //
+        });
+
+        $this->renderable(function (MethodNotAllowedHttpException $e, $request) {
+            if (! $request->is('livewire/update')) {
+                return null;
+            }
+
+            $previous = url()->previous();
+            if ($previous && ! str_contains($previous, '/livewire/update')) {
+                return redirect()->to($previous);
+            }
+
+            return redirect()->to($request->user() ? route('dashboard') : url('/'));
         });
     }
 }

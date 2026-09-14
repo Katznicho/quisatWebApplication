@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -38,6 +39,23 @@ class PrayerRequest extends Model
     public function getRouteKeyName(): string
     {
         return 'uuid';
+    }
+
+    /**
+     * Requests posted to this business, or submitted by a parent who belongs here.
+     */
+    public function scopeForBusiness(Builder $query, int $businessId): Builder
+    {
+        return $query->where(function (Builder $scope) use ($businessId) {
+            $scope->where('business_id', $businessId)
+                ->orWhereHas('parentGuardian', function (Builder $parent) use ($businessId) {
+                    $parent->where('business_id', $businessId)
+                        ->orWhereHas('memberships', function (Builder $membership) use ($businessId) {
+                            $membership->where('business_id', $businessId)
+                                ->where('status', 'active');
+                        });
+                });
+        });
     }
 
     public function business(): BelongsTo

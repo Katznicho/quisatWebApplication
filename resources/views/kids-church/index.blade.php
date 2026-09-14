@@ -20,7 +20,7 @@
             @include('partials.link-parent-quisat-code-modal', [
                 'contextLabel' => 'church',
                 'formAction' => route('school-management.parents.link-by-quisat-code'),
-                'redirectTo' => route('kids-church.index', ['tab' => 'parents']),
+                'redirectTo' => route('kids-church.index', ['tab' => 'children']),
             ])
             <a href="{{ route('school-management.students.create') }}"
                class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700">
@@ -68,6 +68,10 @@
                         <p class="text-xs uppercase tracking-wide text-slate-300">Open pickup codes</p>
                         <p class="mt-1 text-2xl font-bold">{{ $stats['pickup_codes'] ?? 0 }}</p>
                     </div>
+                    <a href="{{ route('kids-church.index', ['tab' => 'prayer']) }}" class="rounded-xl bg-white/10 p-4 backdrop-blur-sm hover:bg-white/15">
+                        <p class="text-xs uppercase tracking-wide text-slate-300">Open prayer requests</p>
+                        <p class="mt-1 text-2xl font-bold">{{ $stats['prayer_requests'] ?? 0 }}</p>
+                    </a>
                 </div>
             </div>
         </div>
@@ -205,6 +209,20 @@
                         @else
                             <p class="mt-1 text-slate-500">Publish this Sunday’s lesson from the Lessons tab.</p>
                         @endif
+                    </div>
+                    <div>
+                        <p class="font-semibold text-slate-900">Prayer requests</p>
+                        @forelse ($openPrayerRequests as $prayer)
+                            <p class="mt-1 text-slate-600">
+                                {{ \Illuminate\Support\Str::limit($prayer->body, 70) }}
+                                <span class="text-slate-400">
+                                    — {{ $prayer->is_anonymous ? 'Anonymous' : ($prayer->parentGuardian?->full_name ?? 'Parent') }}
+                                </span>
+                            </p>
+                        @empty
+                            <p class="mt-1 text-slate-500">No open prayer requests from families.</p>
+                        @endforelse
+                        <a href="{{ route('kids-church.index', ['tab' => 'prayer']) }}" class="mt-2 inline-block text-blue-600 hover:underline">Open prayer box</a>
                     </div>
                 </div>
             </div>

@@ -80,6 +80,15 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+Route::get('/livewire/update', function () {
+    $previous = url()->previous();
+    if ($previous && ! str_contains($previous, '/livewire/update')) {
+        return redirect()->to($previous);
+    }
+
+    return redirect()->to(auth()->check() ? route('dashboard') : url('/'));
+})->name('livewire.update.fallback');
+
 Route::redirect('/', 'login');
 
 // Business Registration Routes (Public)

@@ -134,4 +134,26 @@ class ParentGuardian extends Model
             ->where('status', 'active')
             ->exists();
     }
+
+    public function scopeForBusiness($query, int $businessId)
+    {
+        return $query->where(function ($scope) use ($businessId) {
+            $scope->where('business_id', $businessId)
+                ->orWhereHas('memberships', function ($membership) use ($businessId) {
+                    $membership->where('business_id', $businessId)
+                        ->where('status', 'active');
+                });
+        });
+    }
+
+    public static function optionsForBusiness(int $businessId): array
+    {
+        return static::query()
+            ->forBusiness($businessId)
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get()
+            ->mapWithKeys(fn (self $parent) => [$parent->id => $parent->full_name])
+            ->all();
+    }
 }

@@ -175,10 +175,11 @@ class ParentGuardianManagement extends Component implements HasForms, HasTable
                             $data['relationship'] ?? null,
                         );
 
+                        $parent->unsetRelation('students');
                         $studentCount = $parent->students()->where('business_id', $businessId)->count();
                         $suffix = $studentCount > 0
-                            ? " {$studentCount} child".($studentCount === 1 ? '' : 'ren').' imported.'
-                            : '';
+                            ? " {$studentCount} child".($studentCount === 1 ? '' : 'ren').' imported from their profile.'
+                            : ' No children were found on their Quisat profile.';
 
                         Notification::make()
                             ->success()

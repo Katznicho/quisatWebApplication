@@ -4,6 +4,7 @@ namespace App\Livewire\SchoolManagement;
 
 use App\Models\Attendance;
 use App\Models\Student;
+use App\Services\PickupCodeService;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Components\TextInput;
@@ -159,6 +160,10 @@ class AttendanceManagement extends Component implements HasForms, HasTable
                     })
                     ->createAnother(false)
                     ->after(function (Attendance $record) {
+                        if ($record->check_in_time || $record->status === 'present') {
+                            app(PickupCodeService::class)->issueForAttendance($record);
+                        }
+
                         Notification::make()
                             ->title('Attendance recorded successfully.')
                             ->success()
