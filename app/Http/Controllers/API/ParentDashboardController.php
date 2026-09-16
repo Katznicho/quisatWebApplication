@@ -42,8 +42,18 @@ class ParentDashboardController extends Controller
 
         $timezone = config('app.timezone', 'Africa/Nairobi');
         $today = Carbon::now($timezone);
-        $children = $user->students()->with(['classRoom:id,name,code'])->get();
+        $churchIds = $user->scopedChurchBusinessIds((int) $business->id) ?: [(int) $business->id];
+        $churchCheckInId = $user->preferredChurchBusinessId((int) $business->id);
+        if ($business->isChurch() && $churchCheckInId) {
+            $children = $user->studentsForChurchCheckIn($churchCheckInId);
+        } else {
+            $children = $user->students()
+                ->whereIn('business_id', $business->isChurch() ? $churchIds : [(int) $business->id])
+                ->with(['classRoom:id,name,code'])
+                ->get();
+        }
         $classRoomIds = $children->pluck('class_room_id')->filter()->unique()->values();
+        $linkedOrganizations = $this->linkedOrganizations($user, $business);
 
         $announcements = BroadcastAnnouncement::query()
             ->where('business_id', $business->id)
@@ -69,9 +79,9 @@ class ParentDashboardController extends Controller
             ->values();
 
         $events = CalendarEvent::query()
-            ->where('business_id', $business->id)
+            ->whereIn('business_id', $business->isChurch() ? $churchIds : [(int) $business->id])
             ->where('status', 'published')
-            ->where('start_date', '>=', $today)
+            ->where('end_date', '>=', $today)
             ->orderBy('start_date')
             ->limit(4)
             ->get()
@@ -127,6 +137,7 @@ class ParentDashboardController extends Controller
                 'id' => $student->id,
                 'uuid' => $student->uuid,
                 'full_name' => $student->full_name,
+                'business_id' => $student->business_id,
                 'class' => $student->classRoom?->name,
                 'class_room_id' => $student->class_room_id,
                 'student_id' => $student->student_id,
@@ -184,11 +195,7 @@ class ParentDashboardController extends Controller
             ->filter()
             ->implode('|');
 
-        $memoryItems = MemoryWallItem::query()
-            ->where('business_id', $business->id)
-            ->current()
-            ->latest()
-            ->get();
+        $memoryItems = MemoryWallItem::visibleForBusinesses($churchIds);
 
         $pickupCodes = $childIds->isEmpty()
             ? collect()
@@ -206,19 +213,12 @@ class ParentDashboardController extends Controller
 
         $lessons = collect();
         if (Schema::hasTable('kids_lessons')) {
-            $lessonsQuery = KidsLesson::query()
-                ->where('business_id', $business->id)
+            $lessons = KidsLesson::query()
+                ->whereIn('business_id', $churchIds)
                 ->published()
                 ->orderByDesc('lesson_date')
-                ->orderByDesc('id');
-
-            if ($classRoomIds->isNotEmpty()) {
-                $lessonsQuery->where(function ($q) use ($classRoomIds) {
-                    $q->whereNull('class_room_id')->orWhereIn('class_room_id', $classRoomIds);
-                });
-            }
-
-            $lessons = $lessonsQuery->get();
+                ->orderByDesc('id')
+                ->get();
         }
 
         return response()->json([
@@ -231,7 +231,10 @@ class ParentDashboardController extends Controller
                     'photo_url' => $this->resolvePhotoUrl($user->photo),
                 ],
                 'is_church' => $business->isChurch(),
+                'is_school' => $business->isSchool(),
+                'business_id' => $business->id,
                 'business_name' => $business->name,
+                'linked_organizations' => $linkedOrganizations,
                 'children' => $childrenData,
                 'announcements' => $announcements,
                 'upcoming_events' => $events,
@@ -241,11 +244,51 @@ class ParentDashboardController extends Controller
                 'memory_verse' => $memoryItems->firstWhere('type', 'memory_verse'),
                 'prayer_focus' => $memoryItems->firstWhere('type', 'prayer_focus'),
                 'pickup_codes' => $pickupCodes,
-                'this_week_lesson' => $lessons->firstWhere('type', 'bible_lesson'),
-                'home_resource' => $lessons->firstWhere('type', 'home_resource'),
-                'pastor_devotional' => $lessons->firstWhere('type', 'pastor_devotional'),
+                'this_week_lesson' => $this->transformLesson($lessons->firstWhere('type', 'bible_lesson')),
+                'home_resource' => $this->transformLesson($lessons->firstWhere('type', 'home_resource')),
+                'pastor_devotional' => $this->transformLesson($lessons->firstWhere('type', 'pastor_devotional')),
             ],
         ]);
+    }
+
+    private function linkedOrganizations(ParentGuardian $user, $currentBusiness): array
+    {
+        $organizations = $user->activeBusinesses()->get();
+
+        if ($organizations->isEmpty() && $currentBusiness) {
+            $organizations = collect([$currentBusiness]);
+        } elseif ($currentBusiness && ! $organizations->contains(fn ($org) => (int) $org->id === (int) $currentBusiness->id)) {
+            $organizations = $organizations->prepend($currentBusiness);
+        }
+
+        return $organizations
+            ->unique('id')
+            ->map(fn ($org) => [
+                'id' => $org->id,
+                'name' => $org->name,
+                'type' => $org->type,
+                'is_school' => $org->isSchool(),
+                'is_church' => $org->isChurch(),
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function transformLesson($lesson): ?array
+    {
+        if (! $lesson instanceof KidsLesson) {
+            return null;
+        }
+
+        return [
+            'uuid' => $lesson->uuid,
+            'type' => $lesson->type,
+            'title' => $lesson->title,
+            'body' => $lesson->body,
+            'family_challenge' => $lesson->family_challenge,
+            'memory_verse' => $lesson->memory_verse,
+            'scripture_ref' => $lesson->scripture_ref,
+        ];
     }
 
     private function resolvePhotoUrl(?string $path): ?string

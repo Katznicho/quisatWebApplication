@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
+use App\Models\MemoryWallItem;
 use App\Models\ParentGuardian;
 use App\Models\PickupCode;
 use App\Models\Student;
@@ -33,11 +34,11 @@ class AttendanceController extends Controller
             ], 422);
         }
 
-        $student = Student::where('business_id', $business->id)
-            ->where('id', $studentId)
-            ->first();
+        $student = Student::where('id', $studentId)->first();
+        $user = $request->get('authenticated_user');
+        $ownsChild = $user instanceof ParentGuardian && $student && (int) $student->parent_guardian_id === (int) $user->id;
 
-        if (!$student) {
+        if (!$student || (! $ownsChild && $student->business_id !== $business->id)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Student not found in your business.',
@@ -47,7 +48,7 @@ class AttendanceController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Attendance history loaded successfully.',
-            'data' => $this->historyPayload($business->id, $student, $limit),
+            'data' => $this->historyPayload((int) $business->id, $student, $limit),
         ]);
     }
 
@@ -59,6 +60,7 @@ class AttendanceController extends Controller
 
             $validated = $request->validate([
                 'student_id' => 'required|exists:students,id',
+                'pickup_code' => 'required|string|max:8',
                 'parent_name' => 'nullable|string|max:255',
                 'parent_identifier' => 'nullable|string|max:255',
             ]);
@@ -78,9 +80,7 @@ class AttendanceController extends Controller
         }
 
         try {
-            $student = Student::where('business_id', $business->id)
-                ->where('id', $validated['student_id'])
-                ->first();
+            $student = $this->findAttendanceStudent($business, (int) $validated['student_id']);
 
             if (!$student) {
                 return response()->json([
@@ -88,6 +88,12 @@ class AttendanceController extends Controller
                     'message' => 'Student not found.',
                 ], 404);
             }
+
+            $pickup = $this->pickupCodes->acceptForCheckIn(
+                $student,
+                $validated['pickup_code'],
+                (int) $business->id
+            );
 
             $record = Attendance::firstOrNew([
                 'business_id' => $business->id,
@@ -105,15 +111,8 @@ class AttendanceController extends Controller
             $record->check_out_time = null;
             $record->save();
 
-            $pickup = $this->pickupCodes->issueForAttendance($record);
-            if ($pickup->used_at) {
-                $pickup->update(['used_at' => null]);
-            }
-
-            try {
-                app(\App\Services\KidsChurchNotificationService::class)->notifyPickupCode($pickup);
-            } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::warning('Pickup code notification failed: '.$e->getMessage());
+            if (! $pickup->attendance_id) {
+                $pickup->update(['attendance_id' => $record->id]);
             }
 
             return response()->json([
@@ -134,6 +133,8 @@ class AttendanceController extends Controller
                     ],
                 ],
             ]);
+        } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
+            throw $e;
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Error creating attendance record: ' . $e->getMessage());
             return response()->json([
@@ -172,9 +173,7 @@ class AttendanceController extends Controller
         }
 
         try {
-            $student = Student::where('business_id', $business->id)
-                ->where('id', $validated['student_id'])
-                ->first();
+            $student = $this->findAttendanceStudent($business, (int) $validated['student_id']);
 
             if (!$student) {
                 return response()->json([
@@ -220,6 +219,7 @@ class AttendanceController extends Controller
                 'message' => 'Check-out recorded successfully.',
                 'data' => [
                     'attendance' => $this->transformAttendance($record->fresh()),
+                    'memory_verse' => $this->memoryVersePayload((int) $business->id),
                 ],
             ]);
         } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
@@ -246,13 +246,17 @@ class AttendanceController extends Controller
             ], 403);
         }
 
-        $students = $user->students()->get();
+        $churchId = $user->preferredChurchBusinessId((int) $business->id);
+        $codeBusinessId = $churchId ?: (int) $business->id;
+        $students = $churchId
+            ? $user->studentsForChurchCheckIn($codeBusinessId)
+            : $user->students()->get();
 
-        $codes = $students->map(function (Student $student) use ($user) {
+        $codes = $students->map(function (Student $student) use ($user, $codeBusinessId) {
             $pickup = $this->pickupCodes->ensureForStudent(
                 $student,
-                (int) $student->business_id,
-                $this->markedByUserId($user, (int) $student->business_id)
+                $codeBusinessId,
+                $this->markedByUserId($user, $codeBusinessId)
             );
 
             if ($pickup->wasRecentlyCreated) {
@@ -274,8 +278,11 @@ class AttendanceController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Pickup codes are ready.',
-            'data' => ['pickup_codes' => $codes],
+            'message' => 'Pickup codes are ready. Show the 4-digit code to the volunteer at drop-off and pickup.',
+            'data' => [
+                'pickup_codes' => $codes,
+                'memory_verse' => $this->memoryVersePayload($codeBusinessId),
+            ],
         ]);
     }
 
@@ -293,7 +300,6 @@ class AttendanceController extends Controller
         if ($user instanceof ParentGuardian) {
             $studentIds = Student::query()
                 ->where('parent_guardian_id', $user->id)
-                ->where('business_id', $business->id)
                 ->pluck('id');
             $query->whereIn('student_id', $studentIds);
         } elseif (! $user instanceof User) {
@@ -323,7 +329,10 @@ class AttendanceController extends Controller
     {
         $business = $request->get('business');
 
-        if ($student->business_id !== $business->id) {
+        $user = $request->get('authenticated_user');
+        $ownsChild = $user instanceof ParentGuardian && (int) $student->parent_guardian_id === (int) $user->id;
+
+        if (! $ownsChild && $student->business_id !== $business->id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Student not found in your business.',
@@ -336,7 +345,7 @@ class AttendanceController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Attendance history loaded successfully.',
-            'data' => $this->historyPayload($business->id, $student, $limit),
+            'data' => $this->historyPayload((int) $business->id, $student, $limit),
         ]);
     }
 
@@ -400,6 +409,32 @@ class AttendanceController extends Controller
         ]);
     }
 
+    protected function findAttendanceStudent($business, int $studentId): ?Student
+    {
+        $student = Student::query()->with('parentGuardian')->find($studentId);
+        if (! $student) {
+            return null;
+        }
+
+        if ((int) $student->business_id === (int) $business->id) {
+            return $student;
+        }
+
+        $parent = $student->parentGuardian;
+        if (! $parent || ! $parent->belongsToBusiness((int) $business->id)) {
+            return null;
+        }
+
+        $churchCopy = Student::query()
+            ->where('parent_guardian_id', $parent->id)
+            ->where('business_id', $business->id)
+            ->where('first_name', $student->first_name)
+            ->where('last_name', $student->last_name)
+            ->first();
+
+        return $churchCopy ?: $student;
+    }
+
     protected function historyPayload(int $businessId, Student $student, int $limit): array
     {
         $todayCode = PickupCode::query()
@@ -428,7 +463,22 @@ class AttendanceController extends Controller
                 'has_medical_alert' => $student->hasMedicalAlert(),
             ],
             'today_pickup_code' => $todayCode && ! $todayCode->used_at ? $todayCode->code : null,
+            'memory_verse' => $this->memoryVersePayload($businessId),
             'attendance' => $attendanceRecords,
+        ];
+    }
+
+    protected function memoryVersePayload(int $businessId): ?array
+    {
+        $verse = MemoryWallItem::verseForBusinesses([$businessId]);
+        if (! $verse) {
+            return null;
+        }
+
+        return [
+            'title' => $verse->title,
+            'body' => $verse->body,
+            'scripture_ref' => $verse->scripture_ref,
         ];
     }
 

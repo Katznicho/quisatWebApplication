@@ -135,6 +135,88 @@ class ParentGuardian extends Model
             ->exists();
     }
 
+    public function resolveScopedBusiness(?int $requestedBusinessId = null): ?Business
+    {
+        if ($requestedBusinessId && $this->belongsToBusiness($requestedBusinessId)) {
+            if ($this->relationLoaded('business') && (int) $this->business_id === $requestedBusinessId) {
+                return $this->business;
+            }
+
+            return Business::query()->find($requestedBusinessId);
+        }
+
+        if ($this->business) {
+            return $this->business;
+        }
+
+        $membership = $this->relationLoaded('memberships')
+            ? $this->memberships->firstWhere('status', 'active')
+            : $this->memberships()->where('status', 'active')->with('business')->first();
+
+        return $membership?->business;
+    }
+
+    public function linkedChurchBusinessIds(): array
+    {
+        $ids = $this->activeBusinesses()
+            ->get()
+            ->filter(fn (Business $business) => $business->isChurch())
+            ->pluck('id');
+
+        if ($this->business?->isChurch()) {
+            $ids->push($this->business->id);
+        }
+
+        return $ids->filter()->unique()->values()->all();
+    }
+
+    public function scopedChurchBusinessIds(?int $requestedBusinessId = null): array
+    {
+        $churchIds = collect($this->linkedChurchBusinessIds())
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->values();
+
+        if ($churchIds->isEmpty()) {
+            return array_values(array_filter([(int) $requestedBusinessId]));
+        }
+
+        if ($requestedBusinessId && $churchIds->contains((int) $requestedBusinessId)) {
+            return [(int) $requestedBusinessId];
+        }
+
+        return $churchIds->all();
+    }
+
+    public function preferredChurchBusinessId(?int $requestedBusinessId = null): ?int
+    {
+        $ids = $this->linkedChurchBusinessIds();
+        if ($ids === []) {
+            return null;
+        }
+
+        $scoped = $this->scopedChurchBusinessIds($requestedBusinessId);
+
+        return (int) ($scoped[0] ?? $ids[0]);
+    }
+
+    public function studentsForChurchCheckIn(int $churchBusinessId)
+    {
+        app(ParentUniversalCodeService::class)->importChildrenToBusiness($this, $churchBusinessId);
+        $this->unsetRelation('students');
+
+        $students = $this->students()
+            ->with(['classRoom:id,name,code'])
+            ->where('business_id', $churchBusinessId)
+            ->get();
+
+        if ($students->isNotEmpty()) {
+            return $students;
+        }
+
+        return $this->students()->with(['classRoom:id,name,code'])->get();
+    }
+
     public function scopeForBusiness($query, int $businessId)
     {
         return $query->where(function ($scope) use ($businessId) {

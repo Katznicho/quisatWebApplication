@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\MemoryWallItem;
+use App\Models\ParentGuardian;
 use App\Models\User;
 use Illuminate\Http\Request;
 
@@ -12,12 +13,17 @@ class MemoryWallController extends Controller
     public function index(Request $request)
     {
         $businessId = $request->get('business_id');
+        $user = $request->get('authenticated_user');
+        $businessIds = [(int) $businessId];
 
-        $items = MemoryWallItem::query()
-            ->where('business_id', $businessId)
-            ->current()
-            ->latest()
-            ->get()
+        if ($user instanceof ParentGuardian) {
+            $churchIds = $user->scopedChurchBusinessIds((int) $businessId);
+            if ($churchIds) {
+                $businessIds = $churchIds;
+            }
+        }
+
+        $items = MemoryWallItem::visibleForBusinesses($businessIds)
             ->map(fn (MemoryWallItem $item) => $this->transform($item));
 
         $verse = $items->firstWhere('type', 'memory_verse');

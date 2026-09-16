@@ -5,7 +5,6 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\KidsLesson;
 use App\Models\ParentGuardian;
-use App\Models\Student;
 use App\Models\User;
 use App\Services\KidsChurchNotificationService;
 use Illuminate\Http\Request;
@@ -17,26 +16,26 @@ class KidsLessonController extends Controller
         $businessId = $request->get('business_id');
         $user = $request->get('authenticated_user');
 
+        $scopedBusinessIds = collect([(int) $businessId])->filter();
+
+        if ($user instanceof ParentGuardian) {
+            $churchIds = collect($user->linkedChurchBusinessIds());
+            if ($churchIds->isNotEmpty()) {
+                $scopedBusinessIds = $churchIds;
+                if ($businessId && $churchIds->contains(fn ($id) => (int) $id === (int) $businessId)) {
+                    $scopedBusinessIds = collect([(int) $businessId]);
+                }
+            }
+        }
+
         $query = KidsLesson::query()
             ->with('classRoom:id,name')
-            ->where('business_id', $businessId)
+            ->whereIn('business_id', $scopedBusinessIds->all() ?: [(int) $businessId])
             ->orderByDesc('lesson_date')
             ->orderByDesc('id');
 
         if ($user instanceof ParentGuardian) {
-            $classIds = Student::query()
-                ->where('parent_guardian_id', $user->id)
-                ->where('business_id', $businessId)
-                ->pluck('class_room_id')
-                ->filter()
-                ->unique();
-
-            $query->published()->where(function ($q) use ($classIds) {
-                $q->whereNull('class_room_id');
-                if ($classIds->isNotEmpty()) {
-                    $q->orWhereIn('class_room_id', $classIds);
-                }
-            });
+            $query->published();
         }
 
         if ($type = $request->query('type')) {

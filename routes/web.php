@@ -331,6 +331,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
         Route::get('/prayer-requests', $kidsChurchHubOrView('prayer', 'school-management.prayer-requests'))->name('prayer-requests');
 
+        Route::get('/feedback', $kidsChurchHubOrView('feedback', 'school-management.church-feedback'))->name('church-feedback');
+
         Route::get('/memory-wall', $kidsChurchHubOrView('memory-wall', 'school-management.memory-wall'))->name('memory-wall');
     });
 

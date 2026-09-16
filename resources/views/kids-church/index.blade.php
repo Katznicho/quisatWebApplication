@@ -3,7 +3,7 @@
 @section('content')
 @php
     $activeTab = request('tab', 'children');
-    $tabs = ['overview', 'children', 'groups', 'check-in', 'lessons', 'incidents', 'volunteers', 'moments', 'prayer', 'memory-wall', 'events', 'parents', 'fees'];
+    $tabs = ['overview', 'children', 'groups', 'check-in', 'lessons', 'incidents', 'volunteers', 'moments', 'prayer', 'feedback', 'memory-wall', 'events', 'parents', 'fees'];
     if (! in_array($activeTab, $tabs, true)) {
         $activeTab = 'children';
     }
@@ -110,6 +110,10 @@
                 <p class="mt-2 text-sm font-semibold text-slate-900">{{ $stats['events'] ?? 0 }} on the calendar</p>
             </div>
             <div class="rounded-xl border border-slate-200 bg-white p-4">
+                <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Family feedback</p>
+                <p class="mt-2 text-sm font-semibold text-slate-900">{{ $stats['feedback'] ?? 0 }} open</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-white p-4">
                 <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Giving</p>
                 <p class="mt-2 text-sm font-semibold text-slate-900">
                     <a href="{{ route('kids-church.index', ['tab' => 'fees']) }}" class="text-blue-600 hover:underline">Fees / Giving</a>
@@ -131,6 +135,7 @@
                 'volunteers' => 'Volunteers',
                 'moments' => 'Moments',
                 'prayer' => 'Prayer',
+                'feedback' => 'Feedback',
                 'memory-wall' => 'Memory Wall',
                 'events' => 'Events',
                 'parents' => 'Parents',
@@ -161,16 +166,16 @@
                         <p class="mt-1 text-sm text-slate-600">Add a child or link a parent with their Quisat code so allergies and family details come with them.</p>
                     </div>
                     <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                        <p class="text-sm font-semibold text-slate-900">3. Check in with a pickup code</p>
-                        <p class="mt-1 text-sm text-slate-600">Parents or staff check a child in. A 4-digit code is issued and must be shown at pickup.</p>
+                        <p class="text-sm font-semibold text-slate-900">3. Accept the parent’s 4-digit code</p>
+                        <p class="mt-1 text-sm text-slate-600">Parents generate a 4-digit code in the app. Volunteers enter that code to check the child in, then again at pickup, and share this week’s memory verse.</p>
                     </div>
                     <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
                         <p class="text-sm font-semibold text-slate-900">4. Share Moments</p>
                         <p class="mt-1 text-sm text-slate-600">Upload class photos once. Only parents of that group see, like, and comment.</p>
                     </div>
                     <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                        <p class="text-sm font-semibold text-slate-900">5. Pray and teach</p>
-                        <p class="mt-1 text-sm text-slate-600">Publish this week’s lesson, Memory Wall verse, and work through prayer requests from families.</p>
+                        <p class="text-sm font-semibold text-slate-900">5. Pray, teach, and listen</p>
+                        <p class="mt-1 text-sm text-slate-600">Publish this week’s lesson and Memory Wall verse, then work through prayer requests and family feedback.</p>
                     </div>
                     <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 md:col-span-2">
                         <p class="text-sm font-semibold text-emerald-900">6. Collect giving</p>
@@ -258,7 +263,7 @@
             </div>
             <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h2 class="mb-1 text-xl font-semibold text-slate-900">Attendance</h2>
-                <p class="mb-4 text-sm text-slate-500">Daily check-in records. Checkout stays present and requires the pickup code from the app.</p>
+                <p class="mb-4 text-sm text-slate-500">Daily check-in records. Parents generate a 4-digit code in the app. Volunteers enter that code to check the child in and again at pickup, then share this week’s memory verse.</p>
                 @livewire('school-management.attendance-management')
             </div>
         </div>
@@ -295,7 +300,7 @@
     @elseif($activeTab === 'moments')
         <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 class="mb-1 text-xl font-semibold text-slate-900">Quisat Moments</h2>
-            <p class="mb-4 text-sm text-slate-500">Private group and event albums. Only parents of that group see the photos.</p>
+            <p class="mb-4 text-sm text-slate-500">Private group and event albums. Published albums appear in the parent app under Moments.</p>
             @livewire('school-management.quisat-moments-management')
         </div>
     @elseif($activeTab === 'prayer')
@@ -304,16 +309,26 @@
             <p class="mb-4 text-sm text-slate-500">Mark requests as being prayed for or answered. Families see status in the app.</p>
             @livewire('school-management.prayer-requests-management')
         </div>
+    @elseif($activeTab === 'feedback')
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 class="mb-1 text-xl font-semibold text-slate-900">Family feedback</h2>
+            <p class="mb-4 text-sm text-slate-500">Parents send comments from the app, just like prayer requests. Review, reply, and mark as responded.</p>
+            @if(\Illuminate\Support\Facades\Schema::hasTable('church_feedback'))
+                @livewire('school-management.church-feedback-management')
+            @else
+                <p class="text-sm text-slate-600">Run <code class="rounded bg-slate-100 px-1.5 py-0.5">php artisan migrate</code> to enable family feedback.</p>
+            @endif
+        </div>
     @elseif($activeTab === 'memory-wall')
         <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 class="mb-1 text-xl font-semibold text-slate-900">Memory Wall</h2>
-            <p class="mb-4 text-sm text-slate-500">This week’s verse and prayer focus, shown on the parent home screen.</p>
+            <p class="mb-4 text-sm text-slate-500">This week’s verse and prayer focus, shown on the parent Memory Wall and at check-out.</p>
             @livewire('school-management.memory-wall-management')
         </div>
     @elseif($activeTab === 'events')
         <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 class="mb-1 text-xl font-semibold text-slate-900">Church events</h2>
-            <p class="mb-4 text-sm text-slate-500">Services, family days, and kids events published to the app calendar.</p>
+            <p class="mb-4 text-sm text-slate-500">Services, family days, and kids events published to the parent app church events list.</p>
             @livewire('school-management.calendar-events-management')
         </div>
     @elseif($activeTab === 'parents')

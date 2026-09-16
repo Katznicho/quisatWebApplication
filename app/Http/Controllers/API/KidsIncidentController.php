@@ -17,17 +17,24 @@ class KidsIncidentController extends Controller
         $businessId = $request->get('business_id');
         $user = $request->get('authenticated_user');
 
+        $businessIds = collect([(int) $businessId])->filter();
+        if ($user instanceof ParentGuardian) {
+            $churchIds = $user->scopedChurchBusinessIds((int) $businessId);
+            if ($churchIds) {
+                $businessIds = collect($churchIds);
+            }
+        }
+
         $query = KidsIncident::query()
             ->with(['student:id,first_name,last_name'])
-            ->where('business_id', $businessId)
+            ->whereIn('business_id', $businessIds->all() ?: [(int) $businessId])
             ->latest();
 
         if ($user instanceof ParentGuardian) {
             $childIds = Student::query()
                 ->where('parent_guardian_id', $user->id)
-                ->where('business_id', $businessId)
                 ->pluck('id');
-            $query->whereIn('student_id', $childIds);
+            $query->whereIn('student_id', $childIds->isNotEmpty() ? $childIds : [0]);
         }
 
         $items = $query->paginate(min((int) $request->query('per_page', 30), 50));

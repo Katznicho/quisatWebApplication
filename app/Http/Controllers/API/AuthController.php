@@ -1069,6 +1069,8 @@ class AuthController extends Controller
                     'type' => $business->type,
                     'mode' => $business->mode,
                     'enabled_features' => $business->enabled_feature_ids,
+                    'is_school' => $business->isSchool(),
+                    'is_church' => $business->isChurch(),
                     'joined_via' => $membership->joined_via,
                     'joined_at' => optional($membership->joined_at)->toIso8601String(),
                     'membership_status' => $membership->status,
@@ -1093,6 +1095,8 @@ class AuthController extends Controller
                 'type' => $b->type,
                 'mode' => $b->mode,
                 'enabled_features' => $b->enabled_feature_ids,
+                'is_school' => $b->isSchool(),
+                'is_church' => $b->isChurch(),
             ];
         }
 
@@ -1127,6 +1131,7 @@ class AuthController extends Controller
                     'last_name' => $student->last_name,
                     'full_name' => $student->full_name,
                     'student_id' => $student->student_id,
+                    'business_id' => $student->business_id,
                     'class' => $student->classRoom?->name,
                     'class_room_id' => $student->class_room_id,
                     'class_room' => $student->classRoom ? [

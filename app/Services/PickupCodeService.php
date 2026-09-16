@@ -11,27 +11,56 @@ class PickupCodeService
 {
     public function ensureForStudent(Student $student, int $businessId, ?int $markedBy = null): PickupCode
     {
-        $today = Carbon::today(config('app.timezone', 'Africa/Nairobi'));
+        $today = Carbon::today(config('app.timezone', 'Africa/Nairobi'))->toDateString();
 
-        $attendance = Attendance::firstOrNew([
+        $existing = PickupCode::query()
+            ->where('student_id', $student->id)
+            ->whereDate('code_date', $today)
+            ->first();
+
+        if ($existing) {
+            if ((int) $existing->business_id !== (int) $businessId) {
+                $existing->update(['business_id' => $businessId]);
+            }
+
+            return $existing;
+        }
+
+        return PickupCode::create([
             'business_id' => $businessId,
             'student_id' => $student->id,
-            'class_room_id' => $student->class_room_id,
-            'attendance_date' => $today->toDateString(),
+            'code_date' => $today,
+            'code' => $this->uniqueCode($businessId, $today),
+            'expires_at' => Carbon::parse($today, config('app.timezone'))->endOfDay(),
         ]);
+    }
 
-        if (! $attendance->check_in_time && ! $attendance->check_out_time) {
-            $attendance->status = 'present';
-            $attendance->check_in_time = now()->format('H:i:s');
-            $attendance->marked_by = $markedBy ?: $attendance->marked_by;
-            $attendance->remarks = $attendance->remarks ?: 'Auto check-in via parent app';
+    public function acceptForCheckIn(Student $student, string $code, int $businessId): PickupCode
+    {
+        $normalized = str_pad(preg_replace('/\D/', '', $code) ?: $code, 4, '0', STR_PAD_LEFT);
+
+        $pickup = PickupCode::query()
+            ->where('business_id', $businessId)
+            ->where('student_id', $student->id)
+            ->whereDate('code_date', Carbon::today())
+            ->where('code', $normalized)
+            ->first();
+
+        if (! $pickup) {
+            abort(response()->json([
+                'success' => false,
+                'message' => 'That 4-digit code was not generated in the parent app today. Ask the parent to open Check-in and show you the code.',
+            ], 422));
         }
 
-        if (! $attendance->exists || $attendance->isDirty()) {
-            $attendance->save();
+        if ($pickup->used_at) {
+            abort(response()->json([
+                'success' => false,
+                'message' => 'This pickup code has already been used.',
+            ], 422));
         }
 
-        return $this->issueForAttendance($attendance);
+        return $pickup;
     }
 
     public function issueForAttendance(Attendance $attendance): PickupCode

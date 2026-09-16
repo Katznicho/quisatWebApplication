@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\CalendarEvent;
+use App\Models\ParentGuardian;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -17,10 +18,20 @@ class AcademicCalendarController extends Controller
     {
         $businessId = $request->get('business_id');
         $user = $request->get('authenticated_user');
+        $business = $request->get('business');
+        $businessIds = [(int) $businessId];
+
+        if ($user instanceof ParentGuardian) {
+            $churchIds = $user->scopedChurchBusinessIds((int) $businessId);
+            $currentIsChurch = is_object($business) && method_exists($business, 'isChurch') && $business->isChurch();
+            if ($churchIds && ($currentIsChurch || in_array((int) $businessId, array_map('intval', $churchIds), true))) {
+                $businessIds = $churchIds;
+            }
+        }
 
         $query = CalendarEvent::query()
             ->with(['creator:id,name,email,branch_id'])
-            ->where('business_id', $businessId)
+            ->whereIn('business_id', $businessIds)
             ->where('status', 'published');
 
         if ($request->filled('start_date')) {

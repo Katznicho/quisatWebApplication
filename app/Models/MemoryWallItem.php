@@ -58,4 +58,33 @@ class MemoryWallItem extends Model
                 $q->whereNull('ends_on')->orWhereDate('ends_on', '>=', $today);
             });
     }
+
+    public static function visibleForBusinesses(array $businessIds)
+    {
+        $ids = collect($businessIds)->filter()->unique()->values();
+        if ($ids->isEmpty()) {
+            return collect();
+        }
+
+        $items = static::query()
+            ->whereIn('business_id', $ids)
+            ->current()
+            ->latest()
+            ->get();
+
+        if ($items->isNotEmpty()) {
+            return $items;
+        }
+
+        return static::query()
+            ->whereIn('business_id', $ids)
+            ->where('is_active', true)
+            ->latest()
+            ->get();
+    }
+
+    public static function verseForBusinesses(array $businessIds): ?self
+    {
+        return static::visibleForBusinesses($businessIds)->firstWhere('type', 'memory_verse');
+    }
 }

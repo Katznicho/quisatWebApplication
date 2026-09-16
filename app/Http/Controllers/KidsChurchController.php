@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Attendance;
 use App\Models\CalendarEvent;
+use App\Models\ChurchFeedback;
 use App\Models\ClassRoom;
 use App\Models\KidsIncident;
 use App\Models\KidsLesson;
@@ -56,6 +57,9 @@ class KidsChurchController extends Controller
             'prayer_requests' => Schema::hasTable('prayer_requests')
                 ? PrayerRequest::query()->forBusiness($businessId)->whereIn('status', ['received', 'being_prayed_for'])->count()
                 : 0,
+            'feedback' => Schema::hasTable('church_feedback')
+                ? ChurchFeedback::query()->forBusiness($businessId)->whereIn('status', ['received', 'in_review'])->count()
+                : 0,
             'albums' => Schema::hasTable('quisat_albums')
                 ? QuisatAlbum::where('business_id', $businessId)->count()
                 : 0,
@@ -67,7 +71,7 @@ class KidsChurchController extends Controller
                         });
                 })
                 ->count(),
-            'events' => CalendarEvent::where('business_id', $businessId)->where('start_date', '>=', $today)->count(),
+            'events' => CalendarEvent::where('business_id', $businessId)->where('end_date', '>=', $today)->count(),
             'memory_items' => Schema::hasTable('memory_wall_items')
                 ? MemoryWallItem::where('business_id', $businessId)->current()->count()
                 : 0,

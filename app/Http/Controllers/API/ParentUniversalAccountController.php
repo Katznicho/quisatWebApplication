@@ -323,9 +323,10 @@ class ParentUniversalAccountController extends Controller
                         'first_name' => $student->first_name,
                         'last_name' => $student->last_name,
                         'full_name' => $student->full_name,
-                        'student_id' => $student->student_id,
-                        'class' => $student->class,
-                        'status' => $student->status,
+                    'student_id' => $student->student_id,
+                    'business_id' => $student->business_id,
+                    'class' => $student->class,
+                    'status' => $student->status,
                         'photo_url' => $this->resolvePhotoUrl($student->photo),
                     ];
                 })->values(),
@@ -389,6 +390,8 @@ class ParentUniversalAccountController extends Controller
             'type' => $business->type,
             'mode' => $business->mode,
             'enabled_features' => $business->enabled_feature_ids,
+            'is_school' => $business->isSchool(),
+            'is_church' => $business->isChurch(),
         ];
     }
 

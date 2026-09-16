@@ -39,7 +39,7 @@ class PickupCodesManagement extends Component implements HasForms, HasTable
             ])
             ->defaultSort('id', 'desc')
             ->heading('Today’s pickup codes')
-            ->description('Parents generate these automatically in the Quisat app when they open Check-in. Staff enter the 4-digit code before the child is released.')
+            ->description('Parents generate these automatically in the Quisat app when they open Check-in. Staff enter the 4-digit code before the child is released, then share this week’s memory verse.')
             ->emptyStateHeading('No pickup codes yet')
             ->emptyStateDescription('Ask parents to open Check-in in the Quisat app. A 4-digit code is created automatically for each child.');
     }

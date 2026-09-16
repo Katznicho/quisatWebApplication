@@ -68,11 +68,11 @@ class MemoryWallManagement extends Component implements HasForms, HasTable
                 ])
                 ->required(),
             TextInput::make('title')->maxLength(255),
-            Textarea::make('body')->required()->rows(4),
+            Textarea::make('body')->required()->rows(4)->helperText('Shown on the parent Memory Wall and at volunteer check-out.'),
             TextInput::make('scripture_ref')->label('Scripture reference')->maxLength(120),
             DatePicker::make('starts_on'),
             DatePicker::make('ends_on'),
-            Toggle::make('is_active')->default(true),
+            Toggle::make('is_active')->default(true)->helperText('Leave on so families see this in the app.'),
         ];
     }
 

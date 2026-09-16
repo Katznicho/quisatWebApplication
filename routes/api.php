@@ -7,6 +7,7 @@ use App\Http\Controllers\API\AttendanceController;
 use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\BusinessReviewController;
 use App\Http\Controllers\API\CalendarEventRegistrationController;
+use App\Http\Controllers\API\ChurchFeedbackController;
 use App\Http\Controllers\API\ClassAssignmentController;
 use App\Http\Controllers\API\ClinicController;
 use App\Http\Controllers\API\ConversationController;
@@ -377,6 +378,12 @@ Route::prefix('v1')->group(function () {
                 Route::get('/', [PrayerRequestController::class, 'index']);
                 Route::post('/', [PrayerRequestController::class, 'store']);
                 Route::patch('{prayerRequest}', [PrayerRequestController::class, 'update']);
+            });
+
+            Route::prefix('church-feedback')->group(function () {
+                Route::get('/', [ChurchFeedbackController::class, 'index']);
+                Route::post('/', [ChurchFeedbackController::class, 'store']);
+                Route::patch('{churchFeedback}', [ChurchFeedbackController::class, 'update']);
             });
 
             Route::prefix('memory-wall')->group(function () {

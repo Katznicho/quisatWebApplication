@@ -37,9 +37,9 @@ class BusinessScope
             $business = $user->business;
             $userType = $this->getUserType($user);
         } elseif ($user instanceof \App\Models\ParentGuardian) {
-            // Parent/Guardian
-            $businessId = $user->business_id;
-            $business = $user->business;
+            $requestedId = (int) ($request->header('X-Business-Id') ?: 0);
+            $business = $user->resolveScopedBusiness($requestedId ?: null);
+            $businessId = $business?->id;
             $userType = 'parent_guardian';
         }
 

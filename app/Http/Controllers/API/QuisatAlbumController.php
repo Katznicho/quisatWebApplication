@@ -7,8 +7,6 @@ use App\Models\ParentGuardian;
 use App\Models\QuisatAlbum;
 use App\Models\QuisatAlbumComment;
 use App\Models\QuisatAlbumLike;
-use App\Models\QuisatAlbumMedia;
-use App\Models\Student;
 use App\Models\User;
 use App\Services\QuisatAlbumNotificationService;
 use Illuminate\Http\Request;
@@ -25,28 +23,23 @@ class QuisatAlbumController extends Controller
         $businessId = $request->get('business_id');
         $user = $request->get('authenticated_user');
 
+        $businessIds = collect([(int) $businessId])->filter();
+        if ($user instanceof ParentGuardian) {
+            $churchIds = $user->scopedChurchBusinessIds((int) $businessId);
+            if ($churchIds) {
+                $businessIds = collect($churchIds);
+            }
+        }
+
         $query = QuisatAlbum::query()
             ->with(['classRoom:id,name,code', 'media', 'likes'])
             ->withCount(['media', 'likes', 'comments'])
-            ->where('business_id', $businessId)
+            ->whereIn('business_id', $businessIds->all() ?: [(int) $businessId])
             ->orderByDesc('published_at')
             ->orderByDesc('id');
 
         if ($user instanceof ParentGuardian) {
-            $classIds = Student::query()
-                ->where('parent_guardian_id', $user->id)
-                ->where('business_id', $businessId)
-                ->pluck('class_room_id')
-                ->filter()
-                ->unique();
-
-            $query->where('status', 'published')
-                ->where(function ($q) use ($classIds) {
-                    $q->whereNull('class_room_id');
-                    if ($classIds->isNotEmpty()) {
-                        $q->orWhereIn('class_room_id', $classIds);
-                    }
-                });
+            $query->where('status', 'published');
         }
 
         if ($type = $request->query('type')) {
@@ -339,15 +332,7 @@ class QuisatAlbumController extends Controller
             return false;
         }
 
-        $query = Student::query()
-            ->where('parent_guardian_id', $parent->id)
-            ->where('business_id', $album->business_id);
-
-        if ($album->class_room_id) {
-            $query->where('class_room_id', $album->class_room_id);
-        }
-
-        return $query->exists();
+        return $parent->belongsToBusiness((int) $album->business_id);
     }
 
     protected function transformAlbum(QuisatAlbum $album, ?int $parentId, bool $includeMedia): array
