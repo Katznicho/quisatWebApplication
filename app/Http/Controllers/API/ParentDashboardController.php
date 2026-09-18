@@ -44,11 +44,12 @@ class ParentDashboardController extends Controller
         $today = Carbon::now($timezone);
         $churchIds = $user->scopedChurchBusinessIds((int) $business->id) ?: [(int) $business->id];
         $churchCheckInId = $user->preferredChurchBusinessId((int) $business->id);
-        if ($business->isChurch() && $churchCheckInId) {
+        $usesChurchScope = $business->isChurch() && ! $business->isSchool();
+        if ($usesChurchScope && $churchCheckInId) {
             $children = $user->studentsForChurchCheckIn($churchCheckInId);
         } else {
             $children = $user->students()
-                ->whereIn('business_id', $business->isChurch() ? $churchIds : [(int) $business->id])
+                ->whereIn('business_id', $usesChurchScope ? $churchIds : [(int) $business->id])
                 ->with(['classRoom:id,name,code'])
                 ->get();
         }
@@ -79,7 +80,7 @@ class ParentDashboardController extends Controller
             ->values();
 
         $events = CalendarEvent::query()
-            ->whereIn('business_id', $business->isChurch() ? $churchIds : [(int) $business->id])
+            ->whereIn('business_id', $usesChurchScope ? $churchIds : [(int) $business->id])
             ->where('status', 'published')
             ->where('end_date', '>=', $today)
             ->orderBy('start_date')

@@ -277,18 +277,11 @@ class ListBusiness extends Component implements HasForms, HasTable
                         \Filament\Forms\Components\Select::make('business_category_id')
                             ->relationship('businessCategory', 'name')
                             ->reactive()
-                            ->afterStateUpdated(function (\Filament\Forms\Set $set, $state) {
-                                $category = BusinessCategory::find($state);
-                                $set('enabled_feature_ids', array_map('intval', $category?->feature_ids ?? []));
+                            ->afterStateUpdated(function (\Filament\Forms\Set $set, \Filament\Forms\Get $get, $state) {
+                                self::mergeCategoryFeaturesIntoForm($set, $get, $state);
                             })
                             ->placeholder('Select category'),
-                        \Filament\Forms\Components\CheckboxList::make('enabled_feature_ids')
-                            ->label('Enabled Features')
-                            ->options(function (\Filament\Forms\Get $get) {
-                                $category = BusinessCategory::find($get('business_category_id'));
-                                return \App\Models\Feature::whereIn('id', $category?->feature_ids ?? [])->pluck('name', 'id');
-                            })
-                            ->reactive(),
+                        self::enabledFeaturesCheckboxList(),
                     ])
                     ->mutateFormDataUsing(function (array $data): array {
                         $data = self::ensureEnabledFeaturesInFormData($data);
@@ -399,13 +392,7 @@ class ListBusiness extends Component implements HasForms, HasTable
                         \Filament\Forms\Components\Select::make('business_category_id')
                             ->relationship('businessCategory', 'name')
                             ->disabled(),
-                        \Filament\Forms\Components\CheckboxList::make('enabled_feature_ids')
-                            ->label('Enabled Features')
-                            ->options(function (\Filament\Forms\Get $get) {
-                                $category = \App\Models\BusinessCategory::find($get('business_category_id'));
-                                return \App\Models\Feature::whereIn('id', $category?->feature_ids ?? [])->pluck('name', 'id');
-                            })
-                            ->disabled(),
+                        self::enabledFeaturesCheckboxList(disabled: true),
                     ]),
                 Tables\Actions\EditAction::make()
                     ->fillForm(function (Business $record, array $data): array {
@@ -480,18 +467,11 @@ class ListBusiness extends Component implements HasForms, HasTable
                         \Filament\Forms\Components\Select::make('business_category_id')
                             ->relationship('businessCategory', 'name')
                             ->reactive()
-                            ->afterStateUpdated(function (\Filament\Forms\Set $set, $state) {
-                                $category = BusinessCategory::find($state);
-                                $set('enabled_feature_ids', array_map('intval', $category?->feature_ids ?? []));
+                            ->afterStateUpdated(function (\Filament\Forms\Set $set, \Filament\Forms\Get $get, $state) {
+                                self::mergeCategoryFeaturesIntoForm($set, $get, $state);
                             })
                             ->placeholder('Select category'),
-                        \Filament\Forms\Components\CheckboxList::make('enabled_feature_ids')
-                            ->label('Enabled Features')
-                            ->options(function (\Filament\Forms\Get $get) {
-                                $category = BusinessCategory::find($get('business_category_id'));
-                                return \App\Models\Feature::whereIn('id', $category?->feature_ids ?? [])->pluck('name', 'id');
-                            })
-                            ->reactive(),
+                        self::enabledFeaturesCheckboxList(),
                         \Filament\Forms\Components\Toggle::make('accepting_stationery_orders')
                             ->label('Accepting Stationery Hub orders')
                             ->visible(function (\Filament\Forms\Get $get): bool {
@@ -609,6 +589,34 @@ class ListBusiness extends Component implements HasForms, HasTable
     public function render(): View
     {
         return view('livewire.list-business');
+    }
+
+    /**
+     * Show every feature, grouped as school / church / marketplace, so dual
+     * tenants can keep school modules when church is also enabled.
+     */
+    protected static function enabledFeaturesCheckboxList(bool $disabled = false): \Filament\Forms\Components\CheckboxList
+    {
+        return \Filament\Forms\Components\CheckboxList::make('enabled_feature_ids')
+            ->label('Enabled Features')
+            ->helperText('School, church, and marketplace features can be enabled together. Changing category adds that category’s defaults without removing the rest.')
+            ->options(fn () => \App\Models\Feature::checkboxOptions())
+            ->columns(2)
+            ->bulkToggleable()
+            ->disabled($disabled)
+            ->reactive();
+    }
+
+    protected static function mergeCategoryFeaturesIntoForm(\Filament\Forms\Set $set, \Filament\Forms\Get $get, $state): void
+    {
+        $category = BusinessCategory::find($state);
+        $set(
+            'enabled_feature_ids',
+            \App\Models\Feature::mergeWithCategoryDefaults(
+                $get('enabled_feature_ids') ?? [],
+                $category?->feature_ids ?? []
+            )
+        );
     }
 
     /**

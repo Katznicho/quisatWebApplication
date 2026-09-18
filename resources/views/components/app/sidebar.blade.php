@@ -383,7 +383,7 @@
                         </li>
                         @endif
 
-                        @if ($showSchoolModules && $business && ($business->hasFeatureByName('Quisat Moments') || $business->hasFeatureByName('Student Management')) && ! $isChurch)
+                        @if ($showSchoolModules && $business && ($business->hasFeatureByName('Quisat Moments') || $business->hasFeatureByName('Student Management')) && ! $business->usesKidsChurchHub())
                         <li>
                             <a href="{{ route('school-management.moments') }}"
                                 class="flex items-center pl-4 pr-3 py-2 rounded-md text-gray-700 hover:text-blue-700 hover:bg-blue-50">

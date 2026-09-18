@@ -24,7 +24,8 @@ class AcademicCalendarController extends Controller
         if ($user instanceof ParentGuardian) {
             $churchIds = $user->scopedChurchBusinessIds((int) $businessId);
             $currentIsChurch = is_object($business) && method_exists($business, 'isChurch') && $business->isChurch();
-            if ($churchIds && ($currentIsChurch || in_array((int) $businessId, array_map('intval', $churchIds), true))) {
+            $currentIsSchool = is_object($business) && method_exists($business, 'isSchool') && $business->isSchool();
+            if ($churchIds && $currentIsChurch && ! $currentIsSchool) {
                 $businessIds = $churchIds;
             }
         }

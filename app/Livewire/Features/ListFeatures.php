@@ -34,6 +34,16 @@ class ListFeatures extends Component implements HasForms, HasTable
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('group')
+                    ->label('Group')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => Feature::GROUPS[$state] ?? 'Marketplace')
+                    ->color(fn (?string $state): string => match ($state) {
+                        Feature::GROUP_SCHOOL => 'info',
+                        Feature::GROUP_CHURCH => 'warning',
+                        default => 'gray',
+                    })
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('description')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('currency.name')
@@ -73,6 +83,8 @@ class ListFeatures extends Component implements HasForms, HasTable
             ])
             ->filters([
                 TrashedFilter::make(),
+                Tables\Filters\SelectFilter::make('group')
+                    ->options(Feature::GROUPS),
             ])
             ->actions([
                 EditAction::make()
@@ -84,6 +96,11 @@ class ListFeatures extends Component implements HasForms, HasTable
                         Textarea::make('description')
                             ->nullable()
                             ->placeholder('Enter feature description'),
+                        Select::make('group')
+                            ->label('Group')
+                            ->options(Feature::GROUPS)
+                            ->default(Feature::GROUP_MARKETPLACE)
+                            ->required(),
                         Select::make('currency_id')
                             ->label('Currency')
                             ->options(Currency::pluck('name', 'id'))
@@ -117,6 +134,11 @@ class ListFeatures extends Component implements HasForms, HasTable
                         Textarea::make('description')
                             ->nullable()
                             ->placeholder('Enter feature description'),
+                        Select::make('group')
+                            ->label('Group')
+                            ->options(Feature::GROUPS)
+                            ->default(Feature::GROUP_MARKETPLACE)
+                            ->required(),
                         Select::make('currency_id')
                             ->label('Currency')
                             ->options(Currency::pluck('name', 'id'))

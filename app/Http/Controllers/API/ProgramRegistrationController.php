@@ -3,13 +3,16 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
-use App\Models\ProgramEvent;
 use App\Models\EventAttendee;
+use App\Models\ParentGuardian;
+use App\Models\Program;
+use App\Models\ProgramEvent;
 use App\Models\User;
 use App\Services\MarzPayCheckoutService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class ProgramRegistrationController extends Controller
@@ -242,5 +245,143 @@ class ProgramRegistrationController extends Controller
                 'message' => 'Failed to get registrations.',
             ], 500);
         }
+    }
+
+    /**
+     * Programs the authenticated parent has registered a child for.
+     */
+    public function myPrograms(Request $request)
+    {
+        try {
+            $user = Auth::guard('sanctum')->user();
+
+            if (! $user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication required.',
+                ], 401);
+            }
+
+            [$userIds, $email] = $this->attendeeLookup($user);
+
+            if ($userIds === [] && blank($email)) {
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        'programs' => [],
+                    ],
+                ]);
+            }
+
+            $attendees = EventAttendee::query()
+                ->with('programEvent')
+                ->where(function ($query) use ($userIds, $email) {
+                    if ($userIds !== []) {
+                        $query->whereIn('user_id', $userIds);
+                    }
+                    if (filled($email)) {
+                        $query->orWhere('parent_email', $email);
+                    }
+                })
+                ->orderByDesc('created_at')
+                ->get();
+
+            $programsById = [];
+
+            foreach ($attendees as $attendee) {
+                $event = $attendee->programEvent;
+                if (! $event) {
+                    continue;
+                }
+
+                $programIds = collect(is_array($event->program_ids) ? $event->program_ids : [])
+                    ->map(fn ($id) => (int) $id)
+                    ->filter();
+
+                foreach ($programIds as $programId) {
+                    if (! isset($programsById[$programId])) {
+                        $programsById[$programId] = [
+                            'children' => [],
+                            'event_count' => 0,
+                        ];
+                    }
+
+                    $childName = trim((string) $attendee->child_name);
+                    if ($childName !== '' && ! in_array($childName, $programsById[$programId]['children'], true)) {
+                        $programsById[$programId]['children'][] = $childName;
+                    }
+                    $programsById[$programId]['event_count']++;
+                }
+            }
+
+            $programs = Program::query()
+                ->whereIn('id', array_keys($programsById))
+                ->get()
+                ->map(function (Program $program) use ($programsById) {
+                    $meta = $programsById[$program->id];
+
+                    return [
+                        'id' => $program->id,
+                        'uuid' => $program->uuid,
+                        'name' => $program->name,
+                        'title' => $program->name,
+                        'description' => $program->description,
+                        'image_url' => $this->resolveMediaUrl($program->image),
+                        'category' => 'Christian Kids Hub',
+                        'status' => $program->status,
+                        'children' => $meta['children'],
+                        'events_count' => $meta['event_count'],
+                    ];
+                })
+                ->values();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'programs' => $programs,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error getting subscribed programs: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to load your programmes.',
+            ], 500);
+        }
+    }
+
+    /**
+     * @return array{0: array<int>, 1: ?string}
+     */
+    private function attendeeLookup($user): array
+    {
+        $email = $user->email ?? null;
+        $userIds = [];
+
+        if ($user instanceof ParentGuardian) {
+            $userIds = User::query()
+                ->where('email', $user->email)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+        } elseif ($user instanceof User) {
+            $userIds[] = (int) $user->id;
+        }
+
+        return [$userIds, $email];
+    }
+
+    private function resolveMediaUrl(?string $pathOrUrl): ?string
+    {
+        if (! $pathOrUrl) {
+            return null;
+        }
+
+        if (Str::startsWith($pathOrUrl, ['http://', 'https://'])) {
+            return $pathOrUrl;
+        }
+
+        return Storage::url($pathOrUrl);
     }
 }

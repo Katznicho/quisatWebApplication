@@ -57,27 +57,30 @@ class BusinessCategory extends Model
             $category->uuid = (string) Str::uuid();
         });
 
-        // When category feature_ids are updated, sync businesses' enabled_feature_ids
-        static::updated(function ($category) {
-            if ($category->isDirty('feature_ids')) {
-                $newFeatureIds = $category->feature_ids ?? [];
-                $newFeatureIds = array_map('intval', $newFeatureIds);
-                
-                // Update all businesses in this category to remove features not in category
-                $category->businesses()->each(function ($business) use ($newFeatureIds) {
-                    $enabledIds = $business->enabled_feature_ids ?? [];
-                    $enabledIds = array_map('intval', $enabledIds);
-                    
-                    // Keep only features that are still in the category
-                    $filteredIds = array_intersect($enabledIds, $newFeatureIds);
-                    
-                    // Only update if there's a change
-                    if (count($filteredIds) !== count($enabledIds)) {
-                        $business->enabled_feature_ids = array_values($filteredIds);
-                        $business->saveQuietly(); // Use saveQuietly to avoid triggering observers
-                    }
-                });
+        // When category feature_ids change, only drop features that were removed from
+        // this category. Extra features (e.g. school modules on a church tenant) stay.
+        static::updating(function (BusinessCategory $category) {
+            if (! $category->isDirty('feature_ids')) {
+                return;
             }
+
+            $oldFeatureIds = array_map('intval', $category->getOriginal('feature_ids') ?? []);
+            $newFeatureIds = array_map('intval', $category->feature_ids ?? []);
+            $removedIds = array_values(array_diff($oldFeatureIds, $newFeatureIds));
+
+            if ($removedIds === []) {
+                return;
+            }
+
+            $category->businesses()->each(function (Business $business) use ($removedIds) {
+                $enabledIds = array_map('intval', $business->enabled_feature_ids ?? []);
+                $filteredIds = array_values(array_diff($enabledIds, $removedIds));
+
+                if ($filteredIds !== $enabledIds) {
+                    $business->enabled_feature_ids = $filteredIds;
+                    $business->saveQuietly();
+                }
+            });
         });
     }
 

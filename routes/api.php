@@ -157,6 +157,7 @@ Route::prefix('v1')->group(function () {
         Route::middleware('auth:sanctum')->group(function () {
             Route::post('programmes/events/{eventId}/register', [ProgramRegistrationController::class, 'store']);
             Route::get('programmes/events/{eventId}/registrations', [ProgramRegistrationController::class, 'index']);
+            Route::get('my-programmes', [ProgramRegistrationController::class, 'myPrograms']);
 
             // Kids Event Registrations (authenticated)
             Route::get('kids-events/{eventId}/registrations', [\App\Http\Controllers\API\KidsEventRegistrationController::class, 'index']);

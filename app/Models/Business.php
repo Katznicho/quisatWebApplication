@@ -249,8 +249,33 @@ class Business extends Model
         return $this->hasFeature($feature->id);
     }
 
+    public function enabledFeatureGroups(): array
+    {
+        $ids = array_map('intval', $this->enabled_feature_ids ?? []);
+        if ($ids === []) {
+            return [];
+        }
+
+        return Feature::query()
+            ->whereIn('id', $ids)
+            ->pluck('group')
+            ->unique()
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    public function hasFeaturesInGroup(string $group): bool
+    {
+        return in_array($group, $this->enabledFeatureGroups(), true);
+    }
+
     public function isSchool(): bool
     {
+        if ($this->hasFeaturesInGroup(Feature::GROUP_SCHOOL)) {
+            return true;
+        }
+
         $type = strtolower((string) $this->type);
         if (str_contains($type, 'school')) {
             return true;
@@ -265,7 +290,7 @@ class Business extends Model
 
     public function isChurch(): bool
     {
-        if ($this->hasFeatureByName('Kids Church')) {
+        if ($this->hasFeaturesInGroup(Feature::GROUP_CHURCH) || $this->hasFeatureByName('Kids Church')) {
             return true;
         }
 

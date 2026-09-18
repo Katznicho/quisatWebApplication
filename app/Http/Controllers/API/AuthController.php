@@ -106,6 +106,8 @@ class AuthController extends Controller
                             'type' => $user->business->type,
                             'mode' => $user->business->mode,
                             'enabled_features' => $user->business->enabled_feature_ids,
+                            'is_school' => $user->business->isSchool(),
+                            'is_church' => $user->business->isChurch(),
                         ],
                         'role' => $user->role ? [
                             'id' => $user->role->id,
@@ -201,6 +203,8 @@ class AuthController extends Controller
                             'type' => $user->business->type,
                             'mode' => $user->business->mode,
                             'enabled_features' => $user->business->enabled_feature_ids,
+                            'is_school' => $user->business->isSchool(),
+                            'is_church' => $user->business->isChurch(),
                         ],
                         'role' => $user->role ? [
                             'id' => $user->role->id,

@@ -143,7 +143,10 @@ class ListBusinessCategories extends Component implements HasForms, HasTable
                         Textarea::make('description')
                             ->disabled(),
                         CheckboxList::make('feature_ids')
-                            ->options(Feature::pluck('name', 'id'))
+                            ->label('Features')
+                            ->helperText('Features are grouped as school, church, and marketplace. A business can enable features from more than one group.')
+                            ->options(Feature::checkboxOptions())
+                            ->columns(2)
                             ->disabled(),
                     ]),
                 EditAction::make()
@@ -166,7 +169,9 @@ class ListBusinessCategories extends Component implements HasForms, HasTable
                             ->placeholder('Enter description'),
                         CheckboxList::make('feature_ids')
                             ->label('Features')
-                            ->options(Feature::pluck('name', 'id')),
+                            ->helperText('Features are grouped as school, church, and marketplace. A business can enable features from more than one group.')
+                            ->options(Feature::checkboxOptions())
+                            ->columns(2),
                         Repeater::make('attached_documents')
                             ->label('Required onboarding documents')
                             ->schema([
@@ -221,7 +226,9 @@ class ListBusinessCategories extends Component implements HasForms, HasTable
                             ->placeholder('Enter description'),
                         CheckboxList::make('feature_ids')
                             ->label('Features')
-                            ->options(Feature::pluck('name', 'id')),
+                            ->helperText('Features are grouped as school, church, and marketplace. A business can enable features from more than one group.')
+                            ->options(Feature::checkboxOptions())
+                            ->columns(2),
                         Repeater::make('attached_documents')
                             ->label('Required onboarding documents')
                             ->schema([
