@@ -148,9 +148,13 @@ class QuisatAlbumController extends Controller
         $this->storePhotos($request, $album, $auth->id, $validated['tagged_student_ids'] ?? []);
 
         if ($album->isPublished()) {
-            $this->notifications->notifyPublished($album->fresh(['classRoom', 'media']));
-            if (! empty($validated['tagged_student_ids'])) {
-                $this->notifications->notifyTagged($album, $validated['tagged_student_ids']);
+            try {
+                $this->notifications->notifyPublished($album->fresh(['classRoom', 'media']));
+                if (! empty($validated['tagged_student_ids'])) {
+                    $this->notifications->notifyTagged($album, $validated['tagged_student_ids']);
+                }
+            } catch (\Throwable $e) {
+                report($e);
             }
         }
 

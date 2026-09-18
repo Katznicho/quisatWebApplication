@@ -60,7 +60,7 @@ class AttendanceController extends Controller
 
             $validated = $request->validate([
                 'student_id' => 'required|exists:students,id',
-                'pickup_code' => 'required|string|max:8',
+                'pickup_code' => 'nullable|string|max:8',
                 'parent_name' => 'nullable|string|max:255',
                 'parent_identifier' => 'nullable|string|max:255',
             ]);
@@ -89,11 +89,21 @@ class AttendanceController extends Controller
                 ], 404);
             }
 
-            $pickup = $this->pickupCodes->acceptForCheckIn(
-                $student,
-                $validated['pickup_code'],
-                (int) $business->id
-            );
+            $submittedCode = trim((string) ($validated['pickup_code'] ?? ''));
+            $pickup = null;
+
+            if ($submittedCode !== '') {
+                $pickup = $this->pickupCodes->acceptForCheckIn(
+                    $student,
+                    $submittedCode,
+                    (int) $business->id
+                );
+            } elseif ($user instanceof ParentGuardian) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Generate a 4-digit code in Check-in first, then show it to the volunteer.',
+                ], 422);
+            }
 
             $record = Attendance::firstOrNew([
                 'business_id' => $business->id,
@@ -111,7 +121,9 @@ class AttendanceController extends Controller
             $record->check_out_time = null;
             $record->save();
 
-            if (! $pickup->attendance_id) {
+            if (! $pickup) {
+                $pickup = $this->pickupCodes->issueForAttendance($record);
+            } elseif (! $pickup->attendance_id) {
                 $pickup->update(['attendance_id' => $record->id]);
             }
 
@@ -239,18 +251,45 @@ class AttendanceController extends Controller
         $business = $request->get('business');
         $user = $request->get('authenticated_user');
 
-        if (! $user instanceof ParentGuardian) {
+        $requestedIds = collect($request->input('student_ids', []))
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->values();
+
+        if ($user instanceof ParentGuardian) {
+            $churchId = $user->preferredChurchBusinessId((int) $business->id);
+            $codeBusinessId = $churchId ?: (int) $business->id;
+            $students = $churchId
+                ? $user->studentsForChurchCheckIn($codeBusinessId)
+                : $user->students()->get();
+        } elseif ($user instanceof User) {
+            $codeBusinessId = (int) $business->id;
+            $query = Student::query()
+                ->where('business_id', $codeBusinessId);
+
+            if ($requestedIds->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Select at least one child to generate a 4-digit code.',
+                ], 422);
+            }
+
+            $students = $query->whereIn('id', $requestedIds)->get();
+        } else {
             return response()->json([
                 'success' => false,
-                'message' => 'Only parents can generate pickup codes automatically.',
+                'message' => 'Only parents and staff can generate pickup codes.',
             ], 403);
         }
 
-        $churchId = $user->preferredChurchBusinessId((int) $business->id);
-        $codeBusinessId = $churchId ?: (int) $business->id;
-        $students = $churchId
-            ? $user->studentsForChurchCheckIn($codeBusinessId)
-            : $user->students()->get();
+        if ($students->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => $user instanceof ParentGuardian
+                    ? 'No children are linked to generate a check-in code.'
+                    : 'No matching children were found to generate a code.',
+            ], 422);
+        }
 
         $codes = $students->map(function (Student $student) use ($user, $codeBusinessId) {
             $pickup = $this->pickupCodes->ensureForStudent(
@@ -278,7 +317,7 @@ class AttendanceController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Pickup codes are ready. Show the 4-digit code to the volunteer at drop-off and pickup.',
+            'message' => 'Pickup codes are ready. Show the 4-digit code at drop-off and pickup.',
             'data' => [
                 'pickup_codes' => $codes,
                 'memory_verse' => $this->memoryVersePayload($codeBusinessId),

@@ -249,6 +249,21 @@ class Business extends Model
         return $this->hasFeature($feature->id);
     }
 
+    public function enabledFeatureNames(): array
+    {
+        $ids = array_map('intval', $this->enabled_feature_ids ?? []);
+        if ($ids === []) {
+            return [];
+        }
+
+        return Feature::query()
+            ->whereIn('id', $ids)
+            ->orderBy('name')
+            ->pluck('name')
+            ->values()
+            ->all();
+    }
+
     public function enabledFeatureGroups(): array
     {
         $ids = array_map('intval', $this->enabled_feature_ids ?? []);

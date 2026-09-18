@@ -390,6 +390,7 @@ class ParentUniversalAccountController extends Controller
             'type' => $business->type,
             'mode' => $business->mode,
             'enabled_features' => $business->enabled_feature_ids,
+            'enabled_feature_names' => $business->enabledFeatureNames(),
             'is_school' => $business->isSchool(),
             'is_church' => $business->isChurch(),
         ];
