@@ -257,11 +257,17 @@ class AttendanceController extends Controller
             ->values();
 
         if ($user instanceof ParentGuardian) {
-            $churchId = $user->preferredChurchBusinessId((int) $business->id);
-            $codeBusinessId = $churchId ?: (int) $business->id;
-            $students = $churchId
-                ? $user->studentsForChurchCheckIn($codeBusinessId)
-                : $user->students()->get();
+            $forChurch = is_object($business) && method_exists($business, 'isChurch') && $business->isChurch();
+            if ($forChurch) {
+                $codeBusinessId = $user->preferredChurchBusinessId((int) $business->id) ?: (int) $business->id;
+                $students = $user->studentsForChurchCheckIn($codeBusinessId);
+            } else {
+                $codeBusinessId = (int) $business->id;
+                $students = $user->students()
+                    ->with(['classRoom:id,name,code'])
+                    ->where('business_id', $codeBusinessId)
+                    ->get();
+            }
         } elseif ($user instanceof User) {
             $codeBusinessId = (int) $business->id;
             $query = Student::query()
@@ -291,11 +297,10 @@ class AttendanceController extends Controller
             ], 422);
         }
 
-        $codes = $students->map(function (Student $student) use ($user, $codeBusinessId) {
+        $codes = $students->map(function (Student $student) use ($codeBusinessId) {
             $pickup = $this->pickupCodes->ensureForStudent(
                 $student,
-                $codeBusinessId,
-                $this->markedByUserId($user, $codeBusinessId)
+                $codeBusinessId
             );
 
             if ($pickup->wasRecentlyCreated) {
@@ -552,22 +557,25 @@ class AttendanceController extends Controller
     protected function markedByUserId($user, int $businessId): ?int
     {
         if ($user instanceof ParentGuardian) {
-            $parentUser = User::where('email', $user->email)
-                ->where('business_id', $businessId)
-                ->first();
+            $parentUser = User::query()->where('email', $user->email)->first();
 
-            if (! $parentUser) {
-                $parentUser = User::create([
-                    'name' => $user->full_name,
-                    'email' => $user->email,
-                    'business_id' => $businessId,
-                    'status' => 'active',
-                    'branch_id' => null,
-                    'password' => '',
-                ]);
+            if (! $parentUser && filled($user->email)) {
+                try {
+                    $parentUser = User::create([
+                        'name' => $user->full_name,
+                        'email' => $user->email,
+                        'business_id' => $businessId,
+                        'status' => 'active',
+                        'branch_id' => null,
+                        'password' => \Illuminate\Support\Str::random(40),
+                    ]);
+                } catch (\Throwable $e) {
+                    report($e);
+                    $parentUser = User::query()->where('email', $user->email)->first();
+                }
             }
 
-            return $parentUser->id;
+            return $parentUser?->id;
         }
 
         if ($user instanceof User) {

@@ -109,6 +109,7 @@ class AuthController extends Controller
                             'enabled_feature_names' => $user->business->enabledFeatureNames(),
                             'is_school' => $user->business->isSchool(),
                             'is_church' => $user->business->isChurch(),
+                            'is_clinic' => $user->business->isClinic(),
                         ],
                         'role' => $user->role ? [
                             'id' => $user->role->id,
@@ -207,6 +208,7 @@ class AuthController extends Controller
                             'enabled_feature_names' => $user->business->enabledFeatureNames(),
                             'is_school' => $user->business->isSchool(),
                             'is_church' => $user->business->isChurch(),
+                            'is_clinic' => $user->business->isClinic(),
                         ],
                         'role' => $user->role ? [
                             'id' => $user->role->id,
@@ -1078,6 +1080,7 @@ class AuthController extends Controller
                     'enabled_feature_names' => $business->enabledFeatureNames(),
                     'is_school' => $business->isSchool(),
                     'is_church' => $business->isChurch(),
+                    'is_clinic' => $business->isClinic(),
                     'joined_via' => $membership->joined_via,
                     'joined_at' => optional($membership->joined_at)->toIso8601String(),
                     'membership_status' => $membership->status,
@@ -1105,6 +1108,7 @@ class AuthController extends Controller
                 'enabled_feature_names' => $b->enabledFeatureNames(),
                 'is_school' => $b->isSchool(),
                 'is_church' => $b->isChurch(),
+                'is_clinic' => $b->isClinic(),
             ];
         }
 

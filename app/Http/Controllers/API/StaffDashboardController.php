@@ -165,6 +165,7 @@ class StaffDashboardController extends Controller
                 ],
                 'is_church' => $business->isChurch(),
                 'is_school' => $business->isSchool(),
+                'is_clinic' => $business->isClinic(),
                 'enabled_feature_names' => $business->enabledFeatureNames(),
                 'today_schedule' => $schedule,
                 'upcoming_events' => $upcomingEvents,

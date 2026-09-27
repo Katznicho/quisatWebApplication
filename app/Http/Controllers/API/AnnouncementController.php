@@ -74,6 +74,13 @@ class AnnouncementController extends Controller
             $businessId = $request->get('business_id');
             $user = $request->get('authenticated_user');
 
+            if ($user instanceof ParentGuardian) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Parents cannot create announcements.',
+                ], 403);
+            }
+
             $validated = $request->validate([
             'title' => 'required|string|max:255',
             'content' => 'required|string',

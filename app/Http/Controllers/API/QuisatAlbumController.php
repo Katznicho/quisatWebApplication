@@ -7,6 +7,7 @@ use App\Models\ParentGuardian;
 use App\Models\QuisatAlbum;
 use App\Models\QuisatAlbumComment;
 use App\Models\QuisatAlbumLike;
+use App\Models\QuisatAlbumMedia;
 use App\Models\User;
 use App\Services\QuisatAlbumNotificationService;
 use Illuminate\Http\Request;

@@ -202,7 +202,11 @@ class ParentGuardian extends Model
 
     public function studentsForChurchCheckIn(int $churchBusinessId)
     {
-        app(ParentUniversalCodeService::class)->importChildrenToBusiness($this, $churchBusinessId);
+        try {
+            app(ParentUniversalCodeService::class)->importChildrenToBusiness($this, $churchBusinessId);
+        } catch (\Throwable $e) {
+            report($e);
+        }
         $this->unsetRelation('students');
 
         $students = $this->students()

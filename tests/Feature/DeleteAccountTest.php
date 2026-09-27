@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ActivityLog;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Jetstream\Features;
@@ -26,6 +27,17 @@ class DeleteAccountTest extends TestCase
             ->call('deleteUser');
 
         $this->assertNull($user->fresh());
+
+        $log = ActivityLog::query()
+            ->where('model_type', User::class)
+            ->where('model_id', $user->id)
+            ->where('action', 'deleted')
+            ->first();
+
+        $this->assertNotNull($log);
+        $this->assertNull($log->user_id);
+        $this->assertArrayNotHasKey('password', $log->old_values ?? []);
+        $this->assertArrayNotHasKey('remember_token', $log->old_values ?? []);
     }
 
     public function test_correct_password_must_be_provided_before_account_can_be_deleted(): void

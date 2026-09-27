@@ -102,6 +102,7 @@ class DualSchoolChurchFeatureTest extends TestCase
         ]);
 
         $business = Business::factory()->create([
+            'name' => 'Grace Church',
             'type' => 'church',
             'business_category_id' => $category->id,
             'enabled_feature_ids' => [$churchFeature->id, $extraChurchFeature->id, $schoolFeature->id],
@@ -119,6 +120,19 @@ class DualSchoolChurchFeatureTest extends TestCase
         $this->assertNotContains($extraChurchFeature->id, $enabled);
         $this->assertTrue($business->isSchool());
         $this->assertTrue($business->isChurch());
+        $this->assertFalse($business->isClinic());
+    }
+
+    public function test_a_childrens_clinic_is_classified_as_a_clinic(): void
+    {
+        $this->makeCurrency();
+
+        $business = Business::factory()->create([
+            'name' => "Jeero & Ennie children's Clinics",
+            'type' => 'clinic',
+        ]);
+
+        $this->assertTrue($business->isClinic());
     }
 
     public function test_parent_dashboard_keeps_school_flags_for_a_dual_tenant(): void

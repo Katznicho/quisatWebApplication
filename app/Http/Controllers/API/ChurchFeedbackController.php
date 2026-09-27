@@ -20,7 +20,8 @@ class ChurchFeedbackController extends Controller
             ->with(['student:id,first_name,last_name', 'parentGuardian:id,first_name,last_name']);
 
         if ($user instanceof ParentGuardian) {
-            $query->where('parent_guardian_id', $user->id);
+            $query->where('parent_guardian_id', $user->id)
+                ->where('business_id', (int) $businessId);
         } else {
             $query->forBusiness((int) $businessId);
         }
@@ -126,7 +127,7 @@ class ChurchFeedbackController extends Controller
         $business = $request->get('business');
         $user = $request->get('authenticated_user');
 
-        if ($business instanceof Business && $business->isChurch()) {
+        if ($scopedId > 0) {
             return $scopedId;
         }
 
