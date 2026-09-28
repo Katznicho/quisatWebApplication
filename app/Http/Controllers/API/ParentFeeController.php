@@ -196,6 +196,13 @@ class ParentFeeController extends Controller
 
             $proof = $this->storeProof($record, $validated['proof'] ?? null);
 
+            if ($method === 'other' && empty($proof['path'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Could not read the receipt photo. Try another image.',
+                ], 422);
+            }
+
             $record->applyCompletedPayment($payAmount, $method, [
                 'parent_guardian_id' => $parent->id,
                 'notes' => $validated['notes'] ?? null,
@@ -329,6 +336,10 @@ class ParentFeeController extends Controller
     {
         [$childIds, $patientIds] = $this->billableIds($parent, $businessId);
 
+        if ($childIds->isEmpty() && $patientIds->isEmpty()) {
+            return null;
+        }
+
         return Fee::query()
             ->with([
                 'business:id,currency_code',
@@ -339,13 +350,26 @@ class ParentFeeController extends Controller
                 'clinicInvoiceDocument',
                 'payments',
             ])
-            ->where('business_id', $businessId)
-            ->where(function ($query) use ($childIds, $patientIds) {
-                $query->whereIn('student_id', $childIds)
-                    ->orWhereIn('clinic_patient_id', $patientIds);
+            ->where(function ($query) use ($businessId, $childIds, $patientIds) {
+                // School fees stay on the business in session. Clinic bills follow the
+                // patient, so a parent signed into school can still pay a clinic bill.
+                if ($childIds->isNotEmpty()) {
+                    $query->where(function ($school) use ($businessId, $childIds) {
+                        $school->where('business_id', $businessId)
+                            ->whereIn('student_id', $childIds)
+                            ->whereNull('clinic_patient_id');
+                    });
+                }
+
+                if ($patientIds->isNotEmpty()) {
+                    $query->orWhereIn('clinic_patient_id', $patientIds);
+                }
             })
             ->where(function ($query) use ($identifier) {
-                $query->where('uuid', $identifier)->orWhere('id', $identifier);
+                $query->where('uuid', $identifier);
+                if (ctype_digit($identifier)) {
+                    $query->orWhere('id', (int) $identifier);
+                }
             })
             ->first();
     }

@@ -5,11 +5,13 @@ namespace Tests\Feature;
 use App\Models\Business;
 use App\Models\ClinicPatient;
 use App\Models\Fee;
+use App\Models\FeePayment;
 use App\Models\ParentGuardian;
 use App\Models\Student;
 use App\Services\FeeParentNotificationService;
 use App\Services\MarzPayPayableResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -133,6 +135,83 @@ class ClinicFeeBillingTest extends TestCase
             ->assertJsonPath('data.fee.payment_status', 'partial')
             ->assertJsonPath('data.fee.amount_paid', 50000)
             ->assertJsonPath('data.fee.balance', 100000);
+    }
+
+    public function test_parent_can_pay_clinic_bill_with_attached_receipt_while_signed_into_school(): void
+    {
+        Storage::fake('public');
+
+        $school = Business::factory()->create();
+        $clinic = Business::factory()->create();
+        $parent = ParentGuardian::factory()->linked($school->id)->create();
+
+        $patient = ClinicPatient::create([
+            'business_id' => $clinic->id,
+            'parent_guardian_id' => $parent->id,
+            'first_name' => 'Grace',
+            'last_name' => 'Nakato',
+            'date_of_birth' => now()->subYears(6)->toDateString(),
+            'gender' => 'female',
+            'status' => 'active',
+        ]);
+
+        $fee = Fee::create([
+            'business_id' => $clinic->id,
+            'clinic_patient_id' => $patient->id,
+            'student_id' => null,
+            'fee_type' => 'Treatment',
+            'amount' => 180000,
+            'amount_paid' => 0,
+            'balance' => 180000,
+            'due_date' => now()->addDays(7)->toDateString(),
+            'payment_status' => 'pending',
+        ]);
+
+        Sanctum::actingAs($parent);
+
+        $this->withHeader('X-Business-Id', (string) $school->id)
+            ->postJson("/api/v1/parent/fees/{$fee->uuid}/pay", [
+                'payment_method' => 'other',
+                'amount' => 180000,
+                'proof' => [
+                    'name' => '1000006246.jpg',
+                    'mime_type' => 'image/jpeg',
+                    'base64' => base64_encode('receipt-bytes'),
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.fee.payment_status', 'paid')
+            ->assertJsonPath('data.fee.balance', 0);
+
+        $payment = FeePayment::query()->where('fee_id', $fee->id)->first();
+        $this->assertNotNull($payment);
+        $this->assertSame('other', $payment->method);
+        $this->assertNotNull($payment->proof_path);
+        Storage::disk('public')->assertExists($payment->proof_path);
+    }
+
+    public function test_parent_cannot_pay_another_parents_clinic_fee_with_receipt(): void
+    {
+        [, $fee, $business] = $this->seedClinicFee();
+        $stranger = ParentGuardian::factory()->linked($business->id)->create();
+
+        Sanctum::actingAs($stranger);
+
+        $this->postJson("/api/v1/parent/fees/{$fee->uuid}/pay", [
+            'payment_method' => 'other',
+            'amount' => 10000,
+            'proof' => [
+                'name' => 'receipt.jpg',
+                'mime_type' => 'image/jpeg',
+                'base64' => base64_encode('receipt-bytes'),
+            ],
+        ])->assertNotFound()
+            ->assertJsonPath('message', 'Fee not found.');
+
+        $this->assertDatabaseMissing('fee_payments', [
+            'fee_id' => $fee->id,
+        ]);
     }
 
     /**
