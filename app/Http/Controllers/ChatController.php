@@ -118,7 +118,7 @@ class ChatController extends Controller
                 ->get()
                 ->map(function ($parent) use ($user) {
                     // Find or create User record for parent
-                    $parentUser = User::where('email', $parent->email)->first();
+                    $parentUser = $this->userForParent($parent);
                     if (!$parentUser) {
                         $parentUser = User::create([
                             'name' => $parent->full_name,
@@ -593,7 +593,7 @@ class ChatController extends Controller
                 ->get()
                 ->map(function ($parent) use ($user) {
                     // Find or create User record for parent
-                    $parentUser = User::where('email', $parent->email)->first();
+                    $parentUser = $this->userForParent($parent);
                     if (!$parentUser) {
                         // Create a user account for the parent if it doesn't exist
                         $parentUser = User::create([
@@ -767,7 +767,7 @@ class ChatController extends Controller
                 ->get();
 
             foreach ($parents as $parent) {
-                $parentUser = User::where('email', $parent->email)->first();
+                $parentUser = $this->userForParent($parent);
                 if (!$parentUser) {
                     $parentUser = User::create([
                         'name' => $parent->full_name,
@@ -808,7 +808,7 @@ class ChatController extends Controller
                 ->get();
 
             foreach ($parents as $parent) {
-                $parentUser = User::where('email', $parent->email)->first();
+                $parentUser = $this->userForParent($parent);
                 if (!$parentUser) {
                     $parentUser = User::create([
                         'name' => $parent->full_name,
@@ -920,6 +920,27 @@ class ChatController extends Controller
             'message' => $meetingMessage,
             'success' => true
         ]);
+    }
+
+    protected function userForParent(ParentGuardian $parent): ?User
+    {
+        $email = strtolower(trim((string) $parent->email));
+        if ($email === '') {
+            return null;
+        }
+
+        $match = User::query()
+            ->whereRaw('LOWER(TRIM(email)) = ?', [$email])
+            ->where('business_id', $parent->business_id)
+            ->first();
+
+        if ($match) {
+            return $match;
+        }
+
+        return User::query()
+            ->whereRaw('LOWER(TRIM(email)) = ?', [$email])
+            ->first();
     }
 
     protected function notifyConversationMessage(Conversation $conversation, ?Message $message, $sender): void

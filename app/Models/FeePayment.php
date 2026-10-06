@@ -47,17 +47,24 @@ class FeePayment extends Model
         return $this->belongsTo(ParentGuardian::class);
     }
 
-    public function methodLabel(): string
+    public static function methodOptions(): array
     {
-        return match ($this->method) {
-            'mtn_mobile_money', 'mobile_money' => 'MarzPay · Mobile money',
-            'airtel_money' => 'MarzPay · Airtel Money',
+        return [
+            'mtn_mobile_money' => 'MarzPay · MTN',
+            'airtel_money' => 'MarzPay · Airtel',
             'card' => 'MarzPay · Card',
             'cash' => 'Cash',
-            'other' => 'Other / attached proof',
+            'bank_transfer' => 'Bank transfer',
+            'other' => 'Other (attach receipt)',
+            'mobile_money' => 'MarzPay · Mobile money',
             'school_pay' => 'School Pay',
             'sure_pay' => 'Sure Pay',
-            default => ucfirst(str_replace('_', ' ', (string) $this->method)),
-        };
+        ];
+    }
+
+    public function methodLabel(): string
+    {
+        return self::methodOptions()[$this->method]
+            ?? ucfirst(str_replace('_', ' ', (string) $this->method));
     }
 }

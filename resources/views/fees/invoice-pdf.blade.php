@@ -46,6 +46,11 @@
                 <p>Date: {{ optional($fee->payment_date)->format('d M Y') ?: now()->format('d M Y') }}</p>
                 <p>Due: {{ optional($fee->due_date)->format('d M Y') ?: '—' }}</p>
                 <p>Status: <span class="{{ $fee->remainingBalance() > 0 ? 'due' : 'paid' }}">{{ strtoupper($fee->payment_status) }}</span></p>
+                @php($paymentOption = $fee->payments->sortBy('id')->last())
+                @if($paymentOption)
+                    <div class="label">Payment option</div>
+                    <p class="value">{{ $paymentOption->methodLabel() }}</p>
+                @endif
             </td>
         </tr>
     </table>

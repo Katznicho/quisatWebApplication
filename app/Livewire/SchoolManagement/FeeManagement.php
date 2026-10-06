@@ -2,6 +2,7 @@
 
 namespace App\Livewire\SchoolManagement;
 
+use App\Livewire\Concerns\RecordsAdminFeePayment;
 use App\Models\Fee;
 use App\Models\Student;
 use App\Services\FeeInvoiceService;
@@ -32,6 +33,7 @@ class FeeManagement extends Component implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
+    use RecordsAdminFeePayment;
 
     private function businessId(): ?int
     {
@@ -264,6 +266,7 @@ class FeeManagement extends Component implements HasForms, HasTable
                 TrashedFilter::make(),
             ])
             ->actions([
+                $this->recordPaymentAction(),
                 Action::make('view_proof')
                     ->label('Receipts')
                     ->icon('heroicon-o-photo')

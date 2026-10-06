@@ -87,6 +87,73 @@ class BusinessRegistrationTest extends TestCase
         });
     }
 
+    public function test_registration_notification_uses_the_new_business_when_another_church_is_logged_in()
+    {
+        Mail::fake();
+
+        $category = BusinessCategory::factory()->create(['name' => "Children's Church"]);
+        $country = Country::create([
+            'name' => 'Uganda',
+            'currency_code' => 'UGX',
+            'currency_name' => 'Ugandan Shilling',
+            'exchange_rate' => 1,
+            'is_default' => true,
+        ]);
+
+        $existingChurch = Business::factory()->create([
+            'name' => 'God loves children',
+            'email' => 'churchchildren49@gmail.com',
+            'phone' => '+64275214976',
+            'address' => 'Makerere Kavule',
+            'city' => 'Kampala',
+            'country' => 'Uganda',
+            'account_number' => 'KS1789142495',
+            'business_category_id' => $category->id,
+        ]);
+
+        $loggedInAdmin = User::factory()->create([
+            'business_id' => $existingChurch->id,
+        ]);
+
+        $response = $this->actingAs($loggedInAdmin)->post('/business/register', [
+            'business_name' => 'New Hope Kids Ministry',
+            'business_email' => 'newhope@kids.test',
+            'business_phone' => '+256700000001',
+            'business_address' => 'Ntinda',
+            'business_country_id' => $country->id,
+            'business_city' => 'Kampala',
+            'business_category_id' => $category->id,
+            'admin_name' => 'KIGANDA HONEST',
+            'admin_email' => 'horchildrensministry@gmail.com',
+            'admin_password' => 'password123',
+            'admin_password_confirmation' => 'password123',
+            'admin_phone' => '+256700000002',
+        ]);
+
+        $response->assertRedirect('/business/registration/success');
+
+        $this->assertDatabaseHas('businesses', [
+            'name' => 'New Hope Kids Ministry',
+            'email' => 'newhope@kids.test',
+        ]);
+        $this->assertDatabaseHas('users', [
+            'email' => 'horchildrensministry@gmail.com',
+            'phone' => '+256700000002',
+        ]);
+
+        Mail::assertSent(NewBusinessRegisteredMail::class, function (NewBusinessRegisteredMail $mail) {
+            $html = $mail->render();
+
+            return str_contains($html, 'New Hope Kids Ministry')
+                && str_contains($html, 'newhope@kids.test')
+                && str_contains($html, 'KIGANDA HONEST')
+                && str_contains($html, '+256700000002')
+                && ! str_contains($html, 'God loves children')
+                && ! str_contains($html, 'churchchildren49@gmail.com')
+                && ! str_contains($html, 'KS1789142495');
+        });
+    }
+
     public function test_business_registration_validates_required_fields()
     {
         $response = $this->post('/business/register', []);

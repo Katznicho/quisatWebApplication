@@ -188,6 +188,7 @@ class BusinessRegistrationController extends Controller
             $adminUser = User::create([
                 'name' => $request->admin_name,
                 'email' => $request->admin_email,
+                'phone' => $request->admin_phone,
                 'password' => Hash::make($request->admin_password),
                 'status' => 'active',
                 'business_id' => $business->id,

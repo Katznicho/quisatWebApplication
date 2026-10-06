@@ -70,6 +70,7 @@ class ConversationMessageNotificationService
 
         return match ($message->type) {
             'image' => 'Sent an image',
+            'video' => 'Sent a video',
             'file' => 'Sent a file',
             default => 'Sent a message',
         };

@@ -10,6 +10,7 @@ use App\Models\ParentGuardian;
 use App\Services\ConversationMessageNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -39,6 +40,8 @@ class ConversationController extends Controller
         $perPage = (int) $request->query('per_page', 25);
         $perPage = $perPage > 0 ? min($perPage, 100) : 25;
 
+        $linkedIds = $this->linkedUserIds($user);
+
         $conversationsQuery = Conversation::query()
             ->with([
                 'users:id,name,email,profile_photo_path',
@@ -47,16 +50,16 @@ class ConversationController extends Controller
                 },
             ])
             ->where('business_id', $businessId)
-            ->whereHas('participants', function ($query) use ($user) {
-                $query->where('user_id', $user->id);
+            ->whereHas('participants', function ($query) use ($linkedIds) {
+                $query->whereIn('user_id', $linkedIds);
             });
 
         // Parents can see group chats they belong to, but 1:1 chats only with staff
         if ($isParent) {
-            $conversationsQuery->where(function ($query) use ($user, $businessId) {
+            $conversationsQuery->where(function ($query) use ($linkedIds, $businessId) {
                 $query->where('type', 'group')
-                    ->orWhereDoesntHave('users', function ($subQuery) use ($user, $businessId) {
-                        $subQuery->where('users.id', '!=', $user->id)
+                    ->orWhereDoesntHave('users', function ($subQuery) use ($linkedIds, $businessId) {
+                        $subQuery->whereNotIn('users.id', $linkedIds)
                             ->whereExists(function ($exists) use ($businessId) {
                                 $exists->select(DB::raw(1))
                                     ->from('parent_guardians')
@@ -99,10 +102,15 @@ class ConversationController extends Controller
     {
         $businessId = $request->get('business_id');
 
+        $authenticatedUser = $request->get('authenticated_user');
+
         $query = User::query()
             ->select('users.id', 'users.name', 'users.email', 'users.profile_photo_path')
             ->where('users.business_id', $businessId)
             ->where('users.status', 'active')
+            ->when($authenticatedUser instanceof User, function ($builder) use ($authenticatedUser) {
+                $builder->where('users.id', '!=', $authenticatedUser->id);
+            })
             ->whereNotExists(function ($subQuery) use ($businessId) {
                 $subQuery->select(DB::raw(1))
                     ->from('parent_guardians')
@@ -162,7 +170,7 @@ class ConversationController extends Controller
             ], 404);
         }
 
-        if ($conversation->business_id !== $businessId || !$this->userInConversation($conversation, $user)) {
+        if ($this->deniesConversation($conversation, $user, $businessId)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Access denied.',
@@ -173,17 +181,23 @@ class ConversationController extends Controller
         $perPage = $perPage > 0 ? min($perPage, 100) : 50;
 
         $messagesQuery = $conversation->messages()
-            ->with('sender:id,name,email,profile_photo_path')
-            ->orderBy('created_at', 'asc');
+            ->with('sender:id,name,email,profile_photo_path');
 
-        $pivot = $conversation->users()->where('user_id', $user->id)->first()?->pivot;
+        $pivot = $this->participantRecord($conversation, $user);
         if ($pivot && $pivot->cleared_at !== null) {
             $messagesQuery->where('messages.created_at', '>', $pivot->cleared_at);
         }
 
-        $messages = $messagesQuery->paginate($perPage);
+        $total = (clone $messagesQuery)->reorder()->count();
+        $messages = (clone $messagesQuery)
+            ->reorder()
+            ->orderByDesc('messages.id')
+            ->limit($perPage)
+            ->get()
+            ->sortBy('id')
+            ->values();
 
-        $messageItems = collect($messages->items())
+        $messageItems = $messages
             ->map(fn (Message $message) => $this->transformMessage($message, $user))
             ->values()
             ->all();
@@ -197,11 +211,11 @@ class ConversationController extends Controller
             'data' => [
                 'messages' => $messageItems,
                 'pagination' => [
-                    'current_page' => $messages->currentPage(),
-                    'per_page' => $messages->perPage(),
-                    'total' => $messages->total(),
-                    'last_page' => $messages->lastPage(),
-                    'has_more' => $messages->hasMorePages(),
+                    'current_page' => 1,
+                    'per_page' => $perPage,
+                    'total' => $total,
+                    'last_page' => 1,
+                    'has_more' => $total > $messages->count(),
                 ],
             ],
         ]);
@@ -221,7 +235,7 @@ class ConversationController extends Controller
             ], 404);
         }
 
-        if ($conversation->business_id !== $businessId || !$this->userInConversation($conversation, $user)) {
+        if ($this->deniesConversation($conversation, $user, $businessId)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Access denied.',
@@ -230,8 +244,8 @@ class ConversationController extends Controller
 
         $validated = $request->validate([
             'content' => 'nullable|string|max:2000',
-            'type' => 'nullable|string|in:text,image,file',
-            'attachment' => 'nullable|file|mimes:jpeg,png,jpg,gif,svg,pdf,doc,docx,txt|max:10240', // 10MB max
+            'type' => 'nullable|string|in:text,image,video,file',
+            'attachment' => 'nullable|file|max:51200',
         ]);
 
         // Ensure either content or attachment is provided
@@ -250,24 +264,26 @@ class ConversationController extends Controller
         // Handle file upload
         if ($request->hasFile('attachment')) {
             $file = $request->file('attachment');
+            $classified = $this->classifyAttachment($file);
+            if (! $classified['ok']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'That file type is not supported. Send a photo, video, or document.',
+                ], 422);
+            }
+
             $attachmentName = $file->getClientOriginalName();
             $attachmentSize = $file->getSize();
-            
-            // Determine file type
-            $mimeType = $file->getMimeType();
-            if (str_starts_with($mimeType, 'image/')) {
-                $validated['type'] = 'image';
-                $attachmentPath = $file->store('messages/images', 'public');
-            } else {
-                $validated['type'] = 'file';
-                $attachmentPath = $file->store('messages/files', 'public');
-            }
+            $validated['type'] = $classified['kind'];
+            $attachmentPath = $file->store($classified['folder'], 'public');
         }
 
-        DB::transaction(function () use ($conversation, $user, &$message, $validated, $attachmentPath, $attachmentName, $attachmentSize) {
+        $actor = $this->actingParticipantUser($conversation, $user);
+
+        DB::transaction(function () use ($conversation, $actor, &$message, $validated, $attachmentPath, $attachmentName, $attachmentSize) {
             $message = $conversation->messages()->create([
-                'sender_id' => $user->id,
-                'content' => $validated['content'] ?? ($attachmentName ? "Sent {$attachmentName}" : ''),
+                'sender_id' => $actor->id,
+                'content' => $validated['content'] ?? '',
                 'type' => $validated['type'] ?? 'text',
                 'attachment_path' => $attachmentPath,
                 'attachment_name' => $attachmentName,
@@ -278,7 +294,7 @@ class ConversationController extends Controller
             $conversation->update(['last_message_at' => now()]);
 
             // Update sender participant last_read_at so their message shows as read immediately
-            $participant = $conversation->participants()->where('user_id', $user->id)->first();
+            $participant = $conversation->participants()->where('user_id', $actor->id)->first();
             if ($participant) {
                 $participant->update(['last_read_at' => now()]);
             }
@@ -293,7 +309,7 @@ class ConversationController extends Controller
 
         $message->load('sender:id,name,email,profile_photo_path');
 
-        $this->notifyNewMessage($conversation, $message, $user);
+        $this->notifyNewMessage($conversation, $message, $actor);
 
         return response()->json([
             'success' => true,
@@ -546,7 +562,7 @@ class ConversationController extends Controller
             ], 404);
         }
 
-        if ($conversation->business_id !== $businessId || !$this->userInConversation($conversation, $user)) {
+        if ($this->deniesConversation($conversation, $user, $businessId)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Access denied.',
@@ -578,7 +594,7 @@ class ConversationController extends Controller
             ], 404);
         }
 
-        if ($conversation->business_id !== $businessId || !$this->userInConversation($conversation, $user)) {
+        if ($this->deniesConversation($conversation, $user, $businessId)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Access denied.',
@@ -586,7 +602,7 @@ class ConversationController extends Controller
         }
 
         $conversation->participants()
-            ->where('user_id', $user->id)
+            ->whereIn('user_id', $this->linkedUserIds($user))
             ->update(['cleared_at' => now()]);
 
         return response()->json([
@@ -608,7 +624,7 @@ class ConversationController extends Controller
             ], 404);
         }
 
-        if ($conversation->business_id !== $businessId || ! $this->userInConversation($conversation, $user)) {
+        if ($this->deniesConversation($conversation, $user, $businessId)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Access denied.',
@@ -730,9 +746,10 @@ class ConversationController extends Controller
         $conversation->loadMissing(['users:id,name,email,profile_photo_path', 'latestMessage.sender:id,name,email,profile_photo_path']);
 
         $latestMessage = $conversation->latestMessage;
-        $participant = $conversation->participants()->where('user_id', $user->id)->first();
+        $participant = $this->participantRecord($conversation, $user);
+        $linkedIds = $this->linkedUserIds($user);
         $unreadQuery = $conversation->messages()
-            ->where('sender_id', '!=', $user->id)
+            ->whereNotIn('sender_id', $linkedIds)
             ->where('is_read', false);
         if ($participant && $participant->cleared_at) {
             $unreadQuery->where('messages.created_at', '>', $participant->cleared_at);
@@ -780,7 +797,7 @@ class ConversationController extends Controller
             'id' => $message->id,
             'content' => $message->content,
             'type' => $message->type,
-            'is_from_user' => $message->sender_id === $user->id,
+            'is_from_user' => in_array((int) $message->sender_id, $this->linkedUserIds($user), true),
             'is_read' => (bool) $message->is_read,
             'read_at' => optional($message->read_at)->toIso8601String(),
             'created_at' => optional($message->created_at)->toIso8601String(),
@@ -805,9 +822,92 @@ class ConversationController extends Controller
         return $data;
     }
 
+    protected array $linkedUserIdCache = [];
+
+    protected function linkedUserIds(User $user): array
+    {
+        if (isset($this->linkedUserIdCache[$user->id])) {
+            return $this->linkedUserIdCache[$user->id];
+        }
+
+        $email = strtolower(trim((string) $user->email));
+        $ids = $email === ''
+            ? [(int) $user->id]
+            : User::query()
+                ->whereRaw('LOWER(TRIM(email)) = ?', [$email])
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+
+        if (! in_array((int) $user->id, $ids, true)) {
+            $ids[] = (int) $user->id;
+        }
+
+        return $this->linkedUserIdCache[$user->id] = array_values(array_unique($ids));
+    }
+
+    protected function participantRecord(Conversation $conversation, User $user)
+    {
+        $rows = $conversation->participants()
+            ->whereIn('user_id', $this->linkedUserIds($user))
+            ->get();
+
+        return $rows->first(fn ($row) => (int) $row->user_id === (int) $user->id) ?? $rows->first();
+    }
+
+    protected function actingParticipantUser(Conversation $conversation, User $user): User
+    {
+        $participant = $this->participantRecord($conversation, $user);
+        if (! $participant || (int) $participant->user_id === (int) $user->id) {
+            return $user;
+        }
+
+        return User::query()->find($participant->user_id) ?? $user;
+    }
+
+    /**
+     * @return array{ok: bool, kind?: string, folder?: string}
+     */
+    protected function classifyAttachment(UploadedFile $file): array
+    {
+        $extension = strtolower($file->getClientOriginalExtension() ?: '');
+        $guessed = strtolower((string) ($file->guessExtension() ?: ''));
+        $video = ['mp4', 'mov', 'm4v', '3gp', 'webm', 'qt'];
+        $image = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'svg', 'bmp'];
+        $documents = ['pdf', 'doc', 'docx', 'txt'];
+        $allowed = array_merge($video, $image, $documents);
+
+        $matched = in_array($extension, $allowed, true)
+            ? $extension
+            : (in_array($guessed, $allowed, true) ? $guessed : null);
+
+        if ($matched === null) {
+            return ['ok' => false];
+        }
+
+        $mimeType = (string) $file->getMimeType();
+        if (in_array($matched, $video, true) || str_starts_with($mimeType, 'video/')) {
+            return ['ok' => true, 'kind' => 'video', 'folder' => 'messages/videos'];
+        }
+
+        if (in_array($matched, $image, true) || str_starts_with($mimeType, 'image/')) {
+            return ['ok' => true, 'kind' => 'image', 'folder' => 'messages/images'];
+        }
+
+        return ['ok' => true, 'kind' => 'file', 'folder' => 'messages/files'];
+    }
+
+    protected function deniesConversation(Conversation $conversation, User $user, $businessId): bool
+    {
+        return (int) $conversation->business_id !== (int) $businessId
+            || ! $this->userInConversation($conversation, $user);
+    }
+
     protected function userInConversation(Conversation $conversation, User $user): bool
     {
-        return $conversation->participants()->where('user_id', $user->id)->exists();
+        return $conversation->participants()
+            ->whereIn('user_id', $this->linkedUserIds($user))
+            ->exists();
     }
 
     protected function notifyNewMessage(Conversation $conversation, Message $message, User $sender): void
@@ -825,9 +925,11 @@ class ConversationController extends Controller
 
     protected function markMessagesAsRead(Conversation $conversation, User $user): void
     {
-        DB::transaction(function () use ($conversation, $user) {
+        $linkedIds = $this->linkedUserIds($user);
+
+        DB::transaction(function () use ($conversation, $linkedIds) {
             $conversation->messages()
-                ->where('sender_id', '!=', $user->id)
+                ->whereNotIn('sender_id', $linkedIds)
                 ->where('is_read', false)
                 ->update([
                     'is_read' => true,
@@ -835,7 +937,7 @@ class ConversationController extends Controller
                 ]);
 
             $conversation->participants()
-                ->where('user_id', $user->id)
+                ->whereIn('user_id', $linkedIds)
                 ->update(['last_read_at' => now()]);
         });
     }

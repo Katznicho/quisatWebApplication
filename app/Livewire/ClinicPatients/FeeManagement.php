@@ -2,6 +2,7 @@
 
 namespace App\Livewire\ClinicPatients;
 
+use App\Livewire\Concerns\RecordsAdminFeePayment;
 use App\Models\ClinicPatient;
 use App\Models\ClinicService;
 use App\Models\Fee;
@@ -35,6 +36,7 @@ class FeeManagement extends Component implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
+    use RecordsAdminFeePayment;
 
     public ?ClinicPatient $patient = null;
 
@@ -290,6 +292,7 @@ class FeeManagement extends Component implements HasForms, HasTable
                 TrashedFilter::make(),
             ])
             ->actions([
+                $this->recordPaymentAction(),
                 Action::make('view_proof')
                     ->label('Receipts')
                     ->icon('heroicon-o-photo')

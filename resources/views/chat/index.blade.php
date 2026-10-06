@@ -227,6 +227,7 @@
     <script>
         let currentConversationId = null;
         let currentContactId = null;
+        let renderedMessageSignature = '';
         
         document.addEventListener('DOMContentLoaded', function() {
             const contactInfoBtn = document.getElementById('contactInfoBtn');
@@ -560,6 +561,7 @@
                     if (conversation) {
                         // Load messages for existing conversation
                         currentConversationId = conversation.id;
+                        renderedMessageSignature = '';
                         loadMessages(conversation.id);
                     } else {
                         // No existing conversation, show start message
@@ -583,7 +585,8 @@
         }
 
         // Load messages for a conversation
-        function loadMessages(conversationId) {
+        function loadMessages(conversationId, options) {
+            const silent = options && options.silent;
             
             fetch(`/chat/conversations/${conversationId}/messages`, {
                 headers: {
@@ -601,10 +604,17 @@
                     return response.json();
                 })
                 .then(messages => {
+                    if (String(currentConversationId) !== String(conversationId)) {
+                        return;
+                    }
+
                     const messagesContainer = document.getElementById('messagesContainer');
                     
                     // Check if messages is an array
                     if (!Array.isArray(messages)) {
+                        if (silent) {
+                            return;
+                        }
                         messagesContainer.innerHTML = `
                             <div class="text-center text-red-500 dark:text-red-400 mt-20">
                                 <h3 class="text-sm font-medium">Error loading messages</h3>
@@ -614,6 +624,12 @@
                         return;
                     }
                     
+                    const signature = messages.map(message => message.id).join(',');
+                    if (silent && signature === renderedMessageSignature) {
+                        return;
+                    }
+                    renderedMessageSignature = signature;
+
                     if (messages.length === 0) {
                         messagesContainer.innerHTML = `
                             <div class="text-center text-gray-500 dark:text-gray-400 mt-20">
@@ -652,6 +668,9 @@
                     markMessagesAsRead(conversationId);
                 })
                 .catch(error => {
+                    if (silent) {
+                        return;
+                    }
                     
                     // If it's a 404 error, treat it as if no conversation exists
                     if (error.message.includes('404')) {
@@ -671,6 +690,12 @@
                     }
                 });
         }
+
+        setInterval(function () {
+            if (currentConversationId) {
+                loadMessages(currentConversationId, { silent: true });
+            }
+        }, 4000);
 
         // Mark messages as read
         function markMessagesAsRead(conversationId) {

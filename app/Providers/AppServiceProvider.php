@@ -35,6 +35,13 @@ class AppServiceProvider extends ServiceProvider
         }
 
         View::composer('*', function ($view) {
+            // Mail templates pass their own $business. Overwriting it here swaps in
+            // the logged-in user's church (or null), so registration alerts show the wrong business.
+            $viewName = $view->name();
+            if (str_starts_with($viewName, 'mail.') || str_starts_with($viewName, 'mail::') || str_starts_with($viewName, 'emails.')) {
+                return;
+            }
+
             if (Auth::check()) {
                 // Refresh the business relationship to ensure we have the latest data
                 $user = Auth::user();
