@@ -164,6 +164,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('login-adverts', function () {
             return view('login-adverts.index');
         })->name('login-adverts.index');
+        Route::get('packages', function () {
+            return view('settings.packages');
+        })->name('packages.settings');
         Route::put('withdrawal/settings', [WithdrawalSettingsController::class, 'update'])->name('withdrawal.settings.update');
     });
 

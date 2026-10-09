@@ -705,6 +705,9 @@
                                 </svg>
                             </button>
                             <ul x-show="openGroup === 'settings'" x-collapse class="mt-1 space-y-1 pl-10">
+                                <li><a href="{{ route('packages.settings') }}"
+                                        class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Packages</a>
+                                </li>
                                 <li><a href="{{ route('business-categories.index') }}"
                                         class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Manage Business
                                         Categories</a>
