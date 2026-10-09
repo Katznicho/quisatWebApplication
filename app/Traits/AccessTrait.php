@@ -86,7 +86,7 @@ trait AccessTrait
     ];
 
     public static $attendance = [
-        "Attendance" => ['View Attendance', 'Add Attendance', 'Edit Attendance', 'Delete Attendance'],
+        "Attendance" => ['View Attendance', 'Add Attendance', 'Edit Attendance', 'Delete Attendance', 'View staff attendance', 'Correct staff attendance', 'Record staff attendance for others'],
     ];
 
     public static $members = [
@@ -95,6 +95,10 @@ trait AccessTrait
 
     public static $assignments = [
         "Assignments" => ['View Assignments', 'Add Assignments', 'Edit Assignments', 'Delete Assignments'],
+    ];
+
+    public static $smallGroups = [
+        "Small Groups" => ['View small groups', 'Manage small groups', 'Verify small group attendance'],
     ];
 
     public static function spreadArrayKeys($assocArray)
@@ -140,7 +144,8 @@ trait AccessTrait
                 static::$grades,
                 static::$attendance,
                 static::$members,
-                static::$assignments
+                static::$assignments,
+                static::$smallGroups
             )
         );
         return $roles;
@@ -173,6 +178,7 @@ trait AccessTrait
             "Attendance" => self::$attendance,
             "Members (Students, Parents)" => self::$members,
             "Assignments" => self::$assignments,
+            "Small Groups" => self::$smallGroups,
         ];
 
         if (!empty($exclude)) {

@@ -87,6 +87,7 @@ class Feature extends Model
         $church = [
             'kids church',
             'quisat moments',
+            'small groups',
         ];
 
         if (in_array($normalized, $school, true)) {

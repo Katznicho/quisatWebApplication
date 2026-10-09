@@ -3,7 +3,7 @@
 @section('content')
 @php
     $activeTab = request('tab', 'children');
-    $tabs = ['overview', 'children', 'groups', 'check-in', 'lessons', 'incidents', 'volunteers', 'moments', 'prayer', 'feedback', 'memory-wall', 'events', 'parents', 'fees'];
+    $tabs = ['overview', 'children', 'groups', 'small-groups', 'check-in', 'lessons', 'incidents', 'volunteers', 'moments', 'prayer', 'feedback', 'memory-wall', 'events', 'parents', 'fees'];
     if (! in_array($activeTab, $tabs, true)) {
         $activeTab = 'children';
     }
@@ -129,6 +129,7 @@
                 'overview' => 'Overview',
                 'children' => 'Children',
                 'groups' => 'Groups',
+                'small-groups' => 'Small groups',
                 'check-in' => 'Check-in',
                 'lessons' => 'Lessons',
                 'incidents' => 'Incidents',
@@ -252,6 +253,16 @@
             <p class="mb-4 text-sm text-slate-500">Age groups or classes used for check-in, lessons, and Moments albums.</p>
             @livewire('school-management.class-room-management')
         </div>
+    @elseif($activeTab === 'small-groups')
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 class="mb-1 text-xl font-semibold text-slate-900">Small groups</h2>
+            <p class="mb-4 text-sm text-slate-500">Home groups for this church. These are separate from the age groups used for check-in and lessons.</p>
+            @if(\Illuminate\Support\Facades\Schema::hasTable('small_groups'))
+                @livewire('school-management.small-group-management')
+            @else
+                <p class="text-sm text-slate-600">Run <code class="rounded bg-slate-100 px-1.5 py-0.5">php artisan migrate</code> to enable small groups.</p>
+            @endif
+        </div>
     @elseif($activeTab === 'check-in')
         <div class="space-y-6">
             <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -262,8 +273,15 @@
                 @endif
             </div>
             <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h2 class="mb-1 text-xl font-semibold text-slate-900">Attendance</h2>
-                <p class="mb-4 text-sm text-slate-500">Daily check-in records. Parents generate a 4-digit code in the app. Volunteers enter that code to check the child in and again at pickup, then share this week’s memory verse.</p>
+                <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h2 class="mb-1 text-xl font-semibold text-slate-900">Attendance</h2>
+                        <p class="text-sm text-slate-500">Daily check-in records. Parents generate a 4-digit code in the app. Volunteers enter that code to check the child in and again at pickup, then share this week’s memory verse.</p>
+                    </div>
+                    @if(auth()->user()?->canViewStaffAttendance())
+                        <a href="{{ route('school-management.staff-attendance') }}" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white">Staff attendance</a>
+                    @endif
+                </div>
                 @livewire('school-management.attendance-management')
             </div>
         </div>

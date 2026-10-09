@@ -23,6 +23,8 @@ class Business extends Model
         'percentage_charge',
         'minimum_amount',
         'type',
+        'package',
+        'package_services',
         'account_number',
         'account_balance',
         'available_balance',
@@ -43,6 +45,7 @@ class Business extends Model
         'date',
         'country',
         'city',
+        'timezone',
         'business_category_id',
         'country_id',
         'currency_code',
@@ -56,6 +59,7 @@ class Business extends Model
     //cast
     protected $casts = [
         'enabled_feature_ids' => 'array',
+        'package_services' => 'array',
         'social_media_handles' => 'array',
         'exchange_rate' => 'float',
         'available_balance' => 'decimal:2',
@@ -341,6 +345,21 @@ class Business extends Model
         }
 
         return (string) ($this->businessCategory()->value('name') ?? '');
+    }
+
+    public function packagePayload(): array
+    {
+        return \App\Support\OrganisationPackage::payload($this);
+    }
+
+    public function timezoneName(): string
+    {
+        $timezone = is_string($this->timezone) ? $this->timezone : '';
+        if ($timezone !== '' && in_array($timezone, timezone_identifiers_list(), true)) {
+            return $timezone;
+        }
+
+        return (string) config('app.timezone', 'Africa/Nairobi');
     }
 
     public function usesKidsChurchHub(): bool

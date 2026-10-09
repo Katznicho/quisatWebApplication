@@ -11,13 +11,15 @@ use App\Models\Student;
 use App\Models\Term;
 use App\Models\User;
 use App\Services\PickupCodeService;
+use App\Services\TeacherClassScope;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
 class AttendanceController extends Controller
 {
     public function __construct(
-        protected PickupCodeService $pickupCodes
+        protected PickupCodeService $pickupCodes,
+        protected TeacherClassScope $classScope
     ) {}
 
     public function studentHistory(Request $request)
@@ -583,5 +585,176 @@ class AttendanceController extends Controller
         }
 
         return null;
+    }
+
+    public function teacherClasses(Request $request)
+    {
+        $user = $request->get('authenticated_user');
+        $business = $request->get('business');
+        if (! $user instanceof User || ! $business) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only staff can load check-in classes.',
+            ], 403);
+        }
+
+        $classes = $this->classScope->assignedClasses($user, (int) $business->id)->map(fn ($classRoom) => [
+            'id' => $classRoom->id,
+            'name' => $classRoom->name,
+            'code' => $classRoom->code,
+        ])->values();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Classes loaded.',
+            'data' => [
+                'classes' => $classes,
+                'auto_select_id' => $classes->count() === 1 ? $classes->first()['id'] : null,
+            ],
+        ]);
+    }
+
+    public function classChildren(Request $request)
+    {
+        $user = $request->get('authenticated_user');
+        $business = $request->get('business');
+        if (! $user instanceof User || ! $business) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only staff can load a class roster.',
+            ], 403);
+        }
+
+        $classRoomId = (int) $request->query('class_room_id');
+        if (! $classRoomId || ! $this->classScope->canAccessClass($user, (int) $business->id, $classRoomId)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'That class is not assigned to you.',
+            ], 403);
+        }
+
+        $students = Student::query()
+            ->with(['classRoom:id,name', 'parentGuardian:id,first_name,last_name'])
+            ->where('business_id', $business->id)
+            ->where('class_room_id', $classRoomId)
+            ->where(function ($query) {
+                $query->whereNull('status')->orWhere('status', 'active');
+            })
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Children loaded.',
+            'data' => [
+                'children' => $this->rosterChildren($students, (int) $business->id),
+            ],
+        ]);
+    }
+
+    public function family(Request $request)
+    {
+        $user = $request->get('authenticated_user');
+        $business = $request->get('business');
+        if (! $user instanceof User || ! $business) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only staff can open a family.',
+            ], 403);
+        }
+
+        $anchor = Student::query()
+            ->with('parentGuardian:id,first_name,last_name')
+            ->where('business_id', $business->id)
+            ->whereKey((int) $request->query('student_id'))
+            ->first();
+
+        if (! $anchor || ! $anchor->class_room_id || ! $this->classScope->canAccessClass($user, (int) $business->id, (int) $anchor->class_room_id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'That child is outside your classes.',
+            ], 403);
+        }
+
+        if (! $anchor->parent_guardian_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This child is not linked to a family.',
+            ], 422);
+        }
+
+        $siblings = Student::query()
+            ->with(['classRoom:id,name', 'parentGuardian:id,first_name,last_name'])
+            ->where('business_id', $business->id)
+            ->where('parent_guardian_id', $anchor->parent_guardian_id)
+            ->where(function ($query) {
+                $query->whereNull('status')->orWhere('status', 'active');
+            })
+            ->when($user->branch_id && ! $this->classScope->seesAllClasses($user), function ($query) use ($user) {
+                $query->where(function ($inner) use ($user) {
+                    $inner->whereNull('branch_id')->orWhere('branch_id', $user->branch_id);
+                });
+            })
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get();
+
+        $parent = $anchor->parentGuardian;
+        $familyName = trim(($parent->first_name ?? '').' '.($parent->last_name ?? ''));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Family loaded.',
+            'data' => [
+                'family' => [
+                    'id' => $anchor->parent_guardian_id,
+                    'name' => $familyName !== '' ? $familyName.' family' : 'Family',
+                ],
+                'children' => $this->rosterChildren($siblings, (int) $business->id),
+            ],
+        ]);
+    }
+
+    protected function rosterChildren($students, int $businessId): array
+    {
+        $studentIds = $students->pluck('id');
+        $parentIds = $students->pluck('parent_guardian_id')->filter()->unique()->values();
+        $familyCounts = $parentIds->isEmpty()
+            ? collect()
+            : Student::query()
+                ->where('business_id', $businessId)
+                ->whereIn('parent_guardian_id', $parentIds)
+                ->selectRaw('parent_guardian_id, COUNT(*) as aggregate')
+                ->groupBy('parent_guardian_id')
+                ->pluck('aggregate', 'parent_guardian_id');
+
+        $today = Attendance::query()
+            ->where('business_id', $businessId)
+            ->whereIn('student_id', $studentIds)
+            ->whereDate('attendance_date', Carbon::today())
+            ->get()
+            ->keyBy('student_id');
+
+        return $students->map(function (Student $student) use ($familyCounts, $today) {
+            $record = $today->get($student->id);
+            $parent = $student->parentGuardian;
+            $familyName = trim(($parent->first_name ?? '').' '.($parent->last_name ?? ''));
+
+            return [
+                'id' => $student->id,
+                'full_name' => $student->full_name,
+                'class' => $student->classRoom?->name,
+                'class_room_id' => $student->class_room_id,
+                'parent_guardian_id' => $student->parent_guardian_id,
+                'family_name' => $familyName !== '' ? $familyName.' family' : null,
+                'family_size' => $student->parent_guardian_id ? (int) ($familyCounts[$student->parent_guardian_id] ?? 1) : 1,
+                'allergies' => $student->allergies,
+                'medical_notes' => $student->medical_notes,
+                'dietary_restrictions' => $student->dietary_restrictions,
+                'has_medical_alert' => $student->hasMedicalAlert(),
+                'today' => $record ? $this->transformAttendance($record) : null,
+            ];
+        })->values()->all();
     }
 }

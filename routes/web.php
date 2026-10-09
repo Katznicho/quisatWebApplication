@@ -161,6 +161,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::put('marzpay/settings', [\App\Http\Controllers\MarzPaySettingsController::class, 'update'])->name('marzpay.settings.update');
         Route::get('marzpay/transactions', [\App\Http\Controllers\MarzPayTransactionController::class, 'index'])->name('marzpay.transactions.index');
         Route::get('withdrawal/settings', [WithdrawalSettingsController::class, 'edit'])->name('withdrawal.settings.edit');
+        Route::get('login-adverts', function () {
+            return view('login-adverts.index');
+        })->name('login-adverts.index');
         Route::put('withdrawal/settings', [WithdrawalSettingsController::class, 'update'])->name('withdrawal.settings.update');
     });
 
@@ -272,6 +275,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/students/bulk-upload', [StudentController::class, 'bulkUpload'])->name('students.bulk-upload');
 
         Route::get('/attendance', $kidsChurchHubOrView('check-in', 'school-management.attendance'))->name('attendance');
+        Route::get('/staff-attendance', function () {
+            return view('school-management.staff-attendance');
+        })->name('staff-attendance');
+        Route::get('/small-groups', function () {
+            return view('school-management.small-groups');
+        })->name('small-groups');
 
         Route::get('/calendar-events', $kidsChurchHubOrView('events', 'school-management.calendar-events'))->name('calendar-events');
 

@@ -237,6 +237,7 @@ class ParentDashboardController extends Controller
                 'business_id' => $business->id,
                 'business_name' => $business->name,
                 'enabled_feature_names' => $business->enabledFeatureNames(),
+                ...$business->packagePayload(),
                 'linked_organizations' => $linkedOrganizations,
                 'children' => $childrenData,
                 'announcements' => $announcements,
@@ -274,6 +275,7 @@ class ParentDashboardController extends Controller
                 'is_church' => $org->isChurch(),
                 'is_clinic' => $org->isClinic(),
                 'enabled_feature_names' => $org->enabledFeatureNames(),
+                ...$org->packagePayload(),
             ])
             ->values()
             ->all();

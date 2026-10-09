@@ -228,6 +228,42 @@ class ListBusiness extends Component implements HasForms, HasTable
 
             ])
             ->headerActions([
+                Tables\Actions\Action::make('package_plans')
+                    ->label('Package prices')
+                    ->visible(fn (): bool => Auth::user()->business_id === 1)
+                    ->fillForm(function (): array {
+                        $plans = \App\Models\PackagePlan::query()->get()->keyBy('key');
+
+                        return [
+                            'gold_name' => $plans['gold']->name ?? 'Gold',
+                            'gold_price' => $plans['gold']->price ?? null,
+                            'silver_name' => $plans['silver']->name ?? 'Silver',
+                            'silver_price' => $plans['silver']->price ?? null,
+                            'free_name' => $plans['free']->name ?? 'Free',
+                            'free_price' => $plans['free']->price ?? 0,
+                        ];
+                    })
+                    ->form([
+                        \Filament\Forms\Components\TextInput::make('gold_name')->label('Gold name')->required(),
+                        \Filament\Forms\Components\TextInput::make('gold_price')->label('Gold price')->numeric()->placeholder('To be provided'),
+                        \Filament\Forms\Components\TextInput::make('silver_name')->label('Silver name')->required(),
+                        \Filament\Forms\Components\TextInput::make('silver_price')->label('Silver price')->numeric()->placeholder('To be provided'),
+                        \Filament\Forms\Components\TextInput::make('free_name')->label('Free name')->required(),
+                        \Filament\Forms\Components\TextInput::make('free_price')->label('Free price')->numeric()->default(0),
+                    ])
+                    ->action(function (array $data): void {
+                        foreach (['gold', 'silver', 'free'] as $key) {
+                            \App\Models\PackagePlan::query()->updateOrCreate(
+                                ['key' => $key],
+                                [
+                                    'name' => $data[$key.'_name'],
+                                    'price' => $data[$key.'_price'] === '' || $data[$key.'_price'] === null ? null : $data[$key.'_price'],
+                                    'currency_code' => 'UGX',
+                                ]
+                            );
+                        }
+                        Notification::make()->title('Package names and prices saved')->success()->send();
+                    }),
                 Tables\Actions\CreateAction::make()
                     ->visible(fn (): bool => Auth::user()->business_id === 1)
                     ->form([
@@ -281,6 +317,7 @@ class ListBusiness extends Component implements HasForms, HasTable
                                 self::mergeCategoryFeaturesIntoForm($set, $get, $state);
                             })
                             ->placeholder('Select category'),
+                        ...self::packageFormFields(),
                         self::enabledFeaturesCheckboxList(),
                     ])
                     ->mutateFormDataUsing(function (array $data): array {
@@ -413,6 +450,8 @@ class ListBusiness extends Component implements HasForms, HasTable
                             'website_link' => $record->website_link ?? '',
                             'business_category_id' => $record->business_category_id,
                             'enabled_feature_ids' => $record->enabled_feature_ids ?? [],
+                            'package' => $record->package ?: 'free',
+                            'package_services' => $record->package_services ?? [],
                             'accepting_stationery_orders' => (bool) ($record->accepting_stationery_orders ?? true),
                             'social_facebook' => $socialHandles['facebook'] ?? null,
                             'social_instagram' => $socialHandles['instagram'] ?? null,
@@ -471,6 +510,7 @@ class ListBusiness extends Component implements HasForms, HasTable
                                 self::mergeCategoryFeaturesIntoForm($set, $get, $state);
                             })
                             ->placeholder('Select category'),
+                        ...self::packageFormFields(),
                         self::enabledFeaturesCheckboxList(),
                         \Filament\Forms\Components\Toggle::make('accepting_stationery_orders')
                             ->label('Accepting Stationery Hub orders')
@@ -595,6 +635,30 @@ class ListBusiness extends Component implements HasForms, HasTable
      * Show every feature, grouped as school / church / marketplace, so dual
      * tenants can keep school modules when church is also enabled.
      */
+    protected static function packageFormFields(): array
+    {
+        $superAdmin = fn (): bool => Auth::check() && (int) Auth::user()->business_id === 1;
+
+        return [
+            \Filament\Forms\Components\Select::make('package')
+                ->label('Organisation package')
+                ->options(fn () => \App\Support\OrganisationPackage::planOptions())
+                ->default('free')
+                ->required()
+                ->reactive()
+                ->helperText('Operational school and church tools stay available on every package. Community services follow the package.')
+                ->visible($superAdmin)
+                ->dehydrated($superAdmin),
+            \Filament\Forms\Components\CheckboxList::make('package_services')
+                ->label('Silver community services')
+                ->options(fn () => \App\Support\OrganisationPackage::toggleableOptions())
+                ->columns(2)
+                ->helperText('Clinics stays available. Turn on the other community services this organisation should see.')
+                ->visible(fn (\Filament\Forms\Get $get): bool => $superAdmin() && $get('package') === 'silver')
+                ->dehydrated(fn (\Filament\Forms\Get $get): bool => $superAdmin() && $get('package') === 'silver'),
+        ];
+    }
+
     protected static function enabledFeaturesCheckboxList(bool $disabled = false): \Filament\Forms\Components\CheckboxList
     {
         return \Filament\Forms\Components\CheckboxList::make('enabled_feature_ids')

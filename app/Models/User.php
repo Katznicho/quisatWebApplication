@@ -111,6 +111,54 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->business_id != 1 && $this->role && $this->role->name === 'Admin';
     }
 
+    public function permissionNames(): array
+    {
+        $permissions = $this->role?->permissions ?? [];
+        if (is_string($permissions)) {
+            $decoded = json_decode($permissions, true);
+            $permissions = is_array($decoded) ? $decoded : [];
+        }
+
+        return is_array($permissions) ? array_values($permissions) : [];
+    }
+
+    public function hasPermission(string $permission): bool
+    {
+        return in_array($permission, $this->permissionNames(), true);
+    }
+
+    public function canViewStaffAttendance(): bool
+    {
+        return $this->isAdmin() || $this->isBusinessAdmin() || $this->hasPermission('View staff attendance');
+    }
+
+    public function canCorrectStaffAttendance(): bool
+    {
+        return $this->isAdmin() || $this->isBusinessAdmin() || $this->hasPermission('Correct staff attendance');
+    }
+
+    public function canRecordStaffAttendanceForOthers(): bool
+    {
+        return $this->isAdmin() || $this->isBusinessAdmin() || $this->hasPermission('Record staff attendance for others');
+    }
+
+    public function canManageSmallGroups(): bool
+    {
+        return $this->isAdmin() || $this->isBusinessAdmin() || $this->hasPermission('Manage small groups');
+    }
+
+    public function canViewSmallGroups(): bool
+    {
+        return $this->canManageSmallGroups()
+            || $this->hasPermission('View small groups')
+            || $this->hasPermission('Verify small group attendance');
+    }
+
+    public function canVerifySmallGroupAttendance(): bool
+    {
+        return $this->isAdmin() || $this->isBusinessAdmin() || $this->hasPermission('Verify small group attendance') || $this->canManageSmallGroups();
+    }
+
     protected static function booted()
     {
         static::creating(function ($user) {

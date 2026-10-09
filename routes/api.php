@@ -14,6 +14,7 @@ use App\Http\Controllers\API\ConversationController;
 use App\Http\Controllers\API\DocumentController;
 use App\Http\Controllers\API\KidsIncidentController;
 use App\Http\Controllers\API\KidsLessonController;
+use App\Http\Controllers\API\LoginAdvertController;
 use App\Http\Controllers\API\KidsProgramController;
 use App\Http\Controllers\API\MarzPayPaymentController;
 use App\Http\Controllers\API\MarzPayWebhookController;
@@ -35,6 +36,8 @@ use App\Http\Controllers\API\PublicKidsFunVenuesController;
 use App\Http\Controllers\API\PublicParentCornersController;
 use App\Http\Controllers\API\PublicProgramsController;
 use App\Http\Controllers\API\PublicStatsController;
+use App\Http\Controllers\API\SmallGroupController;
+use App\Http\Controllers\API\StaffAttendanceController;
 use App\Http\Controllers\API\StaffDashboardController;
 use App\Http\Controllers\API\StudentAcademicEntryController;
 use App\Http\Controllers\API\StudentCharacterController;
@@ -49,7 +52,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 
 // API Routes
-Route::prefix('v1')->group(function () {
+Route::prefix('v1')->middleware('community.package')->group(function () {
 
     // Public Routes (No Authentication Required)
     // Exclude Sanctum middleware to allow public access
@@ -243,6 +246,8 @@ Route::prefix('v1')->group(function () {
         Route::post('businesses/{id}/reviews', [BusinessReviewController::class, 'store']);
 
         // Push notifications & device registration
+        Route::get('login-advert', [LoginAdvertController::class, 'next']);
+
         Route::post('device-tokens', [\App\Http\Controllers\API\DeviceTokenController::class, 'store']);
         Route::delete('device-tokens', [\App\Http\Controllers\API\DeviceTokenController::class, 'destroy']);
         Route::get('notifications', [\App\Http\Controllers\API\UserNotificationController::class, 'index']);
@@ -359,10 +364,27 @@ Route::prefix('v1')->group(function () {
                 Route::post('{id}/attach', [ClinicController::class, 'attach']);
             });
             Route::get('attendance/history', [AttendanceController::class, 'studentHistory']);
+            Route::get('attendance/teacher-classes', [AttendanceController::class, 'teacherClasses']);
+            Route::get('attendance/class-children', [AttendanceController::class, 'classChildren']);
+            Route::get('attendance/family', [AttendanceController::class, 'family']);
             Route::post('attendance/check-in', [AttendanceController::class, 'checkIn']);
             Route::post('attendance/check-out', [AttendanceController::class, 'checkOut']);
             Route::post('attendance/ensure-pickup-codes', [AttendanceController::class, 'ensurePickupCodes']);
             Route::get('attendance/pickup-codes', [AttendanceController::class, 'pickupCodes']);
+
+            Route::get('staff-attendance/today', [StaffAttendanceController::class, 'today']);
+            Route::get('staff-attendance/history', [StaffAttendanceController::class, 'history']);
+            Route::get('staff-attendance/colleagues', [StaffAttendanceController::class, 'colleagues']);
+            Route::post('staff-attendance/check-in', [StaffAttendanceController::class, 'checkIn']);
+            Route::post('staff-attendance/check-out', [StaffAttendanceController::class, 'checkOut']);
+
+            Route::get('small-groups/mine', [SmallGroupController::class, 'mine']);
+            Route::get('small-groups/meetings', [SmallGroupController::class, 'meetings']);
+            Route::get('small-groups/attendance', [SmallGroupController::class, 'history']);
+            Route::post('small-groups/attendance', [SmallGroupController::class, 'storeAttendance']);
+            Route::get('small-groups', [SmallGroupController::class, 'index']);
+            Route::get('small-groups/{smallGroup}', [SmallGroupController::class, 'show']);
+            Route::post('small-groups/{smallGroup}/enrol', [SmallGroupController::class, 'enrol']);
 
             Route::prefix('moments')->group(function () {
                 Route::get('/', [QuisatAlbumController::class, 'index']);
