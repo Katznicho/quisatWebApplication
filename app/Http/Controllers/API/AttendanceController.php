@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
+use App\Models\ChurchService;
 use App\Models\MemoryWallItem;
 use App\Models\ParentGuardian;
 use App\Models\PickupCode;
@@ -12,6 +13,7 @@ use App\Models\Term;
 use App\Models\User;
 use App\Services\PickupCodeService;
 use App\Services\TeacherClassScope;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
@@ -65,6 +67,8 @@ class AttendanceController extends Controller
                 'pickup_code' => 'nullable|string|max:8',
                 'parent_name' => 'nullable|string|max:255',
                 'parent_identifier' => 'nullable|string|max:255',
+                'church_service_id' => 'nullable|integer',
+                'service_date' => 'nullable|date',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -107,20 +111,67 @@ class AttendanceController extends Controller
                 ], 422);
             }
 
-            $record = Attendance::firstOrNew([
-                'business_id' => $business->id,
-                'student_id' => $student->id,
-                'class_room_id' => $student->class_room_id,
-                'attendance_date' => Carbon::today(),
-            ]);
+            $serviceDate = $validated['service_date'] ?? Carbon::now($business->timezoneName())->toDateString();
+            $service = $this->resolveCheckInService($business, $validated['church_service_id'] ?? null, $serviceDate);
+            if ($service instanceof \Illuminate\Http\JsonResponse) {
+                return $service;
+            }
+
+            $open = Attendance::query()
+                ->where('business_id', $business->id)
+                ->where('student_id', $student->id)
+                ->whereNotNull('check_in_time')
+                ->whereNull('check_out_time')
+                ->first();
+            if ($open) {
+                $where = $open->service_name ? ' to '.$open->service_name : '';
+
+                return response()->json([
+                    'success' => false,
+                    'message' => $student->full_name.' is already checked in'.$where.'. Check them out before starting another service.',
+                    'data' => ['attendance' => $this->transformAttendance($open)],
+                ], 409);
+            }
+
+            $slot = $service ? (int) $service->id : 0;
+            $record = Attendance::query()
+                ->where('business_id', $business->id)
+                ->where('student_id', $student->id)
+                ->where('class_room_id', $student->class_room_id)
+                ->whereDate('attendance_date', $serviceDate)
+                ->where('service_slot', $slot)
+                ->first();
+
+            if ($record && $record->check_out_time) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This child is already checked out of this service.',
+                    'data' => ['attendance' => $this->transformAttendance($record)],
+                ], 409);
+            }
+
+            if (! $record) {
+                $record = new Attendance([
+                    'business_id' => $business->id,
+                    'student_id' => $student->id,
+                    'class_room_id' => $student->class_room_id,
+                    'attendance_date' => $serviceDate,
+                    'service_slot' => $slot,
+                ]);
+            }
 
             $record->status = 'present';
             $record->marked_by = $this->markedByUserId($user, $business->id);
             $record->remarks = $this->attendanceRemark('Checked in', $validated);
             if (! $record->check_in_time) {
-                $record->check_in_time = Carbon::now()->format('H:i:s');
+                $record->check_in_time = Carbon::now($business->timezoneName())->format('H:i:s');
             }
-            $record->check_out_time = null;
+            if ($service && ! $record->exists) {
+                $record->church_service_id = $service->id;
+                $record->service_name = $service->name;
+                $record->service_starts_at = $service->starts_at;
+                $record->service_ends_at = $service->ends_at;
+            }
             $record->save();
 
             if (! $pickup) {
@@ -199,13 +250,15 @@ class AttendanceController extends Controller
             $record = Attendance::query()
                 ->where('business_id', $business->id)
                 ->where('student_id', $student->id)
-                ->whereDate('attendance_date', Carbon::today())
+                ->whereNotNull('check_in_time')
+                ->whereNull('check_out_time')
+                ->latest('id')
                 ->first();
 
-            if (! $record || ! $record->check_in_time) {
+            if (! $record) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'This child has not been checked in today.',
+                    'message' => 'This child does not have an open check-in to release.',
                 ], 422);
             }
 
@@ -223,7 +276,7 @@ class AttendanceController extends Controller
 
             $record->update([
                 'status' => 'present',
-                'check_out_time' => Carbon::now()->format('H:i:s'),
+                'check_out_time' => Carbon::now($business->timezoneName())->format('H:i:s'),
                 'marked_by' => $this->markedByUserId($user, $business->id) ?: $record->marked_by,
                 'remarks' => $this->attendanceRemark('Checked out', $validated),
             ]);
@@ -493,6 +546,7 @@ class AttendanceController extends Controller
             ->where('business_id', $businessId)
             ->where('student_id', $student->id)
             ->orderByDesc('attendance_date')
+            ->orderByDesc('id')
             ->limit($limit)
             ->get()
             ->map(fn (Attendance $attendance) => $this->transformAttendance($attendance));
@@ -541,6 +595,11 @@ class AttendanceController extends Controller
             'check_in_time' => $checkIn ? Carbon::parse($checkIn)->format('H:i') : null,
             'check_out_time' => $checkOut ? Carbon::parse($checkOut)->format('H:i') : null,
             'class_room' => $attendance->classRoom?->name,
+            'service_name' => $attendance->service_name,
+            'service_time' => $attendance->service_starts_at
+                ? Carbon::parse($attendance->service_starts_at)->format('g:i a').' – '.Carbon::parse($attendance->service_ends_at)->format('g:i a')
+                : null,
+            'held_open' => (bool) ($attendance->check_in_time && ! $attendance->check_out_time),
             'marked_by' => $attendance->marked_by,
             'remarks' => $attendance->remarks,
         ];
@@ -633,6 +692,9 @@ class AttendanceController extends Controller
             ], 403);
         }
 
+        $serviceDate = (string) $request->query('date', Carbon::now($business->timezoneName())->toDateString());
+        $serviceId = (int) $request->query('church_service_id');
+
         $students = Student::query()
             ->with(['classRoom:id,name', 'parentGuardian:id,first_name,last_name'])
             ->where('business_id', $business->id)
@@ -648,7 +710,7 @@ class AttendanceController extends Controller
             'success' => true,
             'message' => 'Children loaded.',
             'data' => [
-                'children' => $this->rosterChildren($students, (int) $business->id),
+                'children' => $this->rosterChildren($students, (int) $business->id, $serviceDate, $serviceId),
             ],
         ]);
     }
@@ -711,12 +773,70 @@ class AttendanceController extends Controller
                     'id' => $anchor->parent_guardian_id,
                     'name' => $familyName !== '' ? $familyName.' family' : 'Family',
                 ],
-                'children' => $this->rosterChildren($siblings, (int) $business->id),
+                'children' => $this->rosterChildren(
+                    $siblings,
+                    (int) $business->id,
+                    (string) $request->query('date', Carbon::now($business->timezoneName())->toDateString()),
+                    (int) $request->query('church_service_id')
+                ),
             ],
         ]);
     }
 
-    protected function rosterChildren($students, int $businessId): array
+    public function services(Request $request)
+    {
+        $business = $request->get('business');
+        $date = (string) $request->query('date', Carbon::now($business->timezoneName())->toDateString());
+        $configured = ChurchService::query()->where('business_id', $business->id)->exists();
+        $services = ChurchService::query()
+            ->where('business_id', $business->id)
+            ->where('is_active', true)
+            ->orderBy('starts_at')
+            ->orderBy('name')
+            ->get()
+            ->filter(fn (ChurchService $service) => $service->occursOn($date))
+            ->values()
+            ->map(fn (ChurchService $service) => [
+                'id' => $service->id,
+                'name' => $service->name,
+                'label' => $service->choiceLabel(),
+                'time_label' => $service->timeLabel(),
+            ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Services loaded.',
+            'data' => [
+                'date' => $date,
+                'requires_service' => $configured,
+                'auto_select_id' => $services->count() === 1 ? $services->first()['id'] : null,
+                'services' => $services,
+            ],
+        ]);
+    }
+
+    protected function resolveCheckInService($business, mixed $serviceId, string $date): ChurchService|JsonResponse|null
+    {
+        $configured = ChurchService::query()->where('business_id', $business->id)->exists();
+        if (! $configured || ! ($business->isChurch() ?? false)) {
+            return null;
+        }
+
+        $service = $serviceId
+            ? ChurchService::query()->where('business_id', $business->id)->whereKey((int) $serviceId)->first()
+            : null;
+
+        if (! $service || ! $service->is_active || ! $service->occursOn($date)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Select an active service scheduled for this date.',
+            ], 422);
+        }
+
+        return $service;
+    }
+
+    protected function rosterChildren($students, int $businessId, ?string $date = null, int $serviceId = 0): array
     {
         $studentIds = $students->pluck('id');
         $parentIds = $students->pluck('parent_guardian_id')->filter()->unique()->values();
@@ -729,15 +849,29 @@ class AttendanceController extends Controller
                 ->groupBy('parent_guardian_id')
                 ->pluck('aggregate', 'parent_guardian_id');
 
-        $today = Attendance::query()
+        $open = Attendance::query()
             ->where('business_id', $businessId)
             ->whereIn('student_id', $studentIds)
-            ->whereDate('attendance_date', Carbon::today())
+            ->whereNotNull('check_in_time')
+            ->whereNull('check_out_time')
+            ->orderByDesc('id')
             ->get()
+            ->unique('student_id')
             ->keyBy('student_id');
 
-        return $students->map(function (Student $student) use ($familyCounts, $today) {
-            $record = $today->get($student->id);
+        $forService = Attendance::query()
+            ->where('business_id', $businessId)
+            ->whereIn('student_id', $studentIds)
+            ->when($date, fn ($query) => $query->whereDate('attendance_date', $date))
+            ->when($serviceId > 0, fn ($query) => $query->where('church_service_id', $serviceId))
+            ->when(! $date && $serviceId === 0, fn ($query) => $query->whereDate('attendance_date', Carbon::today()))
+            ->orderByDesc('id')
+            ->get()
+            ->unique('student_id')
+            ->keyBy('student_id');
+
+        return $students->map(function (Student $student) use ($familyCounts, $open, $forService, $serviceId) {
+            $record = $open->get($student->id) ?: $forService->get($student->id);
             $parent = $student->parentGuardian;
             $familyName = trim(($parent->first_name ?? '').' '.($parent->last_name ?? ''));
 

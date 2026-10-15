@@ -28,6 +28,7 @@ class TimetableManagement extends Component implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
+    use \App\Livewire\Concerns\DownloadsTableDocuments;
 
     public function table(Table $table): Table
     {
@@ -79,8 +80,10 @@ class TimetableManagement extends Component implements HasForms, HasTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                $this->classGroupFilter(),
                 TrashedFilter::make(),
             ])
+            ->defaultSort('classRoom.name')
             ->actions([
                 EditAction::make()
                     ->modalHeading('Edit Timetable')
@@ -160,6 +163,7 @@ class TimetableManagement extends Component implements HasForms, HasTable
                 ]),
             ])
             ->headerActions([
+                ...$this->tableDocumentActions('Timetable'),
                 CreateAction::make()
                     ->label('Add Timetable')
                     ->modalHeading('Add New Timetable Entry')

@@ -26,6 +26,7 @@ class KidsLessonManagement extends Component implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
+    use \App\Livewire\Concerns\DownloadsTableDocuments;
 
     public function table(Table $table): Table
     {
@@ -46,7 +47,11 @@ class KidsLessonManagement extends Component implements HasForms, HasTable
                 Tables\Columns\TextColumn::make('lesson_date')->date(),
                 Tables\Columns\TextColumn::make('status')->badge(),
             ])
+            ->filters([
+                $this->classGroupFilter(),
+            ])
             ->headerActions([
+                ...$this->tableDocumentActions('Lessons'),
                 CreateAction::make()
                     ->modalHeading('Add lesson / resource')
                     ->form($this->formSchema())
@@ -69,7 +74,7 @@ class KidsLessonManagement extends Component implements HasForms, HasTable
                 EditAction::make()->form($this->formSchema()),
                 DeleteAction::make(),
             ])
-            ->defaultSort('id', 'desc');
+            ->defaultSort('classRoom.name');
     }
 
     protected function formSchema(): array

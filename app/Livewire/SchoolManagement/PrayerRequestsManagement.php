@@ -20,6 +20,7 @@ class PrayerRequestsManagement extends Component implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
+    use \App\Livewire\Concerns\DownloadsTableDocuments;
 
     public function table(Table $table): Table
     {
@@ -61,6 +62,10 @@ class PrayerRequestsManagement extends Component implements HasForms, HasTable
                     }),
                 Tables\Columns\TextColumn::make('created_at')->dateTime()->sortable(),
             ])
+            ->filters([
+                $this->classGroupWhereHasFilter('student'),
+            ])
+            ->headerActions($this->tableDocumentActions('Prayer requests'))
             ->actions([
                 EditAction::make()
                     ->modalHeading('Update prayer request')

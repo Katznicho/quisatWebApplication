@@ -27,6 +27,7 @@ class QuisatMomentsManagement extends Component implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
+    use \App\Livewire\Concerns\DownloadsTableDocuments;
 
     public function table(Table $table): Table
     {
@@ -42,7 +43,12 @@ class QuisatMomentsManagement extends Component implements HasForms, HasTable
                 Tables\Columns\TextColumn::make('status')->badge(),
                 Tables\Columns\TextColumn::make('published_at')->dateTime()->sortable(),
             ])
+            ->filters([
+                $this->classGroupFilter(),
+            ])
+            ->defaultSort('classRoom.name')
             ->headerActions([
+                ...$this->tableDocumentActions('Moments'),
                 CreateAction::make()
                     ->modalHeading('Create album')
                     ->form($this->formSchema())

@@ -11,10 +11,17 @@ class LoginAdvert extends Model
 {
     protected $fillable = [
         'advertiser_name',
+        'headline',
         'logo_path',
         'creative_type',
+        'creative_layout',
         'creative_path',
         'destination_url',
+        'button_label',
+        'background_color',
+        'accent_color',
+        'text_color',
+        'duration_seconds',
         'is_active',
         'starts_at',
         'ends_at',
@@ -81,8 +88,25 @@ class LoginAdvert extends Model
             'logo_url' => $this->mediaUrl($this->logo_path),
             'creative_type' => $this->creative_type,
             'creative_url' => $this->mediaUrl($this->creative_path),
-            'destination_url' => $this->destination_url,
-            'duration_seconds' => 10,
+            'headline' => $this->headline,
+            'button_label' => $this->button_label,
+            'destination_url' => $this->validDestination(),
+            'background_color' => $this->background_color ?: '#FFFFFF',
+            'accent_color' => $this->accent_color ?: '#0F2744',
+            'text_color' => $this->text_color ?: '#111827',
+            'creative_layout' => $this->creative_layout ?: 'portrait',
+            'duration_seconds' => max(3, (int) ($this->duration_seconds ?: 10)),
         ];
+    }
+
+    public function validDestination(): ?string
+    {
+        $url = trim((string) $this->destination_url);
+        if (! filter_var($url, FILTER_VALIDATE_URL)) {
+            return null;
+        }
+        $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+
+        return in_array($scheme, ['http', 'https'], true) ? $url : null;
     }
 }

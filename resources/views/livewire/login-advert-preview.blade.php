@@ -14,6 +14,13 @@
     @elseif ($creative)
         <img src="{{ $creative }}" alt="" style="width: 100%; max-height: 360px; object-fit: contain; background: #f8fafc;">
     @endif
-    <p class="text-sm text-gray-600">Your dashboard opens in 10 seconds.</p>
+    @if ($advert->headline)
+        <p class="text-sm text-gray-800">{{ $advert->headline }}</p>
+    @endif
+    @if ($advert->validDestination())
+        <p class="text-sm font-semibold text-blue-700">{{ $advert->button_label ?: 'Learn more' }}</p>
+    @endif
+    <p class="text-center text-sm font-semibold text-gray-800">Quisat app is powered by {{ $advert->advertiser_name }}</p>
+    <p class="text-sm text-gray-600">Your dashboard opens in {{ (int) ($advert->duration_seconds ?: 10) }} seconds.</p>
     <p class="text-xs text-gray-500">{{ $advert->timezone }} · {{ $advert->scheduleLabel() }}</p>
 </div>

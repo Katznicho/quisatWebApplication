@@ -8,6 +8,7 @@ use App\Models\SmallGroupMeeting;
 use App\Models\SmallGroupMember;
 use App\Models\User;
 use App\Services\SmallGroupService;
+use App\Services\TableDocumentExporter;
 use Illuminate\Support\Carbon;
 use Livewire\Component;
 
@@ -274,22 +275,62 @@ class SmallGroupManagement extends Component
         session()->flash('success', 'Attendance saved.');
     }
 
+    public function deleteGroup(int $groupId): void
+    {
+        $this->authorizeManage();
+        $group = $this->findGroup($groupId);
+        $group->delete();
+        if ($this->editingId === $groupId) {
+            $this->resetGroupForm();
+        }
+        if ($this->memberGroupId === $groupId) {
+            $this->memberGroupId = null;
+            $this->section = 'groups';
+        }
+        session()->flash('success', 'Group deleted.');
+    }
+
+    public function downloadGroups(string $format)
+    {
+        $groups = $this->groupQuery()->get();
+        $rows = $groups->map(fn (SmallGroup $group) => [
+            $group->name,
+            $group->location,
+            (string) $group->members_count,
+            (string) $group->capacity,
+            (string) $group->availableSpaces(),
+            $group->leader_name,
+            $group->host_name,
+        ])->all();
+
+        return app(TableDocumentExporter::class)->download($format, $this->moduleLabel, ['Name', 'Location', 'Members', 'Capacity', 'Spaces', 'Leader', 'Host'], $rows);
+    }
+
+    public function downloadMembers(string $format)
+    {
+        $group = $this->findGroup((int) $this->memberGroupId);
+        $members = SmallGroupMember::query()
+            ->with('student.parentGuardian')
+            ->where('small_group_id', $group->id)
+            ->orderBy('enrolled_at')
+            ->get();
+        $rows = $members->map(fn (SmallGroupMember $member) => [
+            $member->student?->full_name,
+            $member->student?->parentGuardian?->full_name,
+            optional($member->enrolled_at)->toDateString(),
+        ])->all();
+
+        return app(TableDocumentExporter::class)->download($format, $group->name.' members', ['Child', 'Family', 'Enrolled'], $rows);
+    }
+
     public function render()
     {
         $user = auth()->user();
         $businessId = (int) $user->business_id;
         $service = app(SmallGroupService::class);
         $settings = $service->settings($businessId);
-        $leaderOnly = ! $user->canViewSmallGroups() && ! $user->canManageSmallGroups();
 
-        $groups = SmallGroup::query()
-            ->withCount('members')
-            ->where('business_id', $businessId)
-            ->when($leaderOnly, fn ($query) => $query->where('leader_user_id', $user->id))
-            ->when($this->search !== '', fn ($query) => $query->where('name', 'like', '%'.$this->search.'%'))
-            ->when($this->location !== '', fn ($query) => $query->where('location', $this->location))
-            ->orderBy('name')
-            ->get();
+        $groups = $this->groupQuery()->get();
 
         $locations = SmallGroup::query()
             ->where('business_id', $businessId)
@@ -355,6 +396,20 @@ class SmallGroupManagement extends Component
             'report' => $report,
             'allGroups' => SmallGroup::query()->where('business_id', $businessId)->when($leaderOnly, fn ($query) => $query->where('leader_user_id', $user->id))->orderBy('name')->get(['id', 'name', 'location']),
         ]);
+    }
+
+    protected function groupQuery()
+    {
+        $user = auth()->user();
+        $leaderOnly = ! $user->canViewSmallGroups() && ! $user->canManageSmallGroups();
+
+        return SmallGroup::query()
+            ->withCount('members')
+            ->where('business_id', (int) $user->business_id)
+            ->when($leaderOnly, fn ($query) => $query->where('leader_user_id', $user->id))
+            ->when($this->search !== '', fn ($query) => $query->where('name', 'like', '%'.$this->search.'%'))
+            ->when($this->location !== '', fn ($query) => $query->where('location', $this->location))
+            ->orderBy('name');
     }
 
     protected function findGroup(int $groupId): SmallGroup

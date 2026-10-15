@@ -8,6 +8,7 @@ use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\BusinessReviewController;
 use App\Http\Controllers\API\CalendarEventRegistrationController;
 use App\Http\Controllers\API\ChurchFeedbackController;
+use App\Http\Controllers\API\ChurchVisitorController;
 use App\Http\Controllers\API\ClassAssignmentController;
 use App\Http\Controllers\API\ClinicController;
 use App\Http\Controllers\API\ConversationController;
@@ -364,6 +365,7 @@ Route::prefix('v1')->middleware('community.package')->group(function () {
                 Route::post('{id}/attach', [ClinicController::class, 'attach']);
             });
             Route::get('attendance/history', [AttendanceController::class, 'studentHistory']);
+            Route::get('attendance/services', [AttendanceController::class, 'services']);
             Route::get('attendance/teacher-classes', [AttendanceController::class, 'teacherClasses']);
             Route::get('attendance/class-children', [AttendanceController::class, 'classChildren']);
             Route::get('attendance/family', [AttendanceController::class, 'family']);
@@ -371,6 +373,13 @@ Route::prefix('v1')->middleware('community.package')->group(function () {
             Route::post('attendance/check-out', [AttendanceController::class, 'checkOut']);
             Route::post('attendance/ensure-pickup-codes', [AttendanceController::class, 'ensurePickupCodes']);
             Route::get('attendance/pickup-codes', [AttendanceController::class, 'pickupCodes']);
+
+            Route::get('church-visitors', [ChurchVisitorController::class, 'index']);
+            Route::post('church-visitors', [ChurchVisitorController::class, 'store']);
+            Route::delete('church-visitors/{churchVisitor}', [ChurchVisitorController::class, 'destroy']);
+            Route::post('church-visitors/registrations/{registration}/cancel', [ChurchVisitorController::class, 'cancel']);
+            Route::post('church-visitors/registrations/{registration}/arrive', [ChurchVisitorController::class, 'arrive']);
+            Route::post('church-visitors/registrations/{registration}/checkout', [ChurchVisitorController::class, 'checkout']);
 
             Route::get('staff-attendance/today', [StaffAttendanceController::class, 'today']);
             Route::get('staff-attendance/history', [StaffAttendanceController::class, 'history']);

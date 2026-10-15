@@ -24,6 +24,7 @@ class KidsVolunteerManagement extends Component implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
+    use \App\Livewire\Concerns\DownloadsTableDocuments;
 
     public function table(Table $table): Table
     {
@@ -43,6 +44,7 @@ class KidsVolunteerManagement extends Component implements HasForms, HasTable
                 Tables\Columns\TextColumn::make('status')->badge(),
             ])
             ->headerActions([
+                ...$this->tableDocumentActions('Volunteers'),
                 CreateAction::make()
                     ->modalHeading('Add volunteer')
                     ->form($this->formSchema())

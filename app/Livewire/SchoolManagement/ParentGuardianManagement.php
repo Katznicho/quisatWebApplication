@@ -26,6 +26,7 @@ class ParentGuardianManagement extends Component implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
+    use \App\Livewire\Concerns\DownloadsTableDocuments;
 
     public function table(Table $table): Table
     {
@@ -66,6 +67,14 @@ class ParentGuardianManagement extends Component implements HasForms, HasTable
                 Tables\Columns\TextColumn::make('last_name')
                     ->searchable()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('class_catalogue')
+                    ->label($this->classGroupLabel())
+                    ->state(fn (ParentGuardian $record) => $record->students
+                        ->map(fn ($student) => $student->classRoom?->name)
+                        ->filter()
+                        ->unique()
+                        ->sort()
+                        ->implode(', ') ?: '—'),
                 Tables\Columns\TextColumn::make('email')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('phone')
@@ -126,8 +135,10 @@ class ParentGuardianManagement extends Component implements HasForms, HasTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                $this->classGroupWhereHasFilter('students'),
             ])
             ->headerActions([
+                ...$this->tableDocumentActions('Parents and guardians'),
                 Action::make('link_by_quisat_code')
                     ->label('Link by Quisat code')
                     ->icon('heroicon-o-link')

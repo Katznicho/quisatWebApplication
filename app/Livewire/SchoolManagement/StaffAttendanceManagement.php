@@ -24,6 +24,7 @@ class StaffAttendanceManagement extends Component implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
+    use \App\Livewire\Concerns\DownloadsTableDocuments;
 
     public function mount(): void
     {
@@ -84,6 +85,7 @@ class StaffAttendanceManagement extends Component implements HasForms, HasTable
                             $query->where('business_id', $businessId);
                         }
                     }),
+                $this->classGroupWhereHasFilter('user'),
                 SelectFilter::make('branch_id')
                     ->label('Branch')
                     ->relationship('branch', 'name', function (Builder $query) use ($businessId) {
@@ -93,6 +95,7 @@ class StaffAttendanceManagement extends Component implements HasForms, HasTable
                     }),
             ])
             ->headerActions([
+                ...$this->tableDocumentActions('Staff attendance'),
                 Tables\Actions\Action::make('export')
                     ->label('Export')
                     ->action(function () use ($service) {

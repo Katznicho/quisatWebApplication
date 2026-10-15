@@ -30,6 +30,7 @@ class StudentManagement extends Component implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
+    use \App\Livewire\Concerns\DownloadsTableDocuments;
 
     public function table(Table $table): Table
     {
@@ -102,7 +103,10 @@ class StudentManagement extends Component implements HasForms, HasTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                $this->classGroupFilter(),
             ])
+            ->headerActions($this->tableDocumentActions($isChurch ? 'Children' : 'Students'))
+            ->defaultSort('classRoom.name')
             ->actions([
                 Action::make('edit')
                     ->label('Edit')

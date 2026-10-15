@@ -28,6 +28,7 @@ class GradeManagement extends Component implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
+    use \App\Livewire\Concerns\DownloadsTableDocuments;
 
     public function table(Table $table): Table
     {
@@ -119,6 +120,7 @@ class GradeManagement extends Component implements HasForms, HasTable
                 ]),
             ])
             ->headerActions([
+                ...$this->tableDocumentActions('Grades'),
                 CreateAction::make()
                     ->label('Add Grade')
                     ->modalHeading('Add New Grade')

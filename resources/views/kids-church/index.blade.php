@@ -3,7 +3,7 @@
 @section('content')
 @php
     $activeTab = request('tab', 'children');
-    $tabs = ['overview', 'children', 'groups', 'small-groups', 'check-in', 'lessons', 'incidents', 'volunteers', 'moments', 'prayer', 'feedback', 'memory-wall', 'events', 'parents', 'fees'];
+    $tabs = ['overview', 'children', 'groups', 'small-groups', 'services', 'check-in', 'visitor-check-in', 'lessons', 'incidents', 'volunteers', 'moments', 'prayer', 'feedback', 'memory-wall', 'events', 'parents', 'fees'];
     if (! in_array($activeTab, $tabs, true)) {
         $activeTab = 'children';
     }
@@ -130,7 +130,9 @@
                 'children' => 'Children',
                 'groups' => 'Groups',
                 'small-groups' => 'Small groups',
+                'services' => 'Services',
                 'check-in' => 'Check-in',
+                'visitor-check-in' => 'Visitor Check-in',
                 'lessons' => 'Lessons',
                 'incidents' => 'Incidents',
                 'volunteers' => 'Volunteers',
@@ -263,6 +265,16 @@
                 <p class="text-sm text-slate-600">Run <code class="rounded bg-slate-100 px-1.5 py-0.5">php artisan migrate</code> to enable small groups.</p>
             @endif
         </div>
+    @elseif($activeTab === 'services')
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 class="mb-1 text-xl font-semibold text-slate-900">Services</h2>
+            <p class="mb-4 text-sm text-slate-500">Weekly and one-off service times for this church. Check-in uses the active service for the selected date. Turning a service off stops new check-ins and keeps the attendance already recorded.</p>
+            @if(\Illuminate\Support\Facades\Schema::hasTable('church_services'))
+                @livewire('school-management.church-service-management')
+            @else
+                <p class="text-sm text-slate-600">Run <code class="rounded bg-slate-100 px-1.5 py-0.5">php artisan migrate</code> to enable services.</p>
+            @endif
+        </div>
     @elseif($activeTab === 'check-in')
         <div class="space-y-6">
             <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -284,6 +296,16 @@
                 </div>
                 @livewire('school-management.attendance-management')
             </div>
+        </div>
+    @elseif($activeTab === 'visitor-check-in')
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 class="mb-1 text-xl font-semibold text-slate-900">Visitor Check-in</h2>
+            <p class="mb-4 text-sm text-slate-500">Parents add visiting children from the app. Confirm arrival here and assign a class. Collection still uses the family’s pickup code. Removing a visitor from the parent list keeps this attendance history.</p>
+            @if(\Illuminate\Support\Facades\Schema::hasTable('church_visitors'))
+                @livewire('school-management.visitor-check-in-management')
+            @else
+                <p class="text-sm text-slate-600">Run <code class="rounded bg-slate-100 px-1.5 py-0.5">php artisan migrate</code> to enable visiting children.</p>
+            @endif
         </div>
     @elseif($activeTab === 'lessons')
         <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

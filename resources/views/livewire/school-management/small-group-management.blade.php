@@ -51,6 +51,9 @@
     @if ($section === 'groups' || $section === 'members')
         <div class="mb-4 flex flex-wrap gap-2">
             <input wire:model.live="search" placeholder="Search by name" class="rounded-lg border border-slate-300 px-3 py-2">
+            <button type="button" wire:click="downloadGroups('excel')" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold">Excel</button>
+            <button type="button" wire:click="downloadGroups('word')" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold">Word</button>
+            <button type="button" wire:click="downloadGroups('pdf')" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold">PDF</button>
             <select wire:model.live="location" class="rounded-lg border border-slate-300 px-3 py-2">
                 <option value="">All locations</option>
                 @foreach ($locations as $item)
@@ -82,6 +85,7 @@
                             <td class="px-3 py-2 text-right">
                                 @if ($canManage)
                                     <button type="button" wire:click="editGroup({{ $group->id }})" class="mr-2 font-semibold text-blue-600">Edit</button>
+                                    <button type="button" wire:click="deleteGroup({{ $group->id }})" wire:confirm="Delete this group? Attendance already saved stays on record." class="mr-2 font-semibold text-red-600">Delete</button>
                                 @endif
                                 <button type="button" wire:click="viewMembers({{ $group->id }})" class="font-semibold text-slate-700">View members</button>
                             </td>
@@ -95,7 +99,14 @@
 
         @if ($section === 'members' && $memberGroup)
             <div class="mt-6 rounded-xl border border-slate-200 p-4">
-                <h3 class="font-semibold">{{ $memberGroup->name }} members</h3>
+                <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <h3 class="font-semibold">{{ $memberGroup->name }} members</h3>
+                    <div class="flex gap-2 text-sm">
+                        <button type="button" wire:click="downloadMembers('excel')" class="font-semibold text-blue-600">Excel</button>
+                        <button type="button" wire:click="downloadMembers('word')" class="font-semibold text-blue-600">Word</button>
+                        <button type="button" wire:click="downloadMembers('pdf')" class="font-semibold text-blue-600">PDF</button>
+                    </div>
+                </div>
                 <p class="mb-3 text-sm text-slate-500">{{ $memberGroup->members_count ?? $members->count() }} registered · capacity {{ $memberGroup->capacity }}</p>
                 <ul class="divide-y divide-slate-100">
                     @forelse ($members as $member)

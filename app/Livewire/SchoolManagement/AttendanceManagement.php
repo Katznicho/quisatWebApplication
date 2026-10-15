@@ -3,6 +3,8 @@
 namespace App\Livewire\SchoolManagement;
 
 use App\Models\Attendance;
+use App\Models\ChurchService;
+use App\Models\ClassRoom;
 use App\Models\Student;
 use App\Services\PickupCodeService;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -20,6 +22,8 @@ use Filament\Tables\Table;
 use Filament\Tables\Actions\CreateAction;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Actions\DeleteAction;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Livewire\Component;
 use Illuminate\Contracts\View\View;
@@ -29,6 +33,7 @@ class AttendanceManagement extends Component implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
+    use \App\Livewire\Concerns\DownloadsTableDocuments;
 
     public function table(Table $table): Table
     {
@@ -51,6 +56,10 @@ class AttendanceManagement extends Component implements HasForms, HasTable
                 Tables\Columns\TextColumn::make('student.classRoom.name')
                     ->label(auth()->user()?->business?->isChurch() ? 'Group' : 'Class')
                     ->sortable(),
+                Tables\Columns\TextColumn::make('service_name')
+                    ->label('Service')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: ! (auth()->user()?->business?->isChurch() ?? false)),
                 Tables\Columns\BadgeColumn::make('status')
                     ->colors([
                         'success' => 'present',
@@ -74,6 +83,25 @@ class AttendanceManagement extends Component implements HasForms, HasTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                Filter::make('attendance_date')
+                    ->form([
+                        DatePicker::make('on')->label('Date'),
+                    ])
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when($data['on'] ?? null, fn (Builder $inner, $date) => $inner->whereDate('attendance_date', $date))),
+                SelectFilter::make('church_service_id')
+                    ->label('Service')
+                    ->options(fn () => ChurchService::query()
+                        ->where('business_id', auth()->user()->business_id)
+                        ->orderBy('name')
+                        ->pluck('name', 'id'))
+                    ->visible(fn (): bool => (bool) auth()->user()?->business?->isChurch()),
+                SelectFilter::make('class_room_id')
+                    ->label(auth()->user()?->business?->isChurch() ? 'Group' : 'Class')
+                    ->options(fn () => ClassRoom::query()
+                        ->where('business_id', auth()->user()->business_id)
+                        ->orderBy('name')
+                        ->pluck('name', 'id')),
                 TrashedFilter::make(),
             ])
             ->actions([
@@ -116,6 +144,7 @@ class AttendanceManagement extends Component implements HasForms, HasTable
                 ]),
             ])
             ->headerActions([
+                ...$this->tableDocumentActions('Attendance'),
                 CreateAction::make()
                     ->label('Add Attendance')
                     ->modalHeading('Add New Attendance Record')
@@ -169,7 +198,8 @@ class AttendanceManagement extends Component implements HasForms, HasTable
                             ->success()
                             ->send();
                     }),
-            ]);
+            ])
+            ->defaultSort('classRoom.name');
     }
 
     public function render(): View

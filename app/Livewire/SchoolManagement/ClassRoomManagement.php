@@ -28,6 +28,7 @@ class ClassRoomManagement extends Component implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
+    use \App\Livewire\Concerns\DownloadsTableDocuments;
 
     public function table(Table $table): Table
     {
@@ -126,6 +127,7 @@ class ClassRoomManagement extends Component implements HasForms, HasTable
                 ]),
             ])
             ->headerActions([
+                ...$this->tableDocumentActions('Classrooms'),
                 CreateAction::make()
                     ->label('Add '.$roomLabel)
                     ->modalHeading('Add New '.$roomLabel)

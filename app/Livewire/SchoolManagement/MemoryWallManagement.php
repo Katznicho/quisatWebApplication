@@ -25,6 +25,7 @@ class MemoryWallManagement extends Component implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
+    use \App\Livewire\Concerns\DownloadsTableDocuments;
 
     public function table(Table $table): Table
     {
@@ -42,6 +43,7 @@ class MemoryWallManagement extends Component implements HasForms, HasTable
                 Tables\Columns\TextColumn::make('ends_on')->date(),
             ])
             ->headerActions([
+                ...$this->tableDocumentActions('Memory wall'),
                 CreateAction::make()
                     ->form($this->formSchema())
                     ->mutateFormDataUsing(function (array $data) {

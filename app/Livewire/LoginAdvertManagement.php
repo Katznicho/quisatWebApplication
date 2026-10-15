@@ -124,11 +124,34 @@ class LoginAdvertManagement extends Component implements HasForms, HasTable
                     ? ['video/mp4', 'video/quicktime']
                     : ['image/jpeg', 'image/png', 'image/webp'])
                 ->maxSize(fn (Get $get): int => $get('creative_type') === 'video' ? 20480 : 5120),
+            TextInput::make('headline')
+                ->label('Headline')
+                ->maxLength(160)
+                ->helperText('Optional. Hidden on the advert when this is empty.'),
             TextInput::make('destination_url')
                 ->label('Destination link')
                 ->url()
                 ->maxLength(500)
-                ->helperText('Optional. Stored with the advert. The sign-in screen still opens the dashboard after 10 seconds.'),
+                ->helperText('Optional. Only http and https links show an action button.'),
+            TextInput::make('button_label')
+                ->label('Button label')
+                ->maxLength(40)
+                ->placeholder('Explore stationery'),
+            TextInput::make('background_color')->label('Background colour')->placeholder('#FFFFFF')->maxLength(7),
+            TextInput::make('accent_color')->label('Accent colour')->placeholder('#0F2744')->maxLength(7),
+            TextInput::make('text_color')->label('Text colour')->placeholder('#111827')->maxLength(7),
+            Select::make('creative_layout')
+                ->label('Creative layout')
+                ->options(['portrait' => 'Portrait', 'landscape' => 'Landscape banner'])
+                ->default('portrait')
+                ->required(),
+            TextInput::make('duration_seconds')
+                ->label('Display duration (seconds)')
+                ->numeric()
+                ->minValue(3)
+                ->maxValue(30)
+                ->default(10)
+                ->required(),
             Toggle::make('is_active')
                 ->label('Active')
                 ->default(true),
@@ -157,8 +180,26 @@ class LoginAdvertManagement extends Component implements HasForms, HasTable
         $data['logo_path'] = $this->storedPath($data['logo_path'] ?? null);
         $data['creative_path'] = $this->storedPath($data['creative_path'] ?? null);
         $data['destination_url'] = filled($data['destination_url'] ?? null) ? $data['destination_url'] : null;
+        $data['headline'] = filled($data['headline'] ?? null) ? $data['headline'] : null;
+        $data['button_label'] = filled($data['button_label'] ?? null) ? $data['button_label'] : null;
+        $data['duration_seconds'] = max(3, min(30, (int) ($data['duration_seconds'] ?? 10)));
+        $data['creative_layout'] = ($data['creative_layout'] ?? 'portrait') === 'landscape' ? 'landscape' : 'portrait';
+        foreach (['background_color', 'accent_color', 'text_color'] as $color) {
+            $value = strtoupper(trim((string) ($data[$color] ?? '')));
+            $data[$color] = preg_match('/^#[0-9A-F]{6}$/', $value) ? $value : null;
+        }
         $data['timezone'] = $data['timezone'] ?: 'Africa/Nairobi';
         $data['is_active'] = (bool) ($data['is_active'] ?? false);
+        if ($data['is_active'] && blank($data['advertiser_name'] ?? null)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'advertiser_name' => 'Enter the advertiser name before activating this campaign.',
+            ]);
+        }
+        if ($data['is_active'] && filled($data['destination_url']) && ! filter_var($data['destination_url'], FILTER_VALIDATE_URL)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'destination_url' => 'Enter a valid http or https destination.',
+            ]);
+        }
 
         return $data;
     }

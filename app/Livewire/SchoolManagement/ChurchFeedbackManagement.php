@@ -20,6 +20,7 @@ class ChurchFeedbackManagement extends Component implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
+    use \App\Livewire\Concerns\DownloadsTableDocuments;
 
     public function table(Table $table): Table
     {
@@ -55,6 +56,10 @@ class ChurchFeedbackManagement extends Component implements HasForms, HasTable
                     }),
                 Tables\Columns\TextColumn::make('created_at')->dateTime()->sortable(),
             ])
+            ->filters([
+                $this->classGroupWhereHasFilter('student'),
+            ])
+            ->headerActions($this->tableDocumentActions('Feedback'))
             ->actions([
                 EditAction::make()
                     ->modalHeading('Update feedback')

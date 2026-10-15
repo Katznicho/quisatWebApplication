@@ -18,6 +18,7 @@ class PickupCodesManagement extends Component implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
+    use \App\Livewire\Concerns\DownloadsTableDocuments;
 
     public function table(Table $table): Table
     {
@@ -37,7 +38,11 @@ class PickupCodesManagement extends Component implements HasForms, HasTable
                 Tables\Columns\IconColumn::make('used_at')->label('Released')->boolean(),
                 Tables\Columns\TextColumn::make('expires_at')->dateTime()->label('Expires'),
             ])
-            ->defaultSort('id', 'desc')
+            ->filters([
+                $this->classGroupWhereHasFilter('student'),
+            ])
+            ->headerActions($this->tableDocumentActions('Pickup codes'))
+            ->defaultSort('student.classRoom.name')
             ->heading('Today’s pickup codes')
             ->description('Parents generate these automatically in the Quisat app when they open Check-in. Staff enter the 4-digit code before the child is released, then share this week’s memory verse.')
             ->emptyStateHeading('No pickup codes yet')

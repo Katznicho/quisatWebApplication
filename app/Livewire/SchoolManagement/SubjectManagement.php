@@ -26,10 +26,11 @@ class SubjectManagement extends Component implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
+    use \App\Livewire\Concerns\DownloadsTableDocuments;
 
     public function table(Table $table): Table
     {
-        $query = Subject::query();
+        $query = Subject::query()->with('timetables.classRoom');
         
         // Filter by business_id for non-admin users
         if (auth()->user()->business_id !== 1) {
@@ -48,6 +49,14 @@ class SubjectManagement extends Component implements HasForms, HasTable
                 Tables\Columns\TextColumn::make('description')
                     ->limit(50)
                     ->wrap(),
+                Tables\Columns\TextColumn::make('class_list')
+                    ->label('Classes')
+                    ->state(fn (Subject $subject) => $subject->timetables
+                        ->map(fn ($row) => $row->classRoom?->name)
+                        ->filter()
+                        ->unique()
+                        ->sort()
+                        ->implode(', ') ?: '—'),
                 Tables\Columns\TextColumn::make('business.name')
                     ->label('Business')
                     ->sortable(),
@@ -66,6 +75,7 @@ class SubjectManagement extends Component implements HasForms, HasTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                $this->classGroupWhereHasFilter('timetables'),
                 TrashedFilter::make(),
             ])
             ->actions([
@@ -104,6 +114,7 @@ class SubjectManagement extends Component implements HasForms, HasTable
                 ]),
             ])
             ->headerActions([
+                ...$this->tableDocumentActions('Subjects'),
                 CreateAction::make()
                     ->label('Add Subject')
                     ->modalHeading('Add New Subject')

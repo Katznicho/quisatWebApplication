@@ -31,6 +31,7 @@ class CalendarEventsManagement extends Component implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
+    use \App\Livewire\Concerns\DownloadsTableDocuments;
 
     public function table(Table $table): Table
     {
@@ -172,6 +173,7 @@ class CalendarEventsManagement extends Component implements HasForms, HasTable
                 ]),
             ])
             ->headerActions([
+                ...$this->tableDocumentActions('Events'),
                 CreateAction::make()
                     ->label('Add Event')
                     ->modalHeading('Add New Event')

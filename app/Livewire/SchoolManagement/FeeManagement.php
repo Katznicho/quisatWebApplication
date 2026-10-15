@@ -22,6 +22,7 @@ use Filament\Tables\Actions\DeleteAction;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
@@ -33,6 +34,7 @@ class FeeManagement extends Component implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
+    use \App\Livewire\Concerns\DownloadsTableDocuments;
     use RecordsAdminFeePayment;
 
     private function businessId(): ?int
@@ -179,6 +181,10 @@ class FeeManagement extends Component implements HasForms, HasTable
         return $table
             ->query($query)
             ->columns([
+                Tables\Columns\TextColumn::make('student.classRoom.name')
+                    ->label($this->classGroupLabel())
+                    ->sortable()
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('student.first_name')
                     ->label('Student')
                     ->formatStateUsing(fn ($state, Fee $record) => trim(
@@ -241,6 +247,17 @@ class FeeManagement extends Component implements HasForms, HasTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                $this->classGroupWhereHasFilter('student'),
+                Filter::make('due_date')
+                    ->form([
+                        DatePicker::make('from')->label('Due from'),
+                        DatePicker::make('until')->label('Due until'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when($data['from'] ?? null, fn (Builder $inner, $date) => $inner->whereDate('due_date', '>=', $date))
+                            ->when($data['until'] ?? null, fn (Builder $inner, $date) => $inner->whereDate('due_date', '<=', $date));
+                    }),
                 SelectFilter::make('payment_status')
                     ->options([
                         'pending' => 'Pending',
@@ -291,6 +308,7 @@ class FeeManagement extends Component implements HasForms, HasTable
                 ]),
             ])
             ->headerActions([
+                ...$this->tableDocumentActions('Fees'),
                 CreateAction::make()
                     ->label('Add Fee')
                     ->modalHeading('Add New Fee')

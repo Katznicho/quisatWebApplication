@@ -15,6 +15,11 @@ class Attendance extends Model
         'business_id',
         'student_id',
         'class_room_id',
+        'church_service_id',
+        'service_slot',
+        'service_name',
+        'service_starts_at',
+        'service_ends_at',
         'term_id',
         'attendance_date',
         'status',
@@ -53,6 +58,11 @@ class Attendance extends Model
     public function classRoom()
     {
         return $this->belongsTo(ClassRoom::class);
+    }
+
+    public function churchService()
+    {
+        return $this->belongsTo(ChurchService::class);
     }
 
     public function markedBy()
