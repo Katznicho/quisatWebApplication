@@ -33,7 +33,7 @@ class KidsLessonManagement extends Component implements HasForms, HasTable
         $businessId = Auth::user()->business_id;
 
         return $table
-            ->query(KidsLesson::query()->where('business_id', $businessId))
+            ->query($this->orderByClassName(KidsLesson::query()->where('business_id', $businessId)))
             ->columns([
                 Tables\Columns\TextColumn::make('type')
                     ->badge()
@@ -74,7 +74,7 @@ class KidsLessonManagement extends Component implements HasForms, HasTable
                 EditAction::make()->form($this->formSchema()),
                 DeleteAction::make(),
             ])
-            ->defaultSort('classRoom.name');
+            ->defaultSort('id', 'desc');
     }
 
     protected function formSchema(): array

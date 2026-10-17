@@ -53,6 +53,20 @@ trait DownloadsTableDocuments
         return 'Class';
     }
 
+    protected function orderByClassName(Builder $query, string $classColumn = 'class_room_id'): Builder
+    {
+        $table = $query->getModel()->getTable();
+
+        return $query
+            ->orderBy(
+                ClassRoom::query()
+                    ->select('name')
+                    ->whereColumn('class_rooms.id', $table.'.'.$classColumn)
+                    ->limit(1)
+            )
+            ->orderBy($table.'.id');
+    }
+
     protected function classGroupFilter(string $name = 'class_room_id'): SelectFilter
     {
         $businessId = auth()->user()?->business_id;

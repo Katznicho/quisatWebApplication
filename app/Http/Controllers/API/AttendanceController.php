@@ -788,20 +788,23 @@ class AttendanceController extends Controller
         $business = $request->get('business');
         $date = (string) $request->query('date', Carbon::now($business->timezoneName())->toDateString());
         $configured = ChurchService::query()->where('business_id', $business->id)->exists();
+        $includeAll = $request->boolean('all');
         $services = ChurchService::query()
             ->where('business_id', $business->id)
             ->where('is_active', true)
+            ->orderBy('weekday')
             ->orderBy('starts_at')
             ->orderBy('name')
             ->get()
-            ->filter(fn (ChurchService $service) => $service->occursOn($date))
-            ->values()
+            ->when(! $includeAll, fn ($rows) => $rows->filter(fn (ChurchService $service) => $service->occursOn($date))->values())
             ->map(fn (ChurchService $service) => [
                 'id' => $service->id,
                 'name' => $service->name,
                 'label' => $service->choiceLabel(),
                 'time_label' => $service->timeLabel(),
-            ]);
+                'next_date' => $service->nextDate($date),
+            ])
+            ->values();
 
         return response()->json([
             'success' => true,

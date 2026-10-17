@@ -38,6 +38,7 @@ class ExamManagement extends Component implements HasForms, HasTable
         if (auth()->user()->business_id !== 1) {
             $query->where('business_id', auth()->user()->business_id);
         }
+        $this->orderByClassName($query);
         
         return $table
             ->query($query)
@@ -97,7 +98,6 @@ class ExamManagement extends Component implements HasForms, HasTable
                 $this->classGroupFilter(),
                 TrashedFilter::make(),
             ])
-            ->defaultSort('classRoom.name')
             ->actions([
                 EditAction::make()
                     ->modalHeading('Edit Exam')

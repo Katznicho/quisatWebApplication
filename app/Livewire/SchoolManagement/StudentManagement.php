@@ -41,6 +41,7 @@ class StudentManagement extends Component implements HasForms, HasTable
         if (auth()->user()->business_id !== 1) {
             $query->where('business_id', auth()->user()->business_id);
         }
+        $this->orderByClassName($query);
         
         return $table
             ->query($query)
@@ -106,7 +107,6 @@ class StudentManagement extends Component implements HasForms, HasTable
                 $this->classGroupFilter(),
             ])
             ->headerActions($this->tableDocumentActions($isChurch ? 'Children' : 'Students'))
-            ->defaultSort('classRoom.name')
             ->actions([
                 Action::make('edit')
                     ->label('Edit')

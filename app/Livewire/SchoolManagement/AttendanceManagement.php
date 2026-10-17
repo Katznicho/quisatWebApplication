@@ -41,6 +41,7 @@ class AttendanceManagement extends Component implements HasForms, HasTable
         $baseQuery = $businessId
             ? Attendance::query()->where('business_id', $businessId)
             : Attendance::query();
+        $this->orderByClassName($baseQuery);
 
         return $table
             ->query($baseQuery)
@@ -198,8 +199,7 @@ class AttendanceManagement extends Component implements HasForms, HasTable
                             ->success()
                             ->send();
                     }),
-            ])
-            ->defaultSort('classRoom.name');
+            ]);
     }
 
     public function render(): View

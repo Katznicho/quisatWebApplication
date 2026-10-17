@@ -46,7 +46,6 @@ class QuisatMomentsManagement extends Component implements HasForms, HasTable
             ->filters([
                 $this->classGroupFilter(),
             ])
-            ->defaultSort('classRoom.name')
             ->headerActions([
                 ...$this->tableDocumentActions('Moments'),
                 CreateAction::make()

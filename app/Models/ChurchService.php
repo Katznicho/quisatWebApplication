@@ -69,4 +69,22 @@ class ChurchService extends Model
     {
         return $this->name.' · '.$this->scheduleLabel();
     }
+
+    public function nextDate(string $from): string
+    {
+        $start = Carbon::parse($from)->startOfDay();
+        if ($this->schedule_type === 'date') {
+            return optional($this->service_date)->toDateString() ?: $start->toDateString();
+        }
+
+        $cursor = $start->copy();
+        for ($i = 0; $i < 7; $i++) {
+            if ($cursor->dayOfWeek === (int) $this->weekday) {
+                return $cursor->toDateString();
+            }
+            $cursor->addDay();
+        }
+
+        return $start->toDateString();
+    }
 }

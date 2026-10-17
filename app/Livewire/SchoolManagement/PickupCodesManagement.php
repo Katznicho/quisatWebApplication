@@ -3,6 +3,7 @@
 namespace App\Livewire\SchoolManagement;
 
 use App\Models\PickupCode;
+use App\Models\Student;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Tables;
@@ -30,6 +31,14 @@ class PickupCodesManagement extends Component implements HasForms, HasTable
                     ->with(['student:id,first_name,last_name,class_room_id', 'student.classRoom:id,name'])
                     ->where('business_id', Auth::user()->business_id)
                     ->whereDate('code_date', $today)
+                    ->orderBy(
+                        Student::query()
+                            ->select('class_rooms.name')
+                            ->join('class_rooms', 'class_rooms.id', '=', 'students.class_room_id')
+                            ->whereColumn('students.id', 'pickup_codes.student_id')
+                            ->limit(1)
+                    )
+                    ->orderBy('pickup_codes.id')
             )
             ->columns([
                 Tables\Columns\TextColumn::make('student.full_name')->label('Child'),
@@ -42,7 +51,6 @@ class PickupCodesManagement extends Component implements HasForms, HasTable
                 $this->classGroupWhereHasFilter('student'),
             ])
             ->headerActions($this->tableDocumentActions('Pickup codes'))
-            ->defaultSort('student.classRoom.name')
             ->heading('Today’s pickup codes')
             ->description('Parents generate these automatically in the Quisat app when they open Check-in. Staff enter the 4-digit code before the child is released, then share this week’s memory verse.')
             ->emptyStateHeading('No pickup codes yet')

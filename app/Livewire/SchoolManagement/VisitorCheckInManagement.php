@@ -39,16 +39,15 @@ class VisitorCheckInManagement extends Component implements HasForms, HasTable
         $businessId = (int) auth()->user()->business_id;
         $service = app(ChurchVisitorService::class);
 
+        $rows = ChurchVisitorRegistration::query()
+            ->with(['visitor.family', 'visitor.registeredBy', 'attendance.checkedInBy', 'attendance.checkedOutBy', 'classRoom'])
+            ->where('business_id', $businessId)
+            ->where('status', '!=', 'cancelled')
+            ->whereHas('visitor', fn (Builder $query) => $query->whereNull('removed_at'))
+            ->when($this->reportDate !== '', fn (Builder $query) => $query->whereDate('service_date', $this->reportDate));
+
         return $table
-            ->query(
-                ChurchVisitorRegistration::query()
-                    ->with(['visitor.family', 'visitor.registeredBy', 'attendance.checkedInBy', 'attendance.checkedOutBy', 'classRoom'])
-                    ->where('business_id', $businessId)
-                    ->where('status', '!=', 'cancelled')
-                    ->whereHas('visitor', fn (Builder $query) => $query->whereNull('removed_at'))
-                    ->when($this->reportDate !== '', fn (Builder $query) => $query->whereDate('service_date', $this->reportDate))
-            )
-            ->defaultSort('classRoom.name')
+            ->query($this->orderByClassName($rows))
             ->filters([
                 $this->classGroupFilter(),
             ])

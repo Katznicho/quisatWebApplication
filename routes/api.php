@@ -9,6 +9,7 @@ use App\Http\Controllers\API\BusinessReviewController;
 use App\Http\Controllers\API\CalendarEventRegistrationController;
 use App\Http\Controllers\API\ChurchFeedbackController;
 use App\Http\Controllers\API\ChurchVisitorController;
+use App\Http\Controllers\API\WalkInVisitorController;
 use App\Http\Controllers\API\ClassAssignmentController;
 use App\Http\Controllers\API\ClinicController;
 use App\Http\Controllers\API\ConversationController;
@@ -380,6 +381,12 @@ Route::prefix('v1')->middleware('community.package')->group(function () {
             Route::post('church-visitors/registrations/{registration}/cancel', [ChurchVisitorController::class, 'cancel']);
             Route::post('church-visitors/registrations/{registration}/arrive', [ChurchVisitorController::class, 'arrive']);
             Route::post('church-visitors/registrations/{registration}/checkout', [ChurchVisitorController::class, 'checkout']);
+
+            Route::get('walk-in-visitors', [WalkInVisitorController::class, 'index']);
+            Route::get('walk-in-visitors/lookup', [WalkInVisitorController::class, 'lookup']);
+            Route::post('walk-in-visitors', [WalkInVisitorController::class, 'store']);
+            Route::post('walk-in-visitors/checkout', [WalkInVisitorController::class, 'checkout']);
+            Route::get('walk-in-visitors/{visit}', [WalkInVisitorController::class, 'show']);
 
             Route::get('staff-attendance/today', [StaffAttendanceController::class, 'today']);
             Route::get('staff-attendance/history', [StaffAttendanceController::class, 'history']);

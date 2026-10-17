@@ -329,6 +329,7 @@ class SmallGroupManagement extends Component
         $businessId = (int) $user->business_id;
         $service = app(SmallGroupService::class);
         $settings = $service->settings($businessId);
+        $leaderOnly = ! $user->canViewSmallGroups() && ! $user->canManageSmallGroups();
 
         $groups = $this->groupQuery()->get();
 

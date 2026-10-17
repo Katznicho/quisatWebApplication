@@ -307,6 +307,15 @@
                 <p class="text-sm text-slate-600">Run <code class="rounded bg-slate-100 px-1.5 py-0.5">php artisan migrate</code> to enable visiting children.</p>
             @endif
         </div>
+        <div class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 class="mb-1 text-xl font-semibold text-slate-900">New families</h2>
+            <p class="mb-4 text-sm text-slate-500">Families registered by church staff who are not already attached to a parent account. Pickup codes stay off this register.</p>
+            @if(\Illuminate\Support\Facades\Schema::hasTable('walkin_visits'))
+                @livewire('school-management.walk-in-visitor-management')
+            @else
+                <p class="text-sm text-slate-600">Run <code class="rounded bg-slate-100 px-1.5 py-0.5">php artisan migrate</code> to enable walk-in families.</p>
+            @endif
+        </div>
     @elseif($activeTab === 'lessons')
         <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 class="mb-1 text-xl font-semibold text-slate-900">Lessons & home faith</h2>
