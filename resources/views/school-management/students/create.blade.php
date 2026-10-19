@@ -162,6 +162,19 @@
                                         <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                                     @enderror
                                 </div>
+
+                                <div class="md:col-span-2">
+                                    <label for="school_attended" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        School Attended
+                                    </label>
+                                    <input type="text"
+                                           name="school_attended"
+                                           id="school_attended"
+                                           value="{{ old('school_attended') }}"
+                                           placeholder="Enter the school your child attends"
+                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                                    <p class="mt-1 text-xs text-gray-500">Optional. This records the school name only and does not enrol the child there.</p>
+                                </div>
                             </div>
                         </div>
 
@@ -206,8 +219,7 @@
                                         Parent/Guardian <span class="text-red-500">*</span>
                                     </label>
                                     <select name="parent_guardian_id" 
-                                            id="parent_guardian_id" 
-                                            required
+                                            id="parent_guardian_id"
                                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
                                         <option value="">Select parent/guardian</option>
                                         @foreach($parentGuardians as $id => $name)
@@ -263,6 +275,7 @@
                                     @enderror
                                 </div>
                             </div>
+                            @include('school-management.students.partials.add-parent-modal')
                         </div>
 
                         <!-- Contact Information -->

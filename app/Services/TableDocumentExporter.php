@@ -22,6 +22,7 @@ class TableDocumentExporter
 
         return match ($format) {
             'excel' => $this->excel("{$base}-{$stamp}.xlsx", $headings, $rows),
+            'csv' => $this->csv("{$base}-{$stamp}.csv", $headings, $rows),
             'word' => $this->word("{$base}-{$stamp}.docx", $safeTitle, $headings, $rows),
             default => $this->pdf("{$base}-{$stamp}.pdf", $safeTitle, $headings, $rows),
         };
@@ -39,6 +40,19 @@ class TableDocumentExporter
         $writer->close();
 
         return $this->file($path, $filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    }
+
+    private function csv(string $filename, array $headings, array $rows)
+    {
+        $path = $this->tempPath('csv');
+        $handle = fopen($path, 'w');
+        fputcsv($handle, $headings);
+        foreach ($rows as $row) {
+            fputcsv($handle, $row);
+        }
+        fclose($handle);
+
+        return $this->file($path, $filename, 'text/csv');
     }
 
     private function word(string $filename, string $title, array $headings, array $rows)

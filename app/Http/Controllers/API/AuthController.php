@@ -570,6 +570,7 @@ class AuthController extends Controller
                 'children.*.last_name' => 'required_with:children|string|max:255',
                 'children.*.date_of_birth' => 'required_with:children|date|before:today',
                 'children.*.gender' => 'required_with:children|in:male,female,other',
+                'children.*.school_attended' => 'nullable|string|max:255',
                 'children.*.phone' => 'nullable|string|max:255',
                 'children.*.address' => 'nullable|string|max:2000',
                 'children.*.city' => 'nullable|string|max:255',
@@ -1147,6 +1148,7 @@ class AuthController extends Controller
                     'last_name' => $student->last_name,
                     'full_name' => $student->full_name,
                     'student_id' => $student->student_id,
+                    'school_attended' => $student->school_attended,
                     'business_id' => $student->business_id,
                     'class' => $student->classRoom?->name,
                     'class_room_id' => $student->class_room_id,
@@ -1168,6 +1170,7 @@ class AuthController extends Controller
                     'full_name' => $child->full_name,
                     'date_of_birth' => optional($child->date_of_birth)->toDateString(),
                     'gender' => $child->gender,
+                    'school_attended' => $child->school_attended,
                     'phone' => $child->phone,
                     'address' => $child->address,
                     'city' => $child->city,
@@ -1211,6 +1214,9 @@ class AuthController extends Controller
                 'last_name' => $last,
                 'date_of_birth' => $dob,
                 'gender' => $gender,
+                'school_attended' => array_key_exists('school_attended', $childData)
+                    ? (trim((string) $childData['school_attended']) ?: null)
+                    : $existing?->school_attended,
                 'phone' => $childData['phone'] ?? null,
                 'address' => $childData['address'] ?? $parent->address,
                 'city' => $childData['city'] ?? $parent->city,

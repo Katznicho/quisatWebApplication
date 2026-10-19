@@ -6,6 +6,7 @@ use App\Models\SmallGroup;
 use App\Models\SmallGroupAttendance;
 use App\Models\SmallGroupMeeting;
 use App\Models\SmallGroupMember;
+use App\Models\SmallGroupVisitor;
 use App\Models\User;
 use App\Services\SmallGroupService;
 use App\Services\TableDocumentExporter;
@@ -49,6 +50,16 @@ class SmallGroupManagement extends Component
     public string $meetingDate = '';
 
     public string $meetingLocation = '';
+
+    public string $meetingListDate = '';
+
+    public $meetingListGroupId = null;
+
+    public string $visitorName = '';
+
+    public string $visitorGuardian = '';
+
+    public string $visitorContact = '';
 
     public string $reportWeek = '';
 
@@ -206,23 +217,87 @@ class SmallGroupManagement extends Component
 
     public function saveMeeting(): void
     {
-        $this->authorizeManage();
         $this->validate([
             'meetingGroupId' => 'required|integer',
             'meetingDate' => 'required|date',
             'meetingLocation' => 'required|string|max:255',
         ]);
         $group = $this->findGroup((int) $this->meetingGroupId);
-        SmallGroupMeeting::create([
-            'small_group_id' => $group->id,
-            'business_id' => $group->business_id,
-            'meeting_date' => $this->meetingDate,
-            'location' => trim($this->meetingLocation),
-            'created_by_user_id' => auth()->id(),
-        ]);
+        $this->assertCanRecordMeeting($group);
+        $meeting = SmallGroupMeeting::query()->firstOrCreate(
+            [
+                'small_group_id' => $group->id,
+                'meeting_date' => $this->meetingDate,
+            ],
+            [
+                'business_id' => $group->business_id,
+                'location' => trim($this->meetingLocation),
+                'created_by_user_id' => auth()->id(),
+            ]
+        );
+        $this->reviewMeetingId = $meeting->id;
         $this->meetingLocation = '';
-        session()->flash('success', 'Meeting recorded.');
+        session()->flash('success', 'Meeting ready. Mark each member present or absent.');
         $this->section = 'meetings';
+    }
+
+    public function markMember(int $meetingId, int $studentId, string $status): void
+    {
+        if (! in_array($status, ['present', 'absent'], true)) {
+            return;
+        }
+
+        $meeting = SmallGroupMeeting::query()
+            ->where('business_id', auth()->user()->business_id)
+            ->whereKey($meetingId)
+            ->firstOrFail();
+        $this->assertCanRecordMeeting($meeting->group);
+        $isMember = SmallGroupMember::query()
+            ->where('small_group_id', $meeting->small_group_id)
+            ->where('student_id', $studentId)
+            ->exists();
+        abort_unless($isMember, 422);
+
+        $record = SmallGroupAttendance::query()->firstOrNew([
+            'small_group_meeting_id' => $meeting->id,
+            'student_id' => $studentId,
+        ]);
+        if (! $record->exists) {
+            $record->fill([
+                'small_group_id' => $meeting->small_group_id,
+                'business_id' => $meeting->business_id,
+                'status' => $status,
+                'verification_status' => 'pending',
+            ]);
+            $record->save();
+        }
+        app(SmallGroupService::class)->correct(auth()->user(), $record->fresh(), $status);
+        session()->flash('success', $status === 'present' ? 'Marked present.' : 'Marked absent.');
+    }
+
+    public function addVisitor(): void
+    {
+        $this->validate([
+            'visitorName' => 'required|string|max:120',
+            'visitorGuardian' => 'nullable|string|max:120',
+            'visitorContact' => 'nullable|string|max:40',
+        ]);
+        $meeting = SmallGroupMeeting::query()
+            ->where('business_id', auth()->user()->business_id)
+            ->whereKey($this->reviewMeetingId)
+            ->firstOrFail();
+        $this->assertCanRecordMeeting($meeting->group);
+        SmallGroupVisitor::query()->create([
+            'small_group_meeting_id' => $meeting->id,
+            'small_group_id' => $meeting->small_group_id,
+            'business_id' => $meeting->business_id,
+            'visitor_name' => trim($this->visitorName),
+            'guardian_name' => trim($this->visitorGuardian) ?: null,
+            'contact' => trim($this->visitorContact) ?: null,
+            'created_by' => auth()->id(),
+        ]);
+        $this->reset('visitorName', 'visitorGuardian', 'visitorContact');
+        session()->flash('success', 'Visitor recorded. They are not enrolled in the group.');
     }
 
     public function reviewMeeting(int $meetingId): void
@@ -354,6 +429,8 @@ class SmallGroupManagement extends Component
             ->withCount(['attendances as present_count' => fn ($query) => $query->where('status', 'present')])
             ->where('business_id', $businessId)
             ->when($leaderOnly, fn ($query) => $query->whereHas('group', fn ($group) => $group->where('leader_user_id', $user->id)))
+            ->when($this->meetingListDate !== '', fn ($query) => $query->whereDate('meeting_date', $this->meetingListDate))
+            ->when($this->meetingListGroupId, fn ($query) => $query->where('small_group_id', (int) $this->meetingListGroupId))
             ->orderByDesc('meeting_date')
             ->limit(40)
             ->get();
@@ -368,7 +445,8 @@ class SmallGroupManagement extends Component
                     ->where('small_group_meeting_id', $meeting->id)
                     ->get()
                     ->keyBy('student_id');
-                $review = compact('meeting', 'roster', 'attendance');
+                $visitors = SmallGroupVisitor::query()->where('small_group_meeting_id', $meeting->id)->orderBy('visitor_name')->get();
+                $review = compact('meeting', 'roster', 'attendance', 'visitors');
             }
         }
 
@@ -389,6 +467,7 @@ class SmallGroupManagement extends Component
             'settings' => $settings,
             'labels' => $settings->labels(),
             'canManage' => $user->canManageSmallGroups(),
+            'canRecordMeetings' => $user->canManageSmallGroups() || $this->leadsAGroup($user),
             'staff' => User::query()->where('business_id', $businessId)->orderBy('name')->get(['id', 'name']),
             'members' => $members,
             'memberGroup' => $this->memberGroupId ? $groups->firstWhere('id', $this->memberGroupId) ?? SmallGroup::find($this->memberGroupId) : null,
@@ -436,6 +515,16 @@ class SmallGroupManagement extends Component
         }
 
         return app(SmallGroupService::class)->userCanVerifyGroup(auth()->user(), $group);
+    }
+
+    protected function assertCanRecordMeeting(SmallGroup $group): void
+    {
+        $user = auth()->user();
+        if ($user->canManageSmallGroups() || $user->isAdmin() || $user->isBusinessAdmin()) {
+            return;
+        }
+
+        abort_unless((int) $group->leader_user_id === (int) $user->id, 403);
     }
 
     protected function authorizeManage(): void

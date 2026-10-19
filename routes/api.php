@@ -226,6 +226,7 @@ Route::prefix('v1')->middleware('community.package')->group(function () {
             Route::get('me', [ParentUniversalAccountController::class, 'me']);
             Route::get('universal-code', [ParentUniversalAccountController::class, 'universalCode']);
             Route::post('universal-code/regenerate', [ParentUniversalAccountController::class, 'regenerate']);
+            Route::put('children/school-attended', [ParentUniversalAccountController::class, 'updateSchoolAttended']);
             Route::get('businesses', [ParentUniversalAccountController::class, 'businesses']);
             Route::post('join-business', [ParentUniversalAccountController::class, 'joinBusiness']);
         });
@@ -369,6 +370,7 @@ Route::prefix('v1')->middleware('community.package')->group(function () {
             Route::get('attendance/services', [AttendanceController::class, 'services']);
             Route::get('attendance/teacher-classes', [AttendanceController::class, 'teacherClasses']);
             Route::get('attendance/class-children', [AttendanceController::class, 'classChildren']);
+            Route::get('attendance/by-pickup-code', [AttendanceController::class, 'childrenByPickupCode']);
             Route::get('attendance/family', [AttendanceController::class, 'family']);
             Route::post('attendance/check-in', [AttendanceController::class, 'checkIn']);
             Route::post('attendance/check-out', [AttendanceController::class, 'checkOut']);
@@ -394,6 +396,10 @@ Route::prefix('v1')->middleware('community.package')->group(function () {
             Route::post('staff-attendance/check-in', [StaffAttendanceController::class, 'checkIn']);
             Route::post('staff-attendance/check-out', [StaffAttendanceController::class, 'checkOut']);
 
+            Route::get('small-groups/leader', [SmallGroupController::class, 'leaderBoard']);
+            Route::post('small-groups/leader/meetings', [SmallGroupController::class, 'storeLeaderMeeting']);
+            Route::post('small-groups/leader/attendance', [SmallGroupController::class, 'storeLeaderAttendance']);
+            Route::post('small-groups/leader/visitors', [SmallGroupController::class, 'storeLeaderVisitor']);
             Route::get('small-groups/mine', [SmallGroupController::class, 'mine']);
             Route::get('small-groups/meetings', [SmallGroupController::class, 'meetings']);
             Route::get('small-groups/attendance', [SmallGroupController::class, 'history']);

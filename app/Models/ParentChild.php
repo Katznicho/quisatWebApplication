@@ -17,6 +17,7 @@ class ParentChild extends Model
         'last_name',
         'date_of_birth',
         'gender',
+        'school_attended',
         'phone',
         'address',
         'city',

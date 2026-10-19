@@ -155,7 +155,7 @@
     @endif
 
     @if ($section === 'meetings')
-        @if ($canManage)
+        @if ($canRecordMeetings)
             <form wire:submit="saveMeeting" class="mb-6 grid max-w-3xl grid-cols-1 gap-3 md:grid-cols-3">
                 <select wire:model="meetingGroupId" class="rounded-lg border border-slate-300 px-3 py-2">
                     <option value="">Group</option>
@@ -165,9 +165,19 @@
                 </select>
                 <input type="date" wire:model="meetingDate" class="rounded-lg border border-slate-300 px-3 py-2">
                 <input wire:model="meetingLocation" placeholder="Location" class="rounded-lg border border-slate-300 px-3 py-2">
-                <button class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white md:col-span-3 w-fit">Record meeting</button>
+                <button class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white md:col-span-3 w-fit">Open meeting</button>
             </form>
         @endif
+
+        <div class="mb-3 flex flex-wrap gap-2">
+            <select wire:model.live="meetingListGroupId" class="rounded-lg border border-slate-300 px-3 py-2">
+                <option value="">All groups</option>
+                @foreach ($allGroups as $group)
+                    <option value="{{ $group->id }}">{{ $group->name }}</option>
+                @endforeach
+            </select>
+            <input type="date" wire:model.live="meetingListDate" class="rounded-lg border border-slate-300 px-3 py-2">
+        </div>
 
         <div class="overflow-x-auto rounded-xl border border-slate-200">
             <table class="min-w-full text-sm">
@@ -199,8 +209,19 @@
         </div>
 
         @if ($review)
+            @php
+                $membersPresent = $review['attendance']->where('status', 'present')->count();
+                $membersAbsent = $review['attendance']->where('status', 'absent')->count();
+                $visitorsPresent = $review['visitors']->count();
+            @endphp
             <div class="mt-6 rounded-xl border border-slate-200 p-4">
                 <h3 class="font-semibold">{{ $review['meeting']->group?->name }} · {{ optional($review['meeting']->meeting_date)->toDateString() }}</h3>
+                <div class="mt-3 grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
+                    <p class="rounded-lg bg-slate-50 p-3">Members present <span class="block text-lg font-semibold">{{ $membersPresent }}</span></p>
+                    <p class="rounded-lg bg-slate-50 p-3">Visitors present <span class="block text-lg font-semibold">{{ $visitorsPresent }}</span></p>
+                    <p class="rounded-lg bg-slate-50 p-3">Total attended <span class="block text-lg font-semibold">{{ $membersPresent + $visitorsPresent }}</span></p>
+                    <p class="rounded-lg bg-slate-50 p-3">Absent members <span class="block text-lg font-semibold">{{ $membersAbsent }}</span></p>
+                </div>
                 <ul class="mt-3 divide-y divide-slate-100">
                     @foreach ($review['roster'] as $member)
                         @php $row = $review['attendance']->get($member->student_id); @endphp
@@ -208,32 +229,45 @@
                             <div>
                                 <p class="font-medium">{{ $member->student?->full_name }}</p>
                                 <p class="text-xs text-slate-500">
-                                    @if (! $row || $row->status !== 'present')
-                                        No attendance recorded
+                                    @if ($row && $row->status === 'present')
+                                        Present
+                                    @elseif ($row && $row->status === 'absent')
+                                        Absent
                                     @else
-                                        {{ $row->verification_status === 'verified' ? 'Verified' : 'Pending verification' }}
-                                        @if ($row->last_changed_at)
-                                            · {{ $row->lastChangedByUser?->name ?: $row->lastChangedByParent?->full_name }} · {{ $row->last_changed_at->timezone(auth()->user()->business?->timezoneName() ?? config('app.timezone'))->format('j M Y g:i A') }}
-                                        @endif
+                                        Not marked
                                     @endif
                                 </p>
                             </div>
                             @if ($this->canVerifyGroup($review['meeting']->group))
                                 <div class="flex gap-2">
-                                    @if ($row && $row->status === 'present' && $row->verification_status !== 'verified')
-                                        <button type="button" wire:click="verifyAttendance({{ $row->id }})" class="text-sm font-semibold text-emerald-700">Verify</button>
-                                    @endif
-                                    @if ($row)
-                                        <button type="button" wire:click="correctAttendance({{ $row->id }}, 'present')" class="text-sm font-semibold text-blue-600">Mark attended</button>
-                                        <button type="button" wire:click="correctAttendance({{ $row->id }}, 'removed')" class="text-sm font-semibold text-red-600">Remove</button>
-                                    @else
-                                        <button type="button" wire:click="markAttended({{ $review['meeting']->id }}, {{ $member->student_id }})" class="text-sm font-semibold text-blue-600">Mark attended</button>
-                                    @endif
+                                    <button type="button" wire:click="markMember({{ $review['meeting']->id }}, {{ $member->student_id }}, 'present')" class="text-sm font-semibold text-blue-600">Present</button>
+                                    <button type="button" wire:click="markMember({{ $review['meeting']->id }}, {{ $member->student_id }}, 'absent')" class="text-sm font-semibold text-red-600">Absent</button>
                                 </div>
                             @endif
                         </li>
                     @endforeach
                 </ul>
+                <h4 class="mt-4 font-semibold">Visitors</h4>
+                <ul class="mt-2 divide-y divide-slate-100">
+                    @forelse ($review['visitors'] as $visitor)
+                        <li class="py-2 text-sm">
+                            <span class="rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">Visitor</span>
+                            {{ $visitor->visitor_name }}
+                            @if ($visitor->guardian_name) · {{ $visitor->guardian_name }} @endif
+                            @if ($visitor->contact) · {{ $visitor->contact }} @endif
+                        </li>
+                    @empty
+                        <li class="py-2 text-sm text-slate-500">No visitors recorded for this meeting.</li>
+                    @endforelse
+                </ul>
+                @if ($this->canVerifyGroup($review['meeting']->group))
+                    <form wire:submit="addVisitor" class="mt-3 grid gap-2 md:grid-cols-4">
+                        <input wire:model="visitorName" placeholder="Visitor name" class="rounded-lg border border-slate-300 px-3 py-2">
+                        <input wire:model="visitorGuardian" placeholder="Parent/guardian" class="rounded-lg border border-slate-300 px-3 py-2">
+                        <input wire:model="visitorContact" placeholder="Contact (optional)" class="rounded-lg border border-slate-300 px-3 py-2">
+                        <button class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Add Visitor</button>
+                    </form>
+                @endif
             </div>
         @endif
     @endif

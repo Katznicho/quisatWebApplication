@@ -209,6 +209,7 @@ class StudentController extends Controller
             'email' => $student->email,
             'phone' => $student->phone,
             'gender' => $student->gender,
+            'school_attended' => $student->school_attended,
             'date_of_birth' => optional($student->date_of_birth)->toDateString(),
             'age' => optional($student->date_of_birth)->age,
             'student_id' => $student->student_id,

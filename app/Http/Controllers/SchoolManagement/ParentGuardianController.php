@@ -38,6 +38,8 @@ class ParentGuardianController extends Controller
      */
     public function store(Request $request)
     {
+        $wantsJson = $request->expectsJson();
+
         $validated = $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
@@ -103,8 +105,16 @@ class ParentGuardianController extends Controller
                 $validated['relationship']
             );
 
-            return $this->redirectToParentsIndex()
-                ->with('success', 'Existing parent linked to this business successfully!');
+            $message = 'Existing parent linked to this business successfully!';
+            if ($wantsJson) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Parent saved and linked to this child.',
+                    'parent' => ['id' => $existing->id, 'name' => $existing->full_name],
+                ]);
+            }
+
+            return $this->redirectToParentsIndex()->with('success', $message);
         }
 
         $validated['email'] = $email;
@@ -123,6 +133,14 @@ class ParentGuardianController extends Controller
             'staff_create',
             $validated['relationship']
         );
+
+        if ($wantsJson) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Parent saved and linked to this child.',
+                'parent' => ['id' => $parent->id, 'name' => $parent->full_name],
+            ]);
+        }
 
         return $this->redirectToParentsIndex()
             ->with('success', 'Parent/Guardian created successfully!');

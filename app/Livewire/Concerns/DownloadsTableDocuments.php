@@ -4,8 +4,10 @@ namespace App\Livewire\Concerns;
 
 use App\Models\ClassRoom;
 use App\Services\TableDocumentExporter;
+use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\Select;
+use Filament\Notifications\Notification;
 use Filament\Tables\Actions\Action;
-use Filament\Tables\Actions\ActionGroup;
 use Filament\Tables\Columns\Column;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -16,28 +18,74 @@ trait DownloadsTableDocuments
     protected function tableDocumentActions(string $title): array
     {
         return [
-            ActionGroup::make([
-                Action::make('downloadExcel')
-                    ->label('Excel')
-                    ->action(fn () => $this->downloadTableDocument('excel', $title)),
-                Action::make('downloadWord')
-                    ->label('Word')
-                    ->action(fn () => $this->downloadTableDocument('word', $title)),
-                Action::make('downloadPdf')
-                    ->label('PDF')
-                    ->action(fn () => $this->downloadTableDocument('pdf', $title)),
-            ])
+            Action::make('downloadTable')
                 ->label('Download')
                 ->icon('heroicon-o-arrow-down-tray')
-                ->button(),
+                ->button()
+                ->modalHeading('Download')
+                ->modalSubmitActionLabel('Download')
+                ->modalDescription(function () {
+                    $count = $this->exportMatchCount();
+
+                    return $count.' records match the current filters. Choose the columns, then download.';
+                })
+                ->form(function () {
+                    $options = $this->exportColumnOptions();
+
+                    return [
+                        CheckboxList::make('columns')
+                            ->label('Columns')
+                            ->options($options)
+                            ->default(array_keys($options))
+                            ->required()
+                            ->columns(2),
+                        Select::make('format')
+                            ->label('File')
+                            ->options([
+                                'excel' => 'Excel',
+                                'csv' => 'CSV',
+                                'pdf' => 'PDF',
+                            ])
+                            ->default('excel')
+                            ->required(),
+                    ];
+                })
+                ->action(function (array $data) use ($title) {
+                    if ($this->exportMatchCount() === 0) {
+                        Notification::make()
+                            ->title('No records found. Please adjust your filters.')
+                            ->warning()
+                            ->send();
+
+                        return null;
+                    }
+
+                    return $this->downloadTableDocument($data['format'], $title, $data['columns'] ?? []);
+                }),
         ];
     }
 
-    protected function downloadTableDocument(string $format, string $title)
+    protected function downloadTableDocument(string $format, string $title, array $columns = [])
     {
-        [$headings, $rows] = $this->visibleTableDocument();
+        [$headings, $rows] = $this->visibleTableDocument($columns);
 
         return app(TableDocumentExporter::class)->download($format, $title, $headings, $rows);
+    }
+
+    protected function exportMatchCount(): int
+    {
+        try {
+            return (int) $this->getFilteredTableQuery()->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    protected function exportColumnOptions(): array
+    {
+        return collect($this->exportColumns())
+            ->mapWithKeys(fn (Column $column) => [$column->getName() => (string) $column->getLabel()])
+            ->all();
     }
 
     protected function classGroupLabel(): string
@@ -93,9 +141,9 @@ trait DownloadsTableDocuments
             });
     }
 
-    private function visibleTableDocument(): array
+    private function exportColumns(): array
     {
-        $columns = collect($this->getTable()->getColumns())
+        return collect($this->getTable()->getColumns())
             ->filter(fn (Column $column) => ! $column instanceof ImageColumn)
             ->reject(function (Column $column) {
                 try {
@@ -104,10 +152,18 @@ trait DownloadsTableDocuments
                     return false;
                 }
             })
+            ->values()
+            ->all();
+    }
+
+    private function visibleTableDocument(array $selected = []): array
+    {
+        $columns = collect($this->exportColumns())
+            ->when($selected !== [], fn ($columns) => $columns->filter(fn (Column $column) => in_array($column->getName(), $selected, true)))
             ->values();
 
         $headings = $columns->map(fn (Column $column) => (string) $column->getLabel())->all();
-        $records = $this->getFilteredTableQuery()->limit(5000)->get();
+        $records = $this->getFilteredTableQuery()->limit(20000)->get();
         $rows = [];
 
         foreach ($records as $record) {

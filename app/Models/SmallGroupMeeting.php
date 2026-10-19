@@ -36,6 +36,11 @@ class SmallGroupMeeting extends Model
         return $this->belongsTo(SmallGroup::class, 'small_group_id');
     }
 
+    public function visitors(): HasMany
+    {
+        return $this->hasMany(SmallGroupVisitor::class);
+    }
+
     public function attendances(): HasMany
     {
         return $this->hasMany(SmallGroupAttendance::class);

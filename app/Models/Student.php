@@ -18,6 +18,7 @@ class Student extends Model
         'phone',
         'date_of_birth',
         'gender',
+        'school_attended',
         'address',
         'city',
         'country',

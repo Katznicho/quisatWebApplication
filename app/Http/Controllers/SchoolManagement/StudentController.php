@@ -47,6 +47,7 @@ class StudentController extends Controller
             'phone' => 'nullable|string|max:255',
             'date_of_birth' => 'required|date',
             'gender' => 'required|in:male,female,other',
+            'school_attended' => 'nullable|string|max:255',
             'student_id' => 'required|string|unique:students,student_id|max:255',
             'admission_date' => 'required|date',
             'parent_guardian_id' => 'required|exists:parent_guardians,id',
@@ -70,6 +71,7 @@ class StudentController extends Controller
             $validated['photo'] = $request->file('photo')->store('students', 'public');
         }
 
+        $validated['school_attended'] = $validated['school_attended'] ?? null;
         Student::create($validated);
 
         return $this->redirectToStudentsIndex()
@@ -124,6 +126,7 @@ class StudentController extends Controller
             'phone' => 'nullable|string|max:255',
             'date_of_birth' => 'required|date',
             'gender' => 'required|in:male,female,other',
+            'school_attended' => 'nullable|string|max:255',
             'student_id' => 'required|string|unique:students,student_id,' . $student->id . '|max:255',
             'admission_date' => 'required|date',
             'parent_guardian_id' => 'required|exists:parent_guardians,id',
@@ -154,6 +157,7 @@ class StudentController extends Controller
             'phone' => $validated['phone'] ?? null,
             'date_of_birth' => $validated['date_of_birth'],
             'gender' => $validated['gender'],
+            'school_attended' => $validated['school_attended'] ?? null,
             'student_id' => $validated['student_id'],
             'admission_date' => $validated['admission_date'],
             'parent_guardian_id' => $validated['parent_guardian_id'],

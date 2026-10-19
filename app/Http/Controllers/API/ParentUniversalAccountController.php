@@ -4,7 +4,9 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\Business;
+use App\Models\ParentChild;
 use App\Models\ParentGuardian;
+use App\Models\Student;
 use App\Models\User;
 use App\Services\ParentUniversalCodeService;
 use Illuminate\Http\Request;
@@ -18,6 +20,79 @@ class ParentUniversalAccountController extends Controller
     public function __construct(
         protected ParentUniversalCodeService $codes
     ) {}
+
+    /**
+     * PUT /api/v1/parent/children/school-attended
+     * Stores the school name on the parent's child. It does not enrol the child in that school.
+     */
+    public function updateSchoolAttended(Request $request)
+    {
+        $parent = $this->requireParent($request);
+        if (! $parent instanceof ParentGuardian) {
+            return $parent;
+        }
+
+        $validated = $request->validate([
+            'student_id' => 'nullable|integer',
+            'child_id' => 'nullable|integer',
+            'school_attended' => 'nullable|string|max:255',
+        ]);
+
+        if (empty($validated['student_id']) && empty($validated['child_id'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Choose a child before saving the school.',
+            ], 422);
+        }
+
+        $school = trim((string) ($validated['school_attended'] ?? ''));
+        $school = $school === '' ? null : $school;
+
+        if (! empty($validated['student_id'])) {
+            $student = Student::query()
+                ->where('parent_guardian_id', $parent->id)
+                ->whereKey($validated['student_id'])
+                ->first();
+            if (! $student) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'That child is not linked to your account.',
+                ], 403);
+            }
+            $student->school_attended = $school;
+            $student->save();
+            $this->syncParentChildSchool($parent, $student->first_name, $student->last_name, $student->date_of_birth, $school);
+        }
+
+        if (! empty($validated['child_id'])) {
+            $child = ParentChild::query()
+                ->where('parent_guardian_id', $parent->id)
+                ->whereKey($validated['child_id'])
+                ->first();
+            if (! $child) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'That child is not linked to your account.',
+                ], 403);
+            }
+            $child->school_attended = $school;
+            $child->save();
+            Student::query()
+                ->where('parent_guardian_id', $parent->id)
+                ->where('first_name', $child->first_name)
+                ->where('last_name', $child->last_name)
+                ->when($child->date_of_birth, fn ($query) => $query->whereDate('date_of_birth', $child->date_of_birth))
+                ->update(['school_attended' => $school]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'School attended saved.',
+            'data' => [
+                'school_attended' => $school,
+            ],
+        ]);
+    }
 
     /**
      * GET /api/v1/parent/me
@@ -282,6 +357,20 @@ class ParentUniversalAccountController extends Controller
         }
     }
 
+    protected function syncParentChildSchool(ParentGuardian $parent, ?string $first, ?string $last, $dob, ?string $school): void
+    {
+        if (! $first || ! $last) {
+            return;
+        }
+
+        ParentChild::query()
+            ->where('parent_guardian_id', $parent->id)
+            ->where('first_name', $first)
+            ->where('last_name', $last)
+            ->when($dob, fn ($query) => $query->whereDate('date_of_birth', $dob))
+            ->update(['school_attended' => $school]);
+    }
+
     protected function requireParent(Request $request)
     {
         $user = $request->user();
@@ -324,6 +413,7 @@ class ParentUniversalAccountController extends Controller
                         'last_name' => $student->last_name,
                         'full_name' => $student->full_name,
                     'student_id' => $student->student_id,
+                    'school_attended' => $student->school_attended,
                     'business_id' => $student->business_id,
                     'class' => $student->class,
                     'status' => $student->status,

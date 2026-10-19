@@ -117,6 +117,7 @@ class ParentGuardianController extends Controller
                 'status' => $student->status,
                 'photo_url' => $this->resolvePhotoUrl($student->photo),
                 'gender' => $student->gender,
+                'school_attended' => $student->school_attended,
                 'class_room' => $student->classRoom ? [
                     'id' => $student->classRoom->id,
                     'name' => $student->classRoom->name,

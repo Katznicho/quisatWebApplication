@@ -673,6 +673,50 @@ class AttendanceController extends Controller
         ]);
     }
 
+    public function childrenByPickupCode(Request $request)
+    {
+        $user = $request->get('authenticated_user');
+        $business = $request->get('business');
+        if (! $user instanceof User || ! $business) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only staff can look up a pickup code.',
+            ], 403);
+        }
+
+        $digits = preg_replace('/\D/', '', (string) $request->query('code')) ?: '';
+        if (strlen($digits) !== 4) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Enter the parent’s 4-digit code.',
+                'data' => ['children' => []],
+            ]);
+        }
+
+        $date = (string) $request->query('date', Carbon::now($business->timezoneName())->toDateString());
+        $code = str_pad($digits, 4, '0', STR_PAD_LEFT);
+        $studentIds = \App\Models\PickupCode::query()
+            ->where('business_id', $business->id)
+            ->whereDate('code_date', $date)
+            ->where('code', $code)
+            ->pluck('student_id');
+
+        $students = Student::query()
+            ->with(['classRoom:id,name', 'parentGuardian:id,first_name,last_name'])
+            ->where('business_id', $business->id)
+            ->whereIn('id', $studentIds)
+            ->orderBy('first_name')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'message' => $students->isEmpty() ? 'No child matches this code.' : 'Children linked to this code.',
+            'data' => [
+                'children' => $this->rosterChildren($students, (int) $business->id, $date, (int) $request->query('church_service_id')),
+            ],
+        ]);
+    }
+
     public function classChildren(Request $request)
     {
         $user = $request->get('authenticated_user');

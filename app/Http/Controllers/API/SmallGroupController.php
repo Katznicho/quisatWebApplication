@@ -8,6 +8,8 @@ use App\Models\SmallGroup;
 use App\Models\SmallGroupAttendance;
 use App\Models\SmallGroupMeeting;
 use App\Models\SmallGroupMember;
+use App\Models\SmallGroupVisitor;
+use App\Models\User;
 use App\Services\SmallGroupService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -184,6 +186,166 @@ class SmallGroupController extends Controller
         ]);
     }
 
+    public function leaderBoard(Request $request)
+    {
+        $user = $this->staff($request);
+        if ($user instanceof \Illuminate\Http\JsonResponse) {
+            return $user;
+        }
+
+        $business = $request->get('business');
+        $groups = $this->leaderGroups($user, (int) $business->id);
+        $groupId = (int) $request->query('group_id');
+        if ($groupId && ! $groups->contains('id', $groupId)) {
+            return response()->json(['success' => false, 'message' => 'You can record attendance only for a group you lead.'], 403);
+        }
+
+        $selectedGroupId = $groupId ?: (int) ($groups->first()?->id ?? 0);
+        $meetings = $selectedGroupId
+            ? SmallGroupMeeting::query()
+                ->with('group:id,name,location')
+                ->where('business_id', $business->id)
+                ->where('small_group_id', $selectedGroupId)
+                ->orderByDesc('meeting_date')
+                ->limit(40)
+                ->get()
+            : collect();
+
+        $meetingId = (int) $request->query('meeting_id');
+        $meeting = $meetingId
+            ? $meetings->firstWhere('id', $meetingId)
+            : $meetings->first();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'groups' => $groups->map(fn (SmallGroup $group) => [
+                    'id' => $group->id,
+                    'name' => $group->name,
+                    'location' => $group->location,
+                ])->values(),
+                'meetings' => $meetings->map(fn (SmallGroupMeeting $row) => $this->leaderMeetingSummary($row))->values(),
+                'meeting' => $meeting ? $this->leaderMeetingDetail($meeting) : null,
+            ],
+        ]);
+    }
+
+    public function storeLeaderMeeting(Request $request)
+    {
+        $user = $this->staff($request);
+        if ($user instanceof \Illuminate\Http\JsonResponse) {
+            return $user;
+        }
+
+        $validated = $request->validate([
+            'group_id' => 'required|integer',
+            'meeting_date' => 'required|date',
+            'location' => 'required|string|max:255',
+        ]);
+
+        $group = $this->findLeaderGroup($user, (int) $request->get('business')->id, (int) $validated['group_id']);
+        $meeting = SmallGroupMeeting::query()->firstOrCreate(
+            [
+                'small_group_id' => $group->id,
+                'meeting_date' => $validated['meeting_date'],
+            ],
+            [
+                'business_id' => $group->business_id,
+                'location' => trim($validated['location']),
+                'created_by_user_id' => $user->id,
+            ]
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Meeting ready. Mark each member present or absent.',
+            'data' => [
+                'meeting' => $this->leaderMeetingDetail($meeting),
+            ],
+        ]);
+    }
+
+    public function storeLeaderAttendance(Request $request)
+    {
+        $user = $this->staff($request);
+        if ($user instanceof \Illuminate\Http\JsonResponse) {
+            return $user;
+        }
+
+        $validated = $request->validate([
+            'meeting_id' => 'required|integer',
+            'student_id' => 'required|integer',
+            'status' => 'required|in:present,absent',
+        ]);
+
+        $meeting = $this->findLeaderMeeting($user, (int) $request->get('business')->id, (int) $validated['meeting_id']);
+        $isMember = SmallGroupMember::query()
+            ->where('small_group_id', $meeting->small_group_id)
+            ->where('student_id', $validated['student_id'])
+            ->exists();
+        if (! $isMember) {
+            return response()->json(['success' => false, 'message' => 'That child is not a member of this group.'], 422);
+        }
+
+        $record = SmallGroupAttendance::query()->firstOrNew([
+            'small_group_meeting_id' => $meeting->id,
+            'student_id' => $validated['student_id'],
+        ]);
+        if (! $record->exists) {
+            $record->fill([
+                'small_group_id' => $meeting->small_group_id,
+                'business_id' => $meeting->business_id,
+                'status' => $validated['status'],
+                'verification_status' => 'pending',
+            ]);
+            $record->save();
+        }
+
+        $this->groups->correct($user, $record->fresh(), $validated['status']);
+
+        return response()->json([
+            'success' => true,
+            'message' => $validated['status'] === 'present' ? 'Marked present.' : 'Marked absent.',
+            'data' => [
+                'meeting' => $this->leaderMeetingDetail($meeting->fresh()),
+            ],
+        ]);
+    }
+
+    public function storeLeaderVisitor(Request $request)
+    {
+        $user = $this->staff($request);
+        if ($user instanceof \Illuminate\Http\JsonResponse) {
+            return $user;
+        }
+
+        $validated = $request->validate([
+            'meeting_id' => 'required|integer',
+            'visitor_name' => 'required|string|max:120',
+            'guardian_name' => 'nullable|string|max:120',
+            'contact' => 'nullable|string|max:40',
+        ]);
+
+        $meeting = $this->findLeaderMeeting($user, (int) $request->get('business')->id, (int) $validated['meeting_id']);
+        SmallGroupVisitor::query()->create([
+            'small_group_meeting_id' => $meeting->id,
+            'small_group_id' => $meeting->small_group_id,
+            'business_id' => $meeting->business_id,
+            'visitor_name' => trim($validated['visitor_name']),
+            'guardian_name' => trim((string) ($validated['guardian_name'] ?? '')) ?: null,
+            'contact' => trim((string) ($validated['contact'] ?? '')) ?: null,
+            'created_by' => $user->id,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Visitor recorded. They are not enrolled in the group.',
+            'data' => [
+                'meeting' => $this->leaderMeetingDetail($meeting->fresh()),
+            ],
+        ]);
+    }
+
     public function meetings(Request $request)
     {
         $parent = $this->parent($request);
@@ -321,6 +483,106 @@ class SmallGroupController extends Controller
                 'history' => $rows,
             ],
         ]);
+    }
+
+    protected function staff(Request $request): User|\Illuminate\Http\JsonResponse
+    {
+        $user = $request->get('authenticated_user');
+        $business = $request->get('business');
+        if (! $user instanceof User || ! $business) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only the assigned group leader can record this meeting.',
+            ], 403);
+        }
+
+        return $user;
+    }
+
+    protected function leaderGroups(User $user, int $businessId)
+    {
+        return SmallGroup::query()
+            ->where('business_id', $businessId)
+            ->where('status', 'active')
+            ->when(
+                ! $user->canManageSmallGroups() && ! $user->isAdmin() && ! $user->isBusinessAdmin(),
+                fn ($query) => $query->where('leader_user_id', $user->id)
+            )
+            ->orderBy('name')
+            ->get(['id', 'name', 'location', 'leader_user_id', 'business_id']);
+    }
+
+    protected function findLeaderGroup(User $user, int $businessId, int $groupId): SmallGroup
+    {
+        $group = $this->leaderGroups($user, $businessId)->firstWhere('id', $groupId);
+        abort_unless($group, 403);
+
+        return $group;
+    }
+
+    protected function findLeaderMeeting(User $user, int $businessId, int $meetingId): SmallGroupMeeting
+    {
+        $meeting = SmallGroupMeeting::query()
+            ->where('business_id', $businessId)
+            ->whereKey($meetingId)
+            ->firstOrFail();
+        $this->findLeaderGroup($user, $businessId, (int) $meeting->small_group_id);
+
+        return $meeting;
+    }
+
+    protected function leaderMeetingSummary(SmallGroupMeeting $meeting): array
+    {
+        return [
+            'id' => $meeting->id,
+            'group_id' => $meeting->small_group_id,
+            'group_name' => $meeting->group?->name,
+            'meeting_date' => optional($meeting->meeting_date)->toDateString(),
+            'location' => $meeting->location,
+        ];
+    }
+
+    protected function leaderMeetingDetail(SmallGroupMeeting $meeting): array
+    {
+        $members = SmallGroupMember::query()
+            ->with('student:id,first_name,last_name')
+            ->where('small_group_id', $meeting->small_group_id)
+            ->get();
+        $attendance = SmallGroupAttendance::query()
+            ->where('small_group_meeting_id', $meeting->id)
+            ->get()
+            ->keyBy('student_id');
+        $visitors = SmallGroupVisitor::query()
+            ->where('small_group_meeting_id', $meeting->id)
+            ->orderBy('visitor_name')
+            ->get();
+        $membersPresent = $attendance->where('status', 'present')->count();
+        $membersAbsent = $attendance->where('status', 'absent')->count();
+
+        return [
+            ...$this->leaderMeetingSummary($meeting->loadMissing('group:id,name,location')),
+            'members' => $members->map(function (SmallGroupMember $member) use ($attendance) {
+                $row = $attendance->get($member->student_id);
+
+                return [
+                    'id' => $member->student_id,
+                    'full_name' => $member->student?->full_name,
+                    'status' => $row?->status ?: 'unmarked',
+                ];
+            })->values(),
+            'visitors' => $visitors->map(fn (SmallGroupVisitor $visitor) => [
+                'id' => $visitor->id,
+                'visitor_name' => $visitor->visitor_name,
+                'guardian_name' => $visitor->guardian_name,
+                'contact' => $visitor->contact,
+            ])->values(),
+            'counts' => [
+                'members_present' => $membersPresent,
+                'visitors_present' => $visitors->count(),
+                'total_attended' => $membersPresent + $visitors->count(),
+                'absent_members' => $membersAbsent,
+            ],
+        ];
     }
 
     protected function parent(Request $request): ParentGuardian|\Illuminate\Http\JsonResponse

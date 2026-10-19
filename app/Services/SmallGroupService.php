@@ -222,8 +222,8 @@ class SmallGroupService
     public function correct(User $actor, SmallGroupAttendance $record, string $status): SmallGroupAttendance
     {
         $this->assertCanVerify($actor, $record);
-        if (! in_array($status, ['present', 'removed'], true)) {
-            throw ValidationException::withMessages(['status' => 'Choose attended or removed.']);
+        if (! in_array($status, ['present', 'absent', 'removed'], true)) {
+            throw ValidationException::withMessages(['status' => 'Choose present, absent, or removed.']);
         }
 
         $record->status = $status;
@@ -234,7 +234,12 @@ class SmallGroupService
         $record->last_changed_by_parent_id = null;
         $record->last_changed_at = now();
         $record->save();
-        $this->logChange($record, $actor, null, 'corrected', $status === 'present' ? 'Marked as attended.' : 'Attendance removed.');
+        $summary = match ($status) {
+            'present' => 'Marked present.',
+            'absent' => 'Marked absent.',
+            default => 'Attendance removed.',
+        };
+        $this->logChange($record, $actor, null, 'corrected', $summary);
 
         return $record->fresh();
     }
@@ -245,7 +250,7 @@ class SmallGroupService
             return false;
         }
 
-        if ($user->canVerifySmallGroupAttendance()) {
+        if ($user->canManageSmallGroups() || $user->canVerifySmallGroupAttendance()) {
             return true;
         }
 
