@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\PocketPay;
+namespace App\Http\Controllers\API\PocketPay;
 
 use App\Exceptions\PocketPayException;
 use App\Http\Controllers\Controller;
