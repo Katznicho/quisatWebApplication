@@ -5,6 +5,7 @@ namespace App\Livewire\PocketPay;
 use App\Exceptions\PocketPayException;
 use App\Models\Business;
 use App\Models\Canteen;
+use App\Models\CanteenFloatTopup;
 use App\Services\PocketPayService;
 use App\Support\PocketPayAccess;
 use App\Support\TenantScope;
@@ -19,6 +20,7 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 
 class ListCanteens extends Component implements HasForms, HasTable
@@ -63,6 +65,7 @@ class ListCanteens extends Component implements HasForms, HasTable
                     ->form([
                         Forms\Components\Select::make('business_id')
                             ->label('School')
+                            ->placeholder('Choose a school')
                             ->options(fn (): array => $this->schoolOptions())
                             ->searchable()
                             ->required()
@@ -88,17 +91,11 @@ class ListCanteens extends Component implements HasForms, HasTable
                     ->label('Top up float')
                     ->icon('heroicon-o-banknotes')
                     ->color('success')
-                    ->visible(fn (Canteen $record): bool => $record->isActive())
-                    ->modalDescription('A mobile money prompt is sent to the number below. The float is credited once the payment completes.')
-                    ->form(static::topupFields())
-                    ->action(function (Canteen $record, array $data): void {
-                        try {
-                            app(PocketPayService::class)->initiateTopup($record, (float) $data['amount'], $data['phone_number'], Auth::user());
-                            Notification::make()->title('Prompt sent')->body('Approve the mobile money prompt to credit the float.')->success()->send();
-                        } catch (PocketPayException $e) {
-                            Notification::make()->title($e->getMessage())->danger()->send();
-                        }
-                    }),
+                    ->visible(fn (Canteen $record): bool => $record->isActive() && PocketPayAccess::canManageFloat())
+                    ->modalHeading(fn (Canteen $record): string => 'Top up '.$record->name)
+                    ->modalDescription('Record cash paid at the canteen. The float is credited immediately and the proof is kept with the statement.')
+                    ->form(static::floatTopupFields())
+                    ->action(fn (Canteen $record, array $data) => static::recordFloatTopup($record, $data)),
                 Action::make('edit')
                     ->icon('heroicon-o-pencil-square')
                     ->color('gray')
@@ -106,6 +103,7 @@ class ListCanteens extends Component implements HasForms, HasTable
                     ->form([
                         ...static::canteenFields(),
                         Forms\Components\Select::make('status')
+                            ->placeholder('Choose a status')
                             ->options(['active' => 'Active', 'inactive' => 'Inactive'])
                             ->required()
                             ->helperText('Attendants of an inactive canteen cannot sell.'),
@@ -128,31 +126,82 @@ class ListCanteens extends Component implements HasForms, HasTable
     public static function canteenFields(): array
     {
         return [
-            Forms\Components\TextInput::make('name')->required()->maxLength(120),
-            Forms\Components\TextInput::make('location')->maxLength(120),
+            Forms\Components\TextInput::make('name')->required()->maxLength(120)->placeholder('e.g. Main Canteen'),
+            Forms\Components\TextInput::make('location')->maxLength(120)->placeholder('e.g. Block A, ground floor'),
             Forms\Components\TextInput::make('low_float_threshold')
                 ->label('Low float warning (UGX)')
+                ->placeholder('e.g. 50000')
                 ->numeric()
                 ->minValue(0)
                 ->default(0),
         ];
     }
 
-    public static function topupFields(): array
+    /**
+     * Form for a cash float top-up paid at the canteen, backed by a proof of payment.
+     */
+    public static function floatTopupFields(): array
     {
         return [
             Forms\Components\TextInput::make('amount')
-                ->label('Amount (UGX)')
+                ->label('Amount received (UGX)')
+                ->placeholder('e.g. 500000')
                 ->numeric()
                 ->required()
                 ->minValue(PocketPayService::MIN_TOPUP)
-                ->maxValue(PocketPayService::MAX_TOPUP),
-            Forms\Components\TextInput::make('phone_number')
-                ->label('Mobile money number')
-                ->tel()
+                ->maxValue(PocketPayService::MAX_FLOAT_TOPUP),
+            Forms\Components\DatePicker::make('paid_on')
+                ->label('Date paid')
+                ->placeholder('Choose the payment date')
                 ->required()
-                ->default(fn () => Auth::user()?->phone),
+                ->default(now())
+                ->maxDate(now()),
+            Forms\Components\TextInput::make('payment_reference')
+                ->label('Receipt / reference number')
+                ->placeholder('e.g. RCPT-00231')
+                ->maxLength(100),
+            Forms\Components\FileUpload::make('proof')
+                ->label('Proof of payment')
+                ->required()
+                ->disk(CanteenFloatTopup::PROOF_DISK)
+                ->directory(CanteenFloatTopup::PROOF_DIRECTORY)
+                ->visibility('private')
+                ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
+                ->maxSize(5120)
+                ->storeFileNamesIn('proof_name')
+                ->helperText('Photo or scan of the receipt: JPG, PNG or PDF, up to 5 MB.'),
+            Forms\Components\Textarea::make('note')
+                ->label('Note (optional)')
+                ->placeholder('e.g. Cash handed over by the bursar')
+                ->maxLength(255),
         ];
+    }
+
+    public static function recordFloatTopup(Canteen $canteen, array $data): void
+    {
+        abort_unless(PocketPayAccess::canManageFloat(), 403);
+
+        try {
+            $topup = app(PocketPayService::class)->recordFloatTopup(
+                $canteen,
+                (float) $data['amount'],
+                $data['proof'],
+                Auth::user(),
+                $data['proof_name'] ?? null,
+                $data['paid_on'] ?? null,
+                $data['payment_reference'] ?? null,
+                $data['note'] ?? null,
+            );
+
+            Notification::make()
+                ->title('Float topped up')
+                ->body('UGX '.number_format($topup->amount).' added to '.$canteen->name.'.')
+                ->success()
+                ->send();
+        } catch (PocketPayException $e) {
+            Storage::disk(CanteenFloatTopup::PROOF_DISK)->delete($data['proof']);
+            Notification::make()->title($e->getMessage())->danger()->send();
+        }
     }
 
     protected function schoolOptions(): array

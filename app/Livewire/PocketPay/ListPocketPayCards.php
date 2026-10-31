@@ -51,6 +51,7 @@ class ListPocketPayCards extends Component implements HasForms, HasTable
                 Tables\Columns\TextColumn::make('business.name')->label('School')->visible(TenantScope::isSuperAdmin())->searchable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
+                    ->formatStateUsing(fn (string $state): string => PocketPayCard::statusLabel($state))
                     ->color(fn (string $state): string => match ($state) {
                         PocketPayCard::STATUS_ACTIVE => 'success',
                         PocketPayCard::STATUS_BLOCKED => 'danger',
@@ -82,6 +83,7 @@ class ListPocketPayCards extends Component implements HasForms, HasTable
                     ->form([
                         Forms\Components\Select::make('business_id')
                             ->label('School')
+                            ->placeholder('Choose a school')
                             ->options(fn (): array => $this->schoolOptions())
                             ->searchable()
                             ->required()
@@ -89,6 +91,7 @@ class ListPocketPayCards extends Component implements HasForms, HasTable
                             ->afterStateUpdated(fn (Forms\Set $set) => $set('student_id', null)),
                         Forms\Components\Select::make('student_id')
                             ->label('Student')
+                            ->placeholder('Search for a student')
                             ->searchable()
                             ->required()
                             ->disabled(fn (Get $get): bool => blank($get('business_id')))
@@ -168,23 +171,28 @@ class ListPocketPayCards extends Component implements HasForms, HasTable
                         Notification::make()->title('Card number updated')->success()->send();
                     }),
                 Action::make('block')
+                    ->label('Deactivate')
                     ->icon('heroicon-o-lock-closed')
                     ->color('danger')
                     ->visible(fn (PocketPayCard $record): bool => $record->status !== PocketPayCard::STATUS_BLOCKED)
                     ->requiresConfirmation()
-                    ->modalDescription('A blocked card cannot buy or be topped up until it is unblocked.')
+                    ->modalHeading('Deactivate card')
+                    ->modalDescription('A deactivated card cannot buy or be topped up until it is activated again. The balance is kept.')
                     ->action(function (PocketPayCard $record): void {
                         app(PocketPayService::class)->setBlocked($record, true, Auth::user());
-                        Notification::make()->title('Card blocked')->success()->send();
+                        Notification::make()->title('Card deactivated')->success()->send();
                     }),
                 Action::make('unblock')
+                    ->label('Activate')
                     ->icon('heroicon-o-lock-open')
                     ->color('success')
                     ->visible(fn (PocketPayCard $record): bool => $record->status === PocketPayCard::STATUS_BLOCKED)
                     ->requiresConfirmation()
+                    ->modalHeading('Activate card')
+                    ->modalDescription('The card can buy again. A card that never had a PIN set still needs one from the attendant or parent app.')
                     ->action(function (PocketPayCard $record): void {
                         app(PocketPayService::class)->setBlocked($record, false, Auth::user());
-                        Notification::make()->title('Card unblocked')->success()->send();
+                        Notification::make()->title('Card activated')->success()->send();
                     }),
             ])
             ->emptyStateHeading('No cards assigned yet')
@@ -195,6 +203,7 @@ class ListPocketPayCards extends Component implements HasForms, HasTable
     {
         return Forms\Components\Select::make('card_number_id')
             ->label('Card number')
+            ->placeholder('Search for a card number')
             ->searchable()
             ->required()
             ->getSearchResultsUsing(fn (string $search): array => $this->availableNumbers($search))

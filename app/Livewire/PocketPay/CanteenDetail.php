@@ -6,6 +6,7 @@ use App\Exceptions\PocketPayException;
 use App\Models\Canteen;
 use App\Models\CanteenAttendant;
 use App\Models\CanteenSale;
+use App\Models\PocketPayCard;
 use App\Models\SmsMessage;
 use App\Services\CanteenAttendantAuthService;
 use App\Services\CanteenReportService;
@@ -177,17 +178,11 @@ class CanteenDetail extends Component implements HasActions, HasForms
             ->label('Top up float')
             ->icon('heroicon-o-banknotes')
             ->color('success')
-            ->visible(fn (): bool => $this->canteen->isActive())
-            ->modalDescription('A mobile money prompt is sent to the number below. The float is credited once the payment completes.')
-            ->form(ListCanteens::topupFields())
-            ->action(function (array $data): void {
-                try {
-                    app(PocketPayService::class)->initiateTopup($this->canteen, (float) $data['amount'], $data['phone_number'], Auth::user());
-                    Notification::make()->title('Prompt sent')->body('Approve the mobile money prompt to credit the float.')->success()->send();
-                } catch (PocketPayException $e) {
-                    Notification::make()->title($e->getMessage())->danger()->send();
-                }
-            });
+            ->visible(fn (): bool => $this->canteen->isActive() && PocketPayAccess::canManageFloat())
+            ->modalHeading('Top up '.$this->canteen->name)
+            ->modalDescription('Record cash paid at the canteen. The float is credited immediately and the proof is kept with the statement.')
+            ->form(ListCanteens::floatTopupFields())
+            ->action(fn (array $data) => ListCanteens::recordFloatTopup($this->canteen, $data));
     }
 
     public function editAction(): Action
@@ -200,6 +195,7 @@ class CanteenDetail extends Component implements HasActions, HasForms
             ->form([
                 ...ListCanteens::canteenFields(),
                 Forms\Components\Select::make('status')
+                    ->placeholder('Choose a status')
                     ->options(['active' => 'Active', 'inactive' => 'Inactive'])
                     ->required()
                     ->helperText('Attendants of an inactive canteen cannot sell.'),
@@ -223,9 +219,10 @@ class CanteenDetail extends Component implements HasActions, HasForms
             ->icon('heroicon-o-user-plus')
             ->modalDescription('The attendant receives an SMS with a one-time PIN to set up their own 4-digit PIN in the Quisat Attendant app.')
             ->form([
-                Forms\Components\TextInput::make('name')->required()->maxLength(120),
+                Forms\Components\TextInput::make('name')->required()->maxLength(120)->placeholder('e.g. Grace Nakato'),
                 Forms\Components\TextInput::make('phone')
                     ->tel()
+                    ->placeholder('e.g. 0772 123 456')
                     ->required()
                     ->helperText('The attendant logs in with this number.'),
             ])
@@ -278,36 +275,72 @@ class CanteenDetail extends Component implements HasActions, HasForms
     public function disableAttendantAction(): Action
     {
         return Action::make('disableAttendant')
-            ->label('Disable')
+            ->label('Deactivate')
             ->icon('heroicon-o-no-symbol')
             ->color('danger')
             ->size('sm')
             ->link()
             ->requiresConfirmation()
-            ->modalDescription('The attendant is signed out of the app and cannot log in until re-enabled.')
+            ->modalHeading('Deactivate attendant')
+            ->modalDescription('The attendant is signed out of the app and cannot log in until activated again.')
             ->action(function (array $arguments): void {
                 $attendant = $this->attendant($arguments);
                 $attendant->update(['status' => CanteenAttendant::STATUS_DISABLED]);
                 $attendant->tokens()->delete();
-                Notification::make()->title('Attendant disabled')->success()->send();
+                Notification::make()->title('Attendant deactivated')->success()->send();
             });
     }
 
     public function enableAttendantAction(): Action
     {
         return Action::make('enableAttendant')
-            ->label('Enable')
+            ->label('Activate')
             ->icon('heroicon-o-check-circle')
             ->color('success')
             ->size('sm')
             ->link()
             ->requiresConfirmation()
+            ->modalHeading('Activate attendant')
             ->action(function (array $arguments): void {
                 $attendant = $this->attendant($arguments);
                 $attendant->update([
                     'status' => $attendant->pin ? CanteenAttendant::STATUS_ACTIVE : CanteenAttendant::STATUS_PENDING_SETUP,
                 ]);
-                Notification::make()->title('Attendant enabled')->success()->send();
+                Notification::make()->title('Attendant activated')->success()->send();
+            });
+    }
+
+    public function deactivateCardAction(): Action
+    {
+        return Action::make('deactivateCard')
+            ->label('Deactivate')
+            ->icon('heroicon-o-lock-closed')
+            ->color('danger')
+            ->size('sm')
+            ->link()
+            ->requiresConfirmation()
+            ->modalHeading('Deactivate card')
+            ->modalDescription('A deactivated card cannot buy or be topped up until it is activated again. The balance is kept.')
+            ->action(function (array $arguments): void {
+                app(PocketPayService::class)->setBlocked($this->card($arguments), true, Auth::user());
+                Notification::make()->title('Card deactivated')->success()->send();
+            });
+    }
+
+    public function activateCardAction(): Action
+    {
+        return Action::make('activateCard')
+            ->label('Activate')
+            ->icon('heroicon-o-lock-open')
+            ->color('success')
+            ->size('sm')
+            ->link()
+            ->requiresConfirmation()
+            ->modalHeading('Activate card')
+            ->modalDescription('The card can buy again. A card that never had a PIN set still needs one from the attendant or parent app.')
+            ->action(function (array $arguments): void {
+                app(PocketPayService::class)->setBlocked($this->card($arguments), false, Auth::user());
+                Notification::make()->title('Card activated')->success()->send();
             });
     }
 
@@ -315,12 +348,13 @@ class CanteenDetail extends Component implements HasActions, HasForms
     {
         return Action::make('approveReversal')
             ->label('Approve')
+            ->visible(fn (): bool => PocketPayAccess::canReviewReversals())
             ->icon('heroicon-o-check')
             ->color('success')
             ->size('sm')
             ->requiresConfirmation()
             ->modalDescription('The card is refunded and the amount returns to the canteen float.')
-            ->form([Forms\Components\Textarea::make('note')->label('Note (optional)')->maxLength(255)])
+            ->form([Forms\Components\Textarea::make('note')->label('Note (optional)')->maxLength(255)->placeholder('e.g. Confirmed with the student, wrong amount keyed')])
             ->action(fn (array $arguments, array $data) => $this->review(
                 fn () => app(PocketPayService::class)->approveReversal($this->sale($arguments), Auth::user(), $data['note'] ?? null),
                 'Reversal approved. Card and float refunded.',
@@ -331,10 +365,11 @@ class CanteenDetail extends Component implements HasActions, HasForms
     {
         return Action::make('rejectReversal')
             ->label('Reject')
+            ->visible(fn (): bool => PocketPayAccess::canReviewReversals())
             ->icon('heroicon-o-x-mark')
             ->color('danger')
             ->size('sm')
-            ->form([Forms\Components\Textarea::make('note')->label('Reason')->required()->maxLength(255)])
+            ->form([Forms\Components\Textarea::make('note')->label('Reason')->required()->maxLength(255)->placeholder('e.g. The student received the item')])
             ->action(fn (array $arguments, array $data) => $this->review(
                 fn () => app(PocketPayService::class)->rejectReversal($this->sale($arguments), Auth::user(), $data['note']),
                 'Reversal rejected. The sale stands.',
@@ -357,8 +392,17 @@ class CanteenDetail extends Component implements HasActions, HasForms
             ->findOrFail($arguments['sale'] ?? null);
     }
 
+    protected function card(array $arguments): PocketPayCard
+    {
+        return PocketPayCard::query()
+            ->where('business_id', $this->canteen->business_id)
+            ->findOrFail($arguments['card'] ?? null);
+    }
+
     protected function review(callable $callback, string $success): void
     {
+        abort_unless(PocketPayAccess::canReviewReversals(), 403);
+
         try {
             $callback();
             Notification::make()->title($success)->success()->send();

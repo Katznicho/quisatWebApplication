@@ -10,6 +10,7 @@ use App\Livewire\PocketPay\ListPocketPayCards;
 use App\Models\Business;
 use App\Models\Canteen;
 use App\Models\CanteenAttendant;
+use App\Models\CanteenFloatTopup;
 use App\Models\CanteenSale;
 use App\Models\ParentGuardian;
 use App\Models\PocketPayCard;
@@ -20,7 +21,9 @@ use App\Models\SmsMessage;
 use App\Models\Student;
 use App\Models\User;
 use App\Services\PocketPayService;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\Feature\Concerns\BuildsPocketPaySchema;
 use Tests\TestCase;
@@ -191,13 +194,40 @@ class PocketPayAdminTest extends TestCase
         $canteen = Canteen::firstOrFail();
         $this->assertSame($this->school->id, $canteen->business_id);
 
+        Livewire::test(ListCanteens::class)->assertTableActionHidden('topup', $canteen);
+        Livewire::test(CanteenDetail::class, ['canteen' => $canteen])->assertActionHidden('topup');
+
+        $this->actingAs($this->superAdmin);
+
+        Storage::fake(CanteenFloatTopup::PROOF_DISK);
+
         Livewire::test(ListCanteens::class)
-            ->callTableAction('topup', $canteen, data: ['amount' => 100000, 'phone_number' => '0701000222'])
+            ->callTableAction('topup', $canteen, data: [
+                'amount' => 100000,
+                'paid_on' => now()->toDateString(),
+                'payment_reference' => 'RCPT-001',
+                'proof' => UploadedFile::fake()->image('receipt.jpg'),
+            ])
             ->assertHasNoTableActionErrors();
 
-        $topup = PocketPayTopup::firstOrFail();
-        $this->assertSame(Canteen::class, $topup->topupable_type);
-        $this->assertSame('processing', $topup->status);
+        $topup = CanteenFloatTopup::firstOrFail();
+        $this->assertEquals(100000, $canteen->fresh()->float_balance);
+        $this->assertSame('RCPT-001', $topup->payment_reference);
+        $this->assertSame($this->superAdmin->id, $topup->recorded_by);
+        Storage::disk(CanteenFloatTopup::PROOF_DISK)->assertExists($topup->proof_path);
+        $this->assertStringContainsString('Ref RCPT-001', $canteen->floatTransactions()->value('description'));
+        $this->assertSame(0, PocketPayTopup::count());
+
+        Livewire::test(ListCanteens::class)
+            ->callTableAction('topup', $canteen, data: ['amount' => 100000, 'paid_on' => now()->toDateString()])
+            ->assertHasTableActionErrors(['proof' => 'required']);
+
+        $this->actingAs($this->schoolAdmin);
+        $this->get(route('pocket-pay.float-topups.proof', $topup))->assertOk();
+
+        $theirs = Canteen::create(['business_id' => $this->otherSchool->id, 'name' => 'Their Canteen']);
+        $theirTopup = app(PocketPayService::class)->recordFloatTopup($theirs, 5000, $topup->proof_path, $this->superAdmin);
+        $this->get(route('pocket-pay.float-topups.proof', $theirTopup))->assertForbidden();
 
         Livewire::test(CanteenDetail::class, ['canteen' => $canteen])
             ->call('setTab', 'attendants')
@@ -274,6 +304,26 @@ class PocketPayAdminTest extends TestCase
         $this->assertSame(CanteenAttendant::STATUS_ACTIVE, $attendant->fresh()->status);
     }
 
+    public function test_canteen_detail_deactivates_and_activates_cards(): void
+    {
+        [$canteen, , $card] = $this->canteenWithSales();
+        $this->actingAs($this->schoolAdmin);
+
+        Livewire::test(CanteenDetail::class, ['canteen' => $canteen])
+            ->call('setTab', 'students')
+            ->callAction('deactivateCard', arguments: ['card' => $card->id]);
+
+        $this->assertSame(PocketPayCard::STATUS_BLOCKED, $card->fresh()->status);
+        $this->assertEquals(16500, $card->fresh()->balance);
+
+        Livewire::test(CanteenDetail::class, ['canteen' => $canteen])
+            ->call('setTab', 'students')
+            ->assertSee('Deactivated')
+            ->callAction('activateCard', arguments: ['card' => $card->id]);
+
+        $this->assertSame(PocketPayCard::STATUS_ACTIVE, $card->fresh()->status);
+    }
+
     /**
      * A canteen topped up with 10,000 and two sales (2,000 + 1,500) by Amani.
      *
@@ -290,11 +340,7 @@ class PocketPayAdminTest extends TestCase
         $service->activateCard($card, '1111', $attendant);
         $card->forceFill(['balance' => 20000])->save();
 
-        $topup = PocketPayTopup::create([
-            'business_id' => $this->school->id, 'topupable_type' => Canteen::class, 'topupable_id' => $canteen->id,
-            'amount' => 10000, 'phone_number' => '+256701000222', 'status' => 'completed',
-        ]);
-        $service->creditTopup($topup);
+        $service->recordFloatTopup($canteen, 10000, 'pocket-pay/float-proofs/receipt.jpg', $this->superAdmin, 'receipt.jpg');
 
         $service->makeSale($attendant, '260412344821', 2000, '1111');
         $service->makeSale($attendant, '260412344821', 1500, '1111');
@@ -302,7 +348,7 @@ class PocketPayAdminTest extends TestCase
         return [$canteen->fresh(), $attendant, $card];
     }
 
-    public function test_school_admin_approves_a_pending_reversal(): void
+    public function test_only_super_admin_approves_a_pending_reversal(): void
     {
         $canteen = Canteen::create(['business_id' => $this->school->id, 'name' => 'Main Canteen']);
         $attendant = CanteenAttendant::create(['business_id' => $this->school->id, 'canteen_id' => $canteen->id, 'name' => 'Grace', 'phone' => '+256700000001']);
@@ -317,6 +363,17 @@ class PocketPayAdminTest extends TestCase
         $service->requestReversal($attendant, $sale, 'Wrong amount keyed');
 
         $this->actingAs($this->schoolAdmin);
+        $this->get(route('pocket-pay.reversals.index'))->assertForbidden();
+
+        Livewire::test(CanteenDetail::class, ['canteen' => $canteen])
+            ->call('setTab', 'reversals')
+            ->assertSee($sale->receipt_number)
+            ->assertActionHidden('approveReversal', ['sale' => $sale->id])
+            ->assertActionHidden('rejectReversal', ['sale' => $sale->id]);
+
+        $this->assertSame(CanteenSale::STATUS_COMPLETED, $sale->fresh()->status);
+
+        $this->actingAs($this->superAdmin);
 
         Livewire::test(ListCanteenSales::class, ['reversalsOnly' => true])->assertCanSeeTableRecords([$sale]);
 
@@ -328,7 +385,7 @@ class PocketPayAdminTest extends TestCase
 
         $this->assertSame(CanteenSale::STATUS_REVERSED, $sale->fresh()->status);
         $this->assertEquals(5000, $card->fresh()->balance);
-        $this->assertSame($this->schoolAdmin->id, $sale->fresh()->reversal_reviewed_by);
+        $this->assertSame($this->superAdmin->id, $sale->fresh()->reversal_reviewed_by);
     }
 
     public function test_super_admin_sees_the_marzsms_log(): void

@@ -91,6 +91,15 @@ class PocketPayCard extends Model
         return $this->morphMany(PocketPayTopup::class, 'topupable');
     }
 
+    public static function statusLabel(?string $status): string
+    {
+        return match ($status) {
+            self::STATUS_ACTIVE => 'Active',
+            self::STATUS_BLOCKED => 'Deactivated',
+            default => 'Not activated',
+        };
+    }
+
     public function isActive(): bool
     {
         return $this->status === self::STATUS_ACTIVE;

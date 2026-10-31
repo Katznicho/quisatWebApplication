@@ -8,7 +8,7 @@
             'pocket-pay.canteens.index' => 'Canteens',
             'pocket-pay.cards.index' => 'Cards',
             'pocket-pay.card-numbers.index' => \App\Support\PocketPayAccess::canAssignCards() ? 'Card numbers' : null,
-            'pocket-pay.reversals.index' => 'Reversals',
+            'pocket-pay.reversals.index' => \App\Support\PocketPayAccess::canReviewReversals() ? 'Reversals' : null,
         ]) as $route => $label)
             <a href="{{ route($route) }}" @class([
                 'rounded-md px-3 py-1.5',

@@ -130,6 +130,7 @@ class CanteenReportService
         return CanteenFloatTransaction::query()
             ->where('canteen_id', $canteen->id)
             ->whereBetween('created_at', [$start, $end])
+            ->with('reference')
             ->orderBy('id');
     }
 

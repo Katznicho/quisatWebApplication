@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Auth;
 /**
  * Who may manage Pocket Pay on the web dashboard: super admins (all schools) and the
  * Admin role of a school that has the feature enabled (their own school only).
- * Card numbers are assigned by super admins only.
+ * Card numbers, canteen float top-ups and sale reversals are super admin only.
  */
 class PocketPayAccess
 {
@@ -33,6 +33,16 @@ class PocketPayAccess
         $user ??= Auth::user();
 
         return $user instanceof User && $user->isAdmin();
+    }
+
+    public static function canManageFloat(?User $user = null): bool
+    {
+        return self::canAssignCards($user);
+    }
+
+    public static function canReviewReversals(?User $user = null): bool
+    {
+        return self::canAssignCards($user);
     }
 
     public static function authorize(): void

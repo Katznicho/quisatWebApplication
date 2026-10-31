@@ -78,6 +78,7 @@ class ListPocketPayCardNumbers extends Component implements HasForms, HasTable
                     ->form([
                         Forms\Components\TextInput::make('count')
                             ->label('How many')
+                            ->placeholder('e.g. 50')
                             ->numeric()
                             ->integer()
                             ->required()
@@ -105,6 +106,7 @@ class ListPocketPayCardNumbers extends Component implements HasForms, HasTable
                     ->form([
                         Forms\Components\Select::make('batch')
                             ->label('Batch')
+                            ->placeholder('Choose a batch')
                             ->options(fn (): array => PocketPayCardNumber::query()->whereNotNull('batch')->distinct()->orderBy('batch')->pluck('batch', 'batch')->all())
                             ->searchable()
                             ->required(),
@@ -128,6 +130,7 @@ class ListPocketPayCardNumbers extends Component implements HasForms, HasTable
                     ->form([
                         Forms\Components\TextInput::make('number')
                             ->label('Card number')
+                            ->placeholder('e.g. 2604 1234 4821')
                             ->required()
                             ->maxLength(32)
                             ->rules([
@@ -139,7 +142,7 @@ class ListPocketPayCardNumbers extends Component implements HasForms, HasTable
                                 },
                             ])
                             ->helperText('Letters and digits; spaces and dashes are ignored.'),
-                        Forms\Components\TextInput::make('batch')->label('Batch label')->maxLength(50),
+                        Forms\Components\TextInput::make('batch')->label('Batch label')->maxLength(50)->placeholder('e.g. Print run Nov 2026'),
                     ])
                     ->action(function (array $data): void {
                         abort_unless(PocketPayAccess::canAssignCards(), 403);

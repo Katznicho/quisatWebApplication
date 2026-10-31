@@ -112,7 +112,7 @@
 
                         <div>
                             <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Low balance warning (UGX)</label>
-                            <input type="number" min="0" name="low_balance_threshold"
+                            <input type="number" min="0" name="low_balance_threshold" placeholder="e.g. 5000"
                                 value="{{ old('low_balance_threshold', $settings->low_balance_threshold) }}"
                                 class="w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-900 px-3 py-2 text-sm">
                             @error('low_balance_threshold')
@@ -147,7 +147,7 @@
                             @csrf
                             <div>
                                 <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Amount (UGX)</label>
-                                <input type="number" min="500" step="1" name="amount" required value="{{ old('amount') }}"
+                                <input type="number" min="500" step="1" name="amount" required placeholder="e.g. 20000" value="{{ old('amount') }}"
                                     class="w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-900 px-3 py-2 text-sm">
                                 @error('amount')
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -219,7 +219,7 @@
                             @csrf
                             <input type="tel" name="phone_number" required placeholder="07XXXXXXXX" value="{{ old('phone_number') }}"
                                 class="w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-900 px-3 py-2 text-sm">
-                            <textarea name="message" rows="2" required maxlength="{{ \App\Services\MarzSmsService::MAX_LENGTH }}"
+                            <textarea name="message" rows="2" required placeholder="Type the test message" maxlength="{{ \App\Services\MarzSmsService::MAX_LENGTH }}"
                                 class="w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-900 px-3 py-2 text-sm">{{ old('message', 'Hello from Quisat. MarzSMS is set up.') }}</textarea>
                             <div class="flex justify-end">
                                 <button type="submit" @disabled(! $settings->isReady())

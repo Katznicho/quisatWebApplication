@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Canteen;
+use App\Models\CanteenFloatTopup;
 use App\Models\CanteenSale;
 use App\Services\CanteenReportService;
 use App\Support\PocketPayAccess;
@@ -10,6 +11,7 @@ use App\Support\TenantScope;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class PocketPayController extends Controller
 {
@@ -35,6 +37,17 @@ class PocketPayController extends Controller
         TenantScope::authorizeModel($canteen);
 
         return view('pocket-pay.canteen', $this->nav() + ['canteen' => $canteen]);
+    }
+
+    public function floatTopupProof(CanteenFloatTopup $topup)
+    {
+        PocketPayAccess::authorize();
+        TenantScope::authorizeModel($topup);
+
+        $disk = Storage::disk(CanteenFloatTopup::PROOF_DISK);
+        abort_unless($disk->exists($topup->proof_path), 404);
+
+        return $disk->response($topup->proof_path, $topup->proof_name ?: basename($topup->proof_path));
     }
 
     public function canteenReport(Request $request, Canteen $canteen, string $type, CanteenReportService $reports)
@@ -90,6 +103,7 @@ class PocketPayController extends Controller
     public function reversals()
     {
         PocketPayAccess::authorize();
+        abort_unless(PocketPayAccess::canReviewReversals(), 403);
 
         return view('pocket-pay.reversals', $this->nav());
     }

@@ -179,7 +179,7 @@ class AttendantController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Reversal requested. A school admin must approve it before the money is returned.',
+            'message' => 'Reversal requested. Quisat must approve it before the money is returned.',
             'data' => ['sale' => PocketPayPresenter::sale($sale)],
         ]);
     }

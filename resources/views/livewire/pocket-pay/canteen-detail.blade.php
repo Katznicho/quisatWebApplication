@@ -31,6 +31,7 @@
     $thRight = 'px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400';
     $td = 'px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap';
     $tdRight = 'px-4 py-3 text-sm text-right tabular-nums whitespace-nowrap text-gray-700 dark:text-gray-300';
+    $canReview = \App\Support\PocketPayAccess::canReviewReversals();
     $card = 'rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800';
 @endphp
 
@@ -178,8 +179,8 @@
     @if ($summary['pending_reversals'] > 0 && $tab !== 'reversals')
         <button type="button" wire:click="setTab('reversals')"
             class="flex w-full items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm text-amber-800 hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
-            <span><strong>{{ $summary['pending_reversals'] }}</strong> reversal {{ str('request')->plural($summary['pending_reversals']) }} ({{ $money($summary['pending_reversals_amount']) }}) waiting for approval.</span>
-            <span class="font-semibold">Review →</span>
+            <span><strong>{{ $summary['pending_reversals'] }}</strong> reversal {{ str('request')->plural($summary['pending_reversals']) }} ({{ $money($summary['pending_reversals_amount']) }}) waiting for {{ $canReview ? 'your' : 'Quisat' }} approval.</span>
+            <span class="font-semibold">{{ $canReview ? 'Review' : 'View' }} →</span>
         </button>
     @endif
 
@@ -412,7 +413,17 @@
                                 <tr class="hover:bg-gray-50/60 dark:hover:bg-gray-900/30">
                                     <td class="{{ $td }}">{{ $entry->created_at->setTimezone($report['timezone'])->format('d M Y, H:i') }}</td>
                                     <td class="{{ $td }} font-mono text-xs">{{ strtoupper(substr($entry->uuid, 0, 8)) }}</td>
-                                    <td class="{{ $td }}">{{ $entry->description }}</td>
+                                    <td class="{{ $td }}">
+                                        {{ $entry->description }}
+                                        @if ($entry->reference instanceof \App\Models\CanteenFloatTopup)
+                                            <span class="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
+                                                Paid {{ $entry->reference->paid_on?->format('d M Y') }}{{ $entry->reference->recorder ? ' · recorded by '.$entry->reference->recorder->name : '' }}
+                                                <a href="{{ route('pocket-pay.float-topups.proof', $entry->reference) }}" target="_blank" class="inline-flex items-center gap-1 font-medium text-blue-600 hover:text-blue-800">
+                                                    <x-heroicon-o-paper-clip class="h-3.5 w-3.5" /> Proof
+                                                </a>
+                                            </span>
+                                        @endif
+                                    </td>
                                     <td class="{{ $td }}"><span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium capitalize text-gray-700 dark:bg-gray-700 dark:text-gray-300">{{ $entry->type }}</span></td>
                                     <td class="{{ $tdRight }} text-rose-600">{{ $entry->direction === 'debit' ? number_format($entry->amount) : '' }}</td>
                                     <td class="{{ $tdRight }} text-emerald-600">{{ $entry->direction === 'credit' ? number_format($entry->amount) : '' }}</td>
@@ -463,7 +474,7 @@
                                         @if ($attendant->trashed())
                                             <span class="{{ $pill('disabled') }}">Removed</span>
                                         @else
-                                            <span class="{{ $pill($attendant->status) }}">{{ str($attendant->status)->replace('_', ' ')->title() }}</span>
+                                            <span class="{{ $pill($attendant->status) }}">{{ $attendant->status === 'disabled' ? 'Deactivated' : str($attendant->status)->replace('_', ' ')->title() }}</span>
                                         @endif
                                         @if ($attendant->isLocked())
                                             <span class="{{ $pill('reversed') }} ml-1">PIN locked</span>
@@ -508,7 +519,7 @@
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-100 dark:divide-gray-700">
                         <thead class="bg-gray-50 dark:bg-gray-900/40">
-                            <tr><th class="{{ $th }}">Student</th><th class="{{ $th }}">Class</th><th class="{{ $th }}">Card</th><th class="{{ $th }}">Status</th><th class="{{ $thRight }}">Card balance</th><th class="{{ $thRight }}">Daily limit</th><th class="{{ $thRight }}">Purchases</th><th class="{{ $thRight }}">Spent here</th><th class="{{ $th }}">Last purchase here</th></tr>
+                            <tr><th class="{{ $th }}">Student</th><th class="{{ $th }}">Class</th><th class="{{ $th }}">Card</th><th class="{{ $th }}">Status</th><th class="{{ $thRight }}">Card balance</th><th class="{{ $thRight }}">Daily limit</th><th class="{{ $thRight }}">Purchases</th><th class="{{ $thRight }}">Spent here</th><th class="{{ $th }}">Last purchase here</th><th class="{{ $thRight }}">Actions</th></tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                             @forelse ($cardholders as $cardholder)
@@ -517,16 +528,23 @@
                                     <td class="{{ $td }}">{{ $cardholder->student?->classRoom?->name ?? '—' }}</td>
                                     <td class="{{ $td }} font-mono text-xs">{{ $cardholder->maskedNumber() }}</td>
                                     <td class="{{ $td }}">
-                                        <span class="{{ $pill($cardholder->status) }}">{{ $cardholder->status === 'inactive' ? 'Not activated' : ucfirst($cardholder->status) }}</span>
+                                        <span class="{{ $pill($cardholder->status) }}">{{ \App\Models\PocketPayCard::statusLabel($cardholder->status) }}</span>
                                     </td>
                                     <td class="{{ $tdRight }}">{{ $money($cardholder->balance) }}</td>
                                     <td class="{{ $tdRight }}">{{ $cardholder->daily_limit ? $money($cardholder->daily_limit) : 'None' }}</td>
                                     <td class="{{ $tdRight }}">{{ number_format($cardholder->purchases_here) }}</td>
                                     <td class="{{ $tdRight }} font-semibold text-gray-900 dark:text-white">{{ $money($cardholder->spent_here ?? 0) }}</td>
                                     <td class="{{ $td }}">{{ $cardholder->last_purchase_here ? \Illuminate\Support\Carbon::parse($cardholder->last_purchase_here)->setTimezone($report['timezone'])->format('d M Y, H:i') : '—' }}</td>
+                                    <td class="{{ $tdRight }}">
+                                        @if ($cardholder->status === \App\Models\PocketPayCard::STATUS_BLOCKED)
+                                            {{ ($this->activateCardAction)(['card' => $cardholder->id]) }}
+                                        @else
+                                            {{ ($this->deactivateCardAction)(['card' => $cardholder->id]) }}
+                                        @endif
+                                    </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="9" class="px-4 py-12 text-center text-sm text-gray-500">No cards match. Cards are assigned to students by Quisat.</td></tr>
+                                <tr><td colspan="10" class="px-4 py-12 text-center text-sm text-gray-500">No cards match. Cards are assigned to students by Quisat.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -557,7 +575,7 @@
                                         @endif
                                     </td>
                                     <td class="{{ $tdRight }}">
-                                        @if ($sale->reversal_status === 'pending')
+                                        @if ($sale->reversal_status === 'pending' && $canReview)
                                             <div class="flex justify-end gap-2">
                                                 {{ ($this->approveReversalAction)(['sale' => $sale->id]) }}
                                                 {{ ($this->rejectReversalAction)(['sale' => $sale->id]) }}

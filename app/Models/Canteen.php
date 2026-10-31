@@ -63,6 +63,11 @@ class Canteen extends Model
         return $this->hasMany(CanteenFloatTransaction::class);
     }
 
+    public function floatTopups(): HasMany
+    {
+        return $this->hasMany(CanteenFloatTopup::class);
+    }
+
     public function topups(): MorphMany
     {
         return $this->morphMany(PocketPayTopup::class, 'topupable');

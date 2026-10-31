@@ -6,6 +6,7 @@ use App\Exceptions\PocketPayException;
 use App\Models\Business;
 use App\Models\Canteen;
 use App\Models\CanteenAttendant;
+use App\Models\CanteenFloatTopup;
 use App\Models\CanteenFloatTransaction;
 use App\Models\CanteenSale;
 use App\Models\ParentGuardian;
@@ -42,6 +43,9 @@ class PocketPayService
 
     public const MAX_TOPUP = 5000000;
 
+    /** Cash float top-ups recorded by Quisat can be larger than a mobile money payment. */
+    public const MAX_FLOAT_TOPUP = 50000000;
+
     public function __construct(
         protected MarzSmsService $sms,
         protected MarzPayService $marzPay,
@@ -70,7 +74,7 @@ class PocketPayService
         $this->assertPinFormat($pin);
 
         if ($card->status === PocketPayCard::STATUS_BLOCKED) {
-            throw new PocketPayException('This card is blocked. Contact the school.', 423, 'card_blocked');
+            throw new PocketPayException('This card is deactivated. Contact the school.', 423, 'card_blocked');
         }
 
         if ($card->isActive()) {
@@ -190,7 +194,7 @@ class PocketPayService
 
         $this->notifyParent(
             $card,
-            "{$this->studentName($card)}'s Pocket Pay card {$card->maskedNumber()} was ".($blocked ? 'blocked' : 'unblocked')." by {$this->actorLabel($actor)}.",
+            "{$this->studentName($card)}'s Pocket Pay card {$card->maskedNumber()} was ".($blocked ? 'deactivated' : 'activated')." by {$this->actorLabel($actor)}.",
             $blocked ? 'pocket_pay.card_blocked' : 'pocket_pay.card_unblocked',
         );
 
@@ -271,7 +275,7 @@ class PocketPayService
 
             if ((float) $canteen->float_balance < $amount) {
                 throw new PocketPayException(
-                    'Canteen float is too low for this sale. Ask the school admin to top up the float.',
+                    'Canteen float is too low for this sale. Ask Quisat to top up the float.',
                     422,
                     'insufficient_float'
                 );
@@ -406,7 +410,7 @@ class PocketPayService
         }
 
         if ($target instanceof PocketPayCard && $target->status === PocketPayCard::STATUS_BLOCKED) {
-            throw new PocketPayException('This card is blocked. Contact the school.', 423, 'card_blocked');
+            throw new PocketPayException('This card is deactivated. Contact the school.', 423, 'card_blocked');
         }
 
         $normalized = $this->sms->normalizePhone($phone);
@@ -448,6 +452,49 @@ class PocketPayService
     /**
      * Credit a completed top-up exactly once (webhook and manual sync can both call this).
      */
+    /**
+     * Credit a canteen float with cash paid at the canteen. The proof of payment is already stored.
+     */
+    public function recordFloatTopup(
+        Canteen $canteen,
+        float $amount,
+        string $proofPath,
+        User $recordedBy,
+        ?string $proofName = null,
+        ?string $paidOn = null,
+        ?string $reference = null,
+        ?string $note = null,
+    ): CanteenFloatTopup {
+        if ($amount < self::MIN_TOPUP || $amount > self::MAX_FLOAT_TOPUP) {
+            throw new PocketPayException(
+                'Top-up amount must be between UGX '.$this->money(self::MIN_TOPUP).' and UGX '.$this->money(self::MAX_FLOAT_TOPUP).'.',
+                422,
+                'invalid_amount',
+            );
+        }
+
+        return DB::transaction(function () use ($canteen, $amount, $proofPath, $recordedBy, $proofName, $paidOn, $reference, $note) {
+            $canteen = Canteen::query()->lockForUpdate()->findOrFail($canteen->id);
+            $reference = filled($reference) ? trim($reference) : null;
+
+            $topup = CanteenFloatTopup::create([
+                'business_id' => $canteen->business_id,
+                'canteen_id' => $canteen->id,
+                'amount' => $amount,
+                'paid_on' => $paidOn ?: now()->toDateString(),
+                'payment_reference' => $reference,
+                'proof_path' => $proofPath,
+                'proof_name' => $proofName,
+                'note' => filled($note) ? trim($note) : null,
+                'recorded_by' => $recordedBy->id,
+            ]);
+
+            $this->moveFloat($canteen, 'topup', 'credit', $amount, $topup, 'Float top-up (cash at canteen)'.($reference ? " · Ref {$reference}" : ''));
+
+            return $topup;
+        });
+    }
+
     public function creditTopup(PocketPayTopup $topup): void
     {
         $credited = DB::transaction(function () use ($topup) {
@@ -504,7 +551,7 @@ class PocketPayService
         }
 
         if ($card->status === PocketPayCard::STATUS_BLOCKED) {
-            throw new PocketPayException('This card is blocked. Contact the school.', 423, 'card_blocked');
+            throw new PocketPayException('This card is deactivated. Contact the school.', 423, 'card_blocked');
         }
     }
 
@@ -596,7 +643,7 @@ class PocketPayService
         return match (true) {
             $actor instanceof CanteenAttendant => 'attendant '.$actor->name.($actor->canteen ? ' ('.$actor->canteen->name.')' : ''),
             $actor instanceof ParentGuardian => 'a parent in the Quisat app',
-            $actor instanceof User => 'the school admin',
+            $actor instanceof User => $actor->isAdmin() ? 'Quisat' : 'the school admin',
             default => 'Quisat',
         };
     }

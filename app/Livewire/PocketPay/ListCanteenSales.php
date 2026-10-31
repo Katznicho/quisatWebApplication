@@ -102,21 +102,23 @@ class ListCanteenSales extends Component implements HasForms, HasTable
                     ->label('Approve reversal')
                     ->icon('heroicon-o-check')
                     ->color('success')
-                    ->visible(fn (CanteenSale $record): bool => $record->hasPendingReversal())
+                    ->visible(fn (CanteenSale $record): bool => $record->hasPendingReversal() && PocketPayAccess::canReviewReversals())
                     ->modalHeading(fn (CanteenSale $record): string => 'Approve reversal of '.$record->receipt_number)
                     ->modalDescription(fn (CanteenSale $record): string => 'UGX '.number_format($record->amount).' goes back to the student card and to the canteen float. Reason given: "'.$record->reversal_reason.'"')
-                    ->form([Forms\Components\Textarea::make('note')->label('Note (optional)')->maxLength(255)])
+                    ->form([Forms\Components\Textarea::make('note')->label('Note (optional)')->maxLength(255)->placeholder('e.g. Confirmed with the student, wrong amount keyed')])
                     ->action(function (CanteenSale $record, array $data): void {
+                        abort_unless(PocketPayAccess::canReviewReversals(), 403);
                         $this->review(fn () => app(PocketPayService::class)->approveReversal($record, Auth::user(), $data['note'] ?? null), 'Reversal approved. Card and float refunded.');
                     }),
                 Action::make('reject')
                     ->label('Reject')
                     ->icon('heroicon-o-x-mark')
                     ->color('danger')
-                    ->visible(fn (CanteenSale $record): bool => $record->hasPendingReversal())
+                    ->visible(fn (CanteenSale $record): bool => $record->hasPendingReversal() && PocketPayAccess::canReviewReversals())
                     ->modalHeading(fn (CanteenSale $record): string => 'Reject reversal of '.$record->receipt_number)
-                    ->form([Forms\Components\Textarea::make('note')->label('Why is it rejected?')->required()->maxLength(255)])
+                    ->form([Forms\Components\Textarea::make('note')->label('Why is it rejected?')->required()->maxLength(255)->placeholder('e.g. The student received the item')])
                     ->action(function (CanteenSale $record, array $data): void {
+                        abort_unless(PocketPayAccess::canReviewReversals(), 403);
                         $this->review(fn () => app(PocketPayService::class)->rejectReversal($record, Auth::user(), $data['note']), 'Reversal rejected. The sale stands.');
                     }),
             ])

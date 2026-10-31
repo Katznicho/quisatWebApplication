@@ -293,7 +293,7 @@
                         <td>{{ $cardholder->student?->student_id ?? '—' }}</td>
                         <td>{{ $cardholder->student?->classRoom?->name ?? '—' }}</td>
                         <td class="mono">{{ $cardholder->maskedNumber() }}</td>
-                        <td><span class="badge {{ $cardholder->status === 'active' ? 'ok' : ($cardholder->status === 'blocked' ? 'bad' : 'warn') }}">{{ $cardholder->status === 'inactive' ? 'Not activated' : ucfirst($cardholder->status) }}</span></td>
+                        <td><span class="badge {{ $cardholder->status === 'active' ? 'ok' : ($cardholder->status === 'blocked' ? 'bad' : 'warn') }}">{{ \App\Models\PocketPayCard::statusLabel($cardholder->status) }}</span></td>
                         <td class="right">{{ $money($cardholder->balance) }}</td>
                         <td class="right">{{ number_format($cardholder->purchases_here) }}</td>
                         <td class="right">{{ $money($cardholder->spent_here ?? 0) }}</td>
