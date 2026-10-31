@@ -21,6 +21,9 @@ use Illuminate\Support\Str;
  */
 class MarzSmsService
 {
+    /** MarzSMS rejects messages longer than 2 SMS units. */
+    public const MAX_LENGTH = 320;
+
     public function __construct(
         protected MarzPayService $marzPay,
     ) {}
@@ -36,13 +39,13 @@ class MarzSmsService
     }
 
     /**
-     * Canonical +256… phone, or null when the number cannot be used for SMS.
+     * Canonical +256… phone, or null when the number cannot be used for SMS (MarzSMS only sends to Uganda).
      */
     public function normalizePhone(?string $phone): ?string
     {
         $normalized = $this->marzPay->normalizePhone($phone);
 
-        return $normalized !== null && preg_match('/^\+\d{10,15}$/', $normalized) ? $normalized : null;
+        return $normalized !== null && preg_match('/^\+256\d{9}$/', $normalized) ? $normalized : null;
     }
 
     /**
@@ -132,7 +135,7 @@ class MarzSmsService
         }
 
         try {
-            $response = $this->client($settings)->asForm()->post('/sms/send', [
+            $response = $this->client($settings)->post('/sms/send', [
                 'recipient' => $sms->recipient,
                 'message' => $sms->message,
             ]);
@@ -193,7 +196,7 @@ class MarzSmsService
         ]);
 
         try {
-            $response = $this->client($settings)->asForm()->post('/account/topup', [
+            $response = $this->client($settings)->post('/account/topup', [
                 'amount' => $amount,
                 'phone_number' => $normalized,
                 'reference' => $topup->reference,
@@ -272,6 +275,12 @@ class MarzSmsService
             return null;
         }
 
+        $error = match (true) {
+            ! $this->isReady() => 'MarzSMS is disabled or not configured.',
+            mb_strlen(trim($message)) > self::MAX_LENGTH => 'Message is longer than '.self::MAX_LENGTH.' characters.',
+            default => null,
+        };
+
         return SmsMessage::create([
             'business_id' => $business?->id,
             'recipient' => $recipient,
@@ -279,8 +288,8 @@ class MarzSmsService
             'purpose' => $purpose,
             'related_type' => $related ? $related::class : null,
             'related_id' => $related?->getKey(),
-            'status' => $this->isReady() ? 'pending' : 'skipped',
-            'error' => $this->isReady() ? null : 'MarzSMS is disabled or not configured.',
+            'status' => $error ? 'skipped' : 'pending',
+            'error' => $error,
             'sent_by' => $sentBy,
         ]);
     }

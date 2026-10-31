@@ -219,7 +219,7 @@
                             @csrf
                             <input type="tel" name="phone_number" required placeholder="07XXXXXXXX" value="{{ old('phone_number') }}"
                                 class="w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-900 px-3 py-2 text-sm">
-                            <textarea name="message" rows="2" required maxlength="480"
+                            <textarea name="message" rows="2" required maxlength="{{ \App\Services\MarzSmsService::MAX_LENGTH }}"
                                 class="w-full rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-900 px-3 py-2 text-sm">{{ old('message', 'Hello from Quisat. MarzSMS is set up.') }}</textarea>
                             <div class="flex justify-end">
                                 <button type="submit" @disabled(! $settings->isReady())

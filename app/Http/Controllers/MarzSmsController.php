@@ -105,7 +105,7 @@ class MarzSmsController extends Controller
     {
         $validated = $request->validate([
             'phone_number' => 'required|string|max:20',
-            'message' => 'required|string|max:480',
+            'message' => 'required|string|max:'.MarzSmsService::MAX_LENGTH,
         ]);
 
         if (! $marzSms->isReady()) {
@@ -115,7 +115,7 @@ class MarzSmsController extends Controller
         $sms = $marzSms->sendNow($validated['phone_number'], $validated['message'], 'test', null, null, Auth::id());
 
         if (! $sms) {
-            return back()->withInput()->with('error', 'Enter a valid phone number.');
+            return back()->withInput()->with('error', 'Enter a valid Ugandan phone number (e.g. 0771234567 or +256771234567).');
         }
 
         return redirect()
