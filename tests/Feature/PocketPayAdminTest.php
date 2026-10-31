@@ -91,6 +91,29 @@ class PocketPayAdminTest extends TestCase
             ->assertHasTableActionErrors(['number']);
     }
 
+    public function test_super_admin_downloads_card_qr_codes(): void
+    {
+        $this->actingAs($this->superAdmin);
+        $numbers = PocketPayCardNumber::generate(3, 'Run 1');
+        $first = $numbers->first();
+
+        Livewire::test(ListPocketPayCardNumbers::class)
+            ->callTableAction('qr', $first)
+            ->assertFileDownloaded("card-{$first->number}.svg");
+
+        Livewire::test(ListPocketPayCardNumbers::class)
+            ->callTableAction('download_batch', data: ['batch' => 'Run 1'])
+            ->assertFileDownloaded('card-qr-run-1.zip');
+
+        Livewire::test(ListPocketPayCardNumbers::class)
+            ->callTableBulkAction('download_qr', $numbers)
+            ->assertFileDownloaded('card-qr-codes.zip');
+
+        $svg = \App\Support\PocketPayCardQr::svg($first->number);
+        $this->assertStringStartsWith('<?xml', $svg);
+        $this->assertStringContainsString(PocketPayCardNumber::format($first->number), $svg);
+    }
+
     public function test_school_admin_cannot_open_card_numbers(): void
     {
         $this->actingAs($this->schoolAdmin)->get(route('pocket-pay.card-numbers.index'))->assertForbidden();

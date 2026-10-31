@@ -5,16 +5,19 @@ namespace App\Livewire\PocketPay;
 use App\Models\PocketPayCard;
 use App\Models\PocketPayCardNumber;
 use App\Support\PocketPayAccess;
+use App\Support\PocketPayCardQr;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Tables;
 use Filament\Tables\Actions\Action;
+use Filament\Tables\Actions\BulkAction;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
@@ -93,6 +96,30 @@ class ListPocketPayCardNumbers extends Component implements HasForms, HasTable
 
                         Notification::make()->title("{$created->count()} card numbers generated")->success()->send();
                     }),
+                Action::make('download_batch')
+                    ->label('Download QR codes')
+                    ->icon('heroicon-o-qr-code')
+                    ->color('gray')
+                    ->modalDescription('Downloads a ZIP with one QR code (SVG) per card number, ready for the card printer. Retired numbers are left out.')
+                    ->modalSubmitActionLabel('Download')
+                    ->form([
+                        Forms\Components\Select::make('batch')
+                            ->label('Batch')
+                            ->options(fn (): array => PocketPayCardNumber::query()->whereNotNull('batch')->distinct()->orderBy('batch')->pluck('batch', 'batch')->all())
+                            ->searchable()
+                            ->required(),
+                    ])
+                    ->action(function (array $data) {
+                        abort_unless(PocketPayAccess::canAssignCards(), 403);
+
+                        $numbers = PocketPayCardNumber::query()
+                            ->where('batch', $data['batch'])
+                            ->where('status', '!=', PocketPayCardNumber::STATUS_RETIRED)
+                            ->orderBy('number')
+                            ->get();
+
+                        return PocketPayCardQr::downloadZip($numbers, 'card-qr-'.str($data['batch'])->slug());
+                    }),
                 Action::make('add')
                     ->label('Add number')
                     ->icon('heroicon-o-plus')
@@ -128,6 +155,15 @@ class ListPocketPayCardNumbers extends Component implements HasForms, HasTable
                     }),
             ])
             ->actions([
+                Action::make('qr')
+                    ->label('QR code')
+                    ->icon('heroicon-o-qr-code')
+                    ->color('gray')
+                    ->action(function (PocketPayCardNumber $record) {
+                        abort_unless(PocketPayAccess::canAssignCards(), 403);
+
+                        return PocketPayCardQr::download($record);
+                    }),
                 Action::make('delete')
                     ->icon('heroicon-o-trash')
                     ->color('danger')
@@ -143,6 +179,17 @@ class ListPocketPayCardNumbers extends Component implements HasForms, HasTable
 
                         Notification::make()->title('Card number deleted')->success()->send();
                     }),
+            ])
+            ->bulkActions([
+                BulkAction::make('download_qr')
+                    ->label('Download QR codes')
+                    ->icon('heroicon-o-qr-code')
+                    ->action(function (Collection $records) {
+                        abort_unless(PocketPayAccess::canAssignCards(), 403);
+
+                        return PocketPayCardQr::downloadZip($records->sortBy('number'));
+                    })
+                    ->deselectRecordsAfterCompletion(),
             ])
             ->emptyStateHeading('No card numbers yet')
             ->emptyStateDescription('Use "Generate numbers" to create a batch, then assign them to students from Cards.');
