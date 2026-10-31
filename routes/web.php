@@ -216,6 +216,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::prefix('pocket-pay')->name('pocket-pay.')->group(function () {
         Route::get('canteens', [\App\Http\Controllers\PocketPayController::class, 'canteens'])->name('canteens.index');
         Route::get('canteens/{canteen}', [\App\Http\Controllers\PocketPayController::class, 'showCanteen'])->name('canteens.show');
+        Route::get('canteens/{canteen}/reports/{type}', [\App\Http\Controllers\PocketPayController::class, 'canteenReport'])->name('canteens.report');
         Route::get('cards', [\App\Http\Controllers\PocketPayController::class, 'cards'])->name('cards.index');
         Route::get('card-numbers', [\App\Http\Controllers\PocketPayController::class, 'cardNumbers'])->name('card-numbers.index');
         Route::get('reversals', [\App\Http\Controllers\PocketPayController::class, 'reversals'])->name('reversals.index');

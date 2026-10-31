@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Livewire\PocketPay\CanteenAttendants;
+use App\Livewire\PocketPay\CanteenDetail;
 use App\Livewire\PocketPay\ListCanteens;
 use App\Livewire\PocketPay\ListCanteenSales;
 use App\Livewire\PocketPay\ListPocketPayCardNumbers;
@@ -199,9 +199,10 @@ class PocketPayAdminTest extends TestCase
         $this->assertSame(Canteen::class, $topup->topupable_type);
         $this->assertSame('processing', $topup->status);
 
-        Livewire::test(CanteenAttendants::class, ['canteen' => $canteen])
-            ->callTableAction('add', data: ['name' => 'Grace', 'phone' => '0700 000 001'])
-            ->assertHasNoTableActionErrors();
+        Livewire::test(CanteenDetail::class, ['canteen' => $canteen])
+            ->call('setTab', 'attendants')
+            ->callAction('addAttendant', data: ['name' => 'Grace', 'phone' => '0700 000 001'])
+            ->assertHasNoActionErrors();
 
         $attendant = CanteenAttendant::firstOrFail();
         $this->assertSame('+256700000001', $attendant->phone);
@@ -214,7 +215,91 @@ class PocketPayAdminTest extends TestCase
         $theirs = Canteen::create(['business_id' => $this->otherSchool->id, 'name' => 'Their Canteen']);
         $this->actingAs($this->schoolAdmin);
 
-        Livewire::test(CanteenAttendants::class, ['canteen' => $theirs])->assertForbidden();
+        Livewire::test(CanteenDetail::class, ['canteen' => $theirs])->assertForbidden();
+        $this->get(route('pocket-pay.canteens.report', [$theirs, 'full']))->assertForbidden();
+    }
+
+    public function test_canteen_detail_shows_period_figures_tabs_and_pdf_reports(): void
+    {
+        [$canteen, $attendant, $card] = $this->canteenWithSales();
+        $this->actingAs($this->schoolAdmin);
+
+        // The full page needs the app layout's tables; the component carries all of the content.
+        $component = Livewire::test(CanteenDetail::class, ['canteen' => $canteen])
+            ->assertSee('Main Canteen')
+            ->assertSee('Hill Primary')
+            ->assertSee('UGX 3,500');
+
+        $summary = $component->instance()->report['summary'];
+        $this->assertEquals(3500, $summary['net_sales']);
+        $this->assertSame(2, $summary['transactions']);
+        $this->assertSame(1, $summary['students_served']);
+        $this->assertEquals(10000, $summary['float_topups']);
+        $this->assertEquals(0, $summary['float_opening']);
+        $this->assertEquals(6500, $summary['float_closing']);
+
+        foreach (CanteenDetail::TABS as $tab) {
+            $component->call('setTab', $tab)->assertOk()->assertSet('tab', $tab);
+        }
+
+        $component->call('setTab', 'sales')->assertSee('Amani N')->set('search', 'nobody')->assertSee('No sales match');
+        $component->call('setTab', 'attendants')->assertSee('Grace');
+        $component->call('setTab', 'students')->assertSee($card->maskedNumber());
+        $component->call('preset', 'last_month')->assertSee('UGX 0');
+
+        foreach (array_keys(\App\Http\Controllers\PocketPayController::REPORTS) as $type) {
+            $response = $this->get(route('pocket-pay.canteens.report', [$canteen, $type]));
+            $response->assertOk()->assertHeader('content-type', 'application/pdf');
+            $this->assertStringStartsWith('%PDF', $response->getContent());
+        }
+
+        $this->get(route('pocket-pay.canteens.report', [$canteen, 'nope']))->assertNotFound();
+    }
+
+    public function test_canteen_detail_manages_attendants(): void
+    {
+        [$canteen, $attendant] = $this->canteenWithSales();
+        $this->actingAs($this->schoolAdmin);
+
+        Livewire::test(CanteenDetail::class, ['canteen' => $canteen])
+            ->call('setTab', 'attendants')
+            ->callAction('disableAttendant', arguments: ['attendant' => $attendant->id]);
+
+        $this->assertSame(CanteenAttendant::STATUS_DISABLED, $attendant->fresh()->status);
+
+        Livewire::test(CanteenDetail::class, ['canteen' => $canteen])
+            ->call('setTab', 'attendants')
+            ->callAction('enableAttendant', arguments: ['attendant' => $attendant->id]);
+
+        $this->assertSame(CanteenAttendant::STATUS_ACTIVE, $attendant->fresh()->status);
+    }
+
+    /**
+     * A canteen topped up with 10,000 and two sales (2,000 + 1,500) by Amani.
+     *
+     * @return array{0: Canteen, 1: CanteenAttendant, 2: PocketPayCard}
+     */
+    private function canteenWithSales(): array
+    {
+        $canteen = Canteen::create(['business_id' => $this->school->id, 'name' => 'Main Canteen', 'location' => 'Block A']);
+        $attendant = CanteenAttendant::create(['business_id' => $this->school->id, 'canteen_id' => $canteen->id, 'name' => 'Grace', 'phone' => '+256700000001']);
+        $attendant->forceFill(['status' => 'active', 'pin' => bcrypt('1234')])->save();
+        $card = PocketPayCard::create(['business_id' => $this->school->id, 'student_id' => $this->student->id, 'card_number' => '260412344821']);
+
+        $service = app(PocketPayService::class);
+        $service->activateCard($card, '1111', $attendant);
+        $card->forceFill(['balance' => 20000])->save();
+
+        $topup = PocketPayTopup::create([
+            'business_id' => $this->school->id, 'topupable_type' => Canteen::class, 'topupable_id' => $canteen->id,
+            'amount' => 10000, 'phone_number' => '+256701000222', 'status' => 'completed',
+        ]);
+        $service->creditTopup($topup);
+
+        $service->makeSale($attendant, '260412344821', 2000, '1111');
+        $service->makeSale($attendant, '260412344821', 1500, '1111');
+
+        return [$canteen->fresh(), $attendant, $card];
     }
 
     public function test_school_admin_approves_a_pending_reversal(): void
@@ -233,10 +318,13 @@ class PocketPayAdminTest extends TestCase
 
         $this->actingAs($this->schoolAdmin);
 
-        Livewire::test(ListCanteenSales::class, ['reversalsOnly' => true])
-            ->assertCanSeeTableRecords([$sale])
-            ->callTableAction('approve', $sale, data: ['note' => 'ok'])
-            ->assertHasNoTableActionErrors();
+        Livewire::test(ListCanteenSales::class, ['reversalsOnly' => true])->assertCanSeeTableRecords([$sale]);
+
+        Livewire::test(CanteenDetail::class, ['canteen' => $canteen])
+            ->call('setTab', 'reversals')
+            ->assertSee($sale->receipt_number)
+            ->callAction('approveReversal', data: ['note' => 'ok'], arguments: ['sale' => $sale->id])
+            ->assertHasNoActionErrors();
 
         $this->assertSame(CanteenSale::STATUS_REVERSED, $sale->fresh()->status);
         $this->assertEquals(5000, $card->fresh()->balance);

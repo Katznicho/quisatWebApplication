@@ -67,7 +67,7 @@ class ListCanteens extends Component implements HasForms, HasTable
                             ->searchable()
                             ->required()
                             ->visible(TenantScope::isSuperAdmin()),
-                        ...$this->canteenFields(),
+                        ...static::canteenFields(),
                     ])
                     ->action(function (array $data): void {
                         $businessId = TenantScope::isSuperAdmin() ? (int) $data['business_id'] : TenantScope::businessId();
@@ -90,19 +90,7 @@ class ListCanteens extends Component implements HasForms, HasTable
                     ->color('success')
                     ->visible(fn (Canteen $record): bool => $record->isActive())
                     ->modalDescription('A mobile money prompt is sent to the number below. The float is credited once the payment completes.')
-                    ->form([
-                        Forms\Components\TextInput::make('amount')
-                            ->label('Amount (UGX)')
-                            ->numeric()
-                            ->required()
-                            ->minValue(PocketPayService::MIN_TOPUP)
-                            ->maxValue(PocketPayService::MAX_TOPUP),
-                        Forms\Components\TextInput::make('phone_number')
-                            ->label('Mobile money number')
-                            ->tel()
-                            ->required()
-                            ->default(fn () => Auth::user()?->phone),
-                    ])
+                    ->form(static::topupFields())
                     ->action(function (Canteen $record, array $data): void {
                         try {
                             app(PocketPayService::class)->initiateTopup($record, (float) $data['amount'], $data['phone_number'], Auth::user());
@@ -116,7 +104,7 @@ class ListCanteens extends Component implements HasForms, HasTable
                     ->color('gray')
                     ->fillForm(fn (Canteen $record): array => $record->only(['name', 'location', 'low_float_threshold', 'status']))
                     ->form([
-                        ...$this->canteenFields(),
+                        ...static::canteenFields(),
                         Forms\Components\Select::make('status')
                             ->options(['active' => 'Active', 'inactive' => 'Inactive'])
                             ->required()
@@ -137,7 +125,7 @@ class ListCanteens extends Component implements HasForms, HasTable
             ->emptyStateDescription('Create a canteen, top up its float, then add attendants.');
     }
 
-    protected function canteenFields(): array
+    public static function canteenFields(): array
     {
         return [
             Forms\Components\TextInput::make('name')->required()->maxLength(120),
@@ -147,6 +135,23 @@ class ListCanteens extends Component implements HasForms, HasTable
                 ->numeric()
                 ->minValue(0)
                 ->default(0),
+        ];
+    }
+
+    public static function topupFields(): array
+    {
+        return [
+            Forms\Components\TextInput::make('amount')
+                ->label('Amount (UGX)')
+                ->numeric()
+                ->required()
+                ->minValue(PocketPayService::MIN_TOPUP)
+                ->maxValue(PocketPayService::MAX_TOPUP),
+            Forms\Components\TextInput::make('phone_number')
+                ->label('Mobile money number')
+                ->tel()
+                ->required()
+                ->default(fn () => Auth::user()?->phone),
         ];
     }
 

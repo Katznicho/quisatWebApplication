@@ -66,6 +66,9 @@ trait BuildsPocketPaySchema
             $t->uuid('uuid')->nullable();
             $t->string('name');
             $t->string('logo')->nullable();
+            $t->string('email')->nullable();
+            $t->string('phone')->nullable();
+            $t->text('address')->nullable();
             $t->string('timezone')->nullable();
             $t->text('enabled_feature_ids')->nullable();
             $t->unsignedBigInteger('business_category_id')->nullable();
