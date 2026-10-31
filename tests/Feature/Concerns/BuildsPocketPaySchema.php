@@ -119,6 +119,7 @@ trait BuildsPocketPaySchema
             '2026_06_19_100005_add_business_credited_at_to_payment_collections_table.php',
             '2026_10_31_100001_create_marzsms_tables.php',
             '2026_10_31_120001_create_pocket_pay_tables.php',
+            '2026_11_01_100001_create_pocket_pay_card_numbers_table.php',
         ] as $migration) {
             Artisan::call('migrate', ['--path' => 'database/migrations/'.$migration]);
         }

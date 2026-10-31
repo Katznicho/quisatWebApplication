@@ -38,6 +38,13 @@ class PocketPayController extends Controller
         return view('pocket-pay.cards', $this->nav());
     }
 
+    public function cardNumbers()
+    {
+        abort_unless(PocketPayAccess::canAssignCards(), 403);
+
+        return view('pocket-pay.card-numbers', $this->nav());
+    }
+
     public function reversals()
     {
         PocketPayAccess::authorize();

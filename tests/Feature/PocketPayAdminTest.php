@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Livewire\PocketPay\CanteenAttendants;
 use App\Livewire\PocketPay\ListCanteens;
 use App\Livewire\PocketPay\ListCanteenSales;
+use App\Livewire\PocketPay\ListPocketPayCardNumbers;
 use App\Livewire\PocketPay\ListPocketPayCards;
 use App\Models\Business;
 use App\Models\Canteen;
@@ -12,6 +13,7 @@ use App\Models\CanteenAttendant;
 use App\Models\CanteenSale;
 use App\Models\ParentGuardian;
 use App\Models\PocketPayCard;
+use App\Models\PocketPayCardNumber;
 use App\Models\PocketPayTopup;
 use App\Models\Role;
 use App\Models\SmsMessage;
@@ -68,21 +70,50 @@ class PocketPayAdminTest extends TestCase
         ]);
     }
 
-    public function test_super_admin_assigns_a_card_number_and_duplicates_are_refused(): void
+    public function test_super_admin_generates_unique_year_prefixed_card_numbers(): void
     {
         $this->actingAs($this->superAdmin);
+
+        Livewire::test(ListPocketPayCardNumbers::class)
+            ->callTableAction('generate', data: ['count' => 25, 'batch' => 'Run 1'])
+            ->assertHasNoTableActionErrors();
+
+        $numbers = PocketPayCardNumber::pluck('number');
+        $this->assertCount(25, $numbers->unique());
+
+        foreach ($numbers as $number) {
+            $this->assertMatchesRegularExpression('/^'.now()->format('y').'\d{10}$/', $number);
+            $this->assertSame($number, PocketPayCardNumber::withCheckDigit(substr($number, 0, 11)));
+        }
+
+        Livewire::test(ListPocketPayCardNumbers::class)
+            ->callTableAction('add', data: ['number' => $numbers->first()])
+            ->assertHasTableActionErrors(['number']);
+    }
+
+    public function test_school_admin_cannot_open_card_numbers(): void
+    {
+        $this->actingAs($this->schoolAdmin)->get(route('pocket-pay.card-numbers.index'))->assertForbidden();
+    }
+
+    public function test_super_admin_assigns_a_stock_number_and_it_cannot_be_reused(): void
+    {
+        $this->actingAs($this->superAdmin);
+        [$first, $second] = PocketPayCardNumber::generate(2)->all();
 
         Livewire::test(ListPocketPayCards::class)
             ->callTableAction('assign', data: [
                 'business_id' => $this->school->id,
                 'student_id' => $this->student->id,
-                'card_number' => 'qp-0001 2345',
+                'card_number_id' => $first->id,
             ])
             ->assertHasNoTableActionErrors();
 
         $card = PocketPayCard::firstOrFail();
-        $this->assertSame('QP00012345', $card->card_number);
+        $this->assertSame($first->number, $card->card_number);
         $this->assertSame(PocketPayCard::STATUS_INACTIVE, $card->status);
+        $this->assertSame(PocketPayCardNumber::STATUS_ASSIGNED, $first->fresh()->status);
+        $this->assertSame($card->id, $first->fresh()->pocket_pay_card_id);
 
         $other = Student::forceCreate(['first_name' => 'Bo', 'last_name' => 'K', 'business_id' => $this->school->id]);
 
@@ -90,9 +121,18 @@ class PocketPayAdminTest extends TestCase
             ->callTableAction('assign', data: [
                 'business_id' => $this->school->id,
                 'student_id' => $other->id,
-                'card_number' => 'QP00012345',
-            ])
-            ->assertHasTableActionErrors(['card_number']);
+                'card_number_id' => $first->id,
+            ]);
+
+        $this->assertNull($other->fresh()->pocketPayCard);
+
+        Livewire::test(ListPocketPayCards::class)
+            ->callTableAction('change_number', $card, data: ['card_number_id' => $second->id])
+            ->assertHasNoTableActionErrors();
+
+        $this->assertSame($second->number, $card->fresh()->card_number);
+        $this->assertSame(PocketPayCardNumber::STATUS_RETIRED, $first->fresh()->status);
+        $this->assertSame(PocketPayCardNumber::STATUS_ASSIGNED, $second->fresh()->status);
     }
 
     public function test_school_admin_cannot_assign_cards_and_only_sees_own_school(): void

@@ -4,6 +4,7 @@ namespace App\Livewire\PocketPay;
 
 use App\Models\Business;
 use App\Models\PocketPayCard;
+use App\Models\PocketPayCardNumber;
 use App\Models\Student;
 use App\Services\PocketPayService;
 use App\Support\PocketPayAccess;
@@ -20,7 +21,7 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class ListPocketPayCards extends Component implements HasForms, HasTable
@@ -77,7 +78,7 @@ class ListPocketPayCards extends Component implements HasForms, HasTable
                     ->label('Assign card')
                     ->icon('heroicon-o-credit-card')
                     ->visible($canAssign)
-                    ->modalDescription('Link a physical card number to a student. The student or a parent then sets a 4-digit PIN to activate it.')
+                    ->modalDescription('Link a card number from Card numbers to a student. The student or a parent then sets a 4-digit PIN to activate it.')
                     ->form([
                         Forms\Components\Select::make('business_id')
                             ->label('School')
@@ -110,13 +111,18 @@ class ListPocketPayCards extends Component implements HasForms, HasTable
                             $action->halt();
                         }
 
-                        PocketPayCard::create([
+                        $card = $this->useNumber((int) $data['card_number_id'], fn (PocketPayCardNumber $number) => PocketPayCard::create([
                             'business_id' => $student->business_id,
                             'student_id' => $student->id,
-                            'card_number' => $data['card_number'],
+                            'card_number' => $number->number,
                             'status' => PocketPayCard::STATUS_INACTIVE,
                             'assigned_by' => Auth::id(),
-                        ]);
+                        ]));
+
+                        if (! $card) {
+                            Notification::make()->title('That card number is no longer available. Pick another.')->danger()->send();
+                            $action->halt();
+                        }
 
                         Notification::make()->title('Card assigned to '.$student->full_name)->success()->send();
                     }),
@@ -139,10 +145,26 @@ class ListPocketPayCards extends Component implements HasForms, HasTable
                     ->color('info')
                     ->visible($canAssign)
                     ->modalDescription('Use this when a card is lost or replaced. The balance, PIN and history stay with the student.')
-                    ->form(fn (PocketPayCard $record): array => [$this->cardNumberField($record)])
-                    ->action(function (PocketPayCard $record, array $data): void {
+                    ->form([$this->cardNumberField()])
+                    ->action(function (PocketPayCard $record, array $data, Action $action): void {
                         abort_unless(PocketPayAccess::canAssignCards(), 403);
-                        $record->update(['card_number' => $data['card_number']]);
+
+                        $card = $this->useNumber((int) $data['card_number_id'], function (PocketPayCardNumber $number) use ($record) {
+                            PocketPayCardNumber::query()
+                                ->where('pocket_pay_card_id', $record->id)
+                                ->where('status', PocketPayCardNumber::STATUS_ASSIGNED)
+                                ->update(['status' => PocketPayCardNumber::STATUS_RETIRED]);
+
+                            $record->update(['card_number' => $number->number]);
+
+                            return $record;
+                        });
+
+                        if (! $card) {
+                            Notification::make()->title('That card number is no longer available. Pick another.')->danger()->send();
+                            $action->halt();
+                        }
+
                         Notification::make()->title('Card number updated')->success()->send();
                     }),
                 Action::make('block')
@@ -166,31 +188,58 @@ class ListPocketPayCards extends Component implements HasForms, HasTable
                     }),
             ])
             ->emptyStateHeading('No cards assigned yet')
-            ->emptyStateDescription($canAssign ? 'Use "Assign card" to link card numbers to students.' : 'Quisat assigns card numbers to your students.');
+            ->emptyStateDescription($canAssign ? 'Generate numbers under Card numbers, then use "Assign card" to link them to students.' : 'Quisat assigns card numbers to your students.');
     }
 
-    protected function cardNumberField(?PocketPayCard $ignore = null): Forms\Components\TextInput
+    protected function cardNumberField(): Forms\Components\Select
     {
-        return Forms\Components\TextInput::make('card_number')
+        return Forms\Components\Select::make('card_number_id')
             ->label('Card number')
+            ->searchable()
             ->required()
-            ->maxLength(32)
-            ->default($ignore?->card_number)
-            ->dehydrateStateUsing(fn (?string $state): string => PocketPayCard::normalizeNumber($state))
-            ->rules([
-                'regex:/^[A-Za-z0-9\s-]{4,32}$/',
-                fn () => function (string $attribute, $value, \Closure $fail) use ($ignore) {
-                    $exists = PocketPayCard::query()
-                        ->where('card_number', PocketPayCard::normalizeNumber($value))
-                        ->when($ignore, fn ($q) => $q->whereKeyNot($ignore->id))
-                        ->exists();
+            ->getSearchResultsUsing(fn (string $search): array => $this->availableNumbers($search))
+            ->options(fn (): array => $this->availableNumbers())
+            ->helperText('Only unused numbers from Card numbers are listed. Search by any part of the number.');
+    }
 
-                    if ($exists) {
-                        $fail('This card number is already assigned.');
-                    }
-                },
-            ])
-            ->helperText('Letters and digits; spaces and dashes are ignored.');
+    protected function availableNumbers(?string $search = null): array
+    {
+        return PocketPayCardNumber::query()
+            ->where('status', PocketPayCardNumber::STATUS_AVAILABLE)
+            ->when($search, fn ($q) => $q->where('number', 'like', '%'.PocketPayCard::normalizeNumber($search).'%'))
+            ->orderBy('number')
+            ->limit(50)
+            ->pluck('number', 'id')
+            ->map(fn (string $number): string => PocketPayCardNumber::format($number))
+            ->all();
+    }
+
+    /**
+     * Claim an available number for a card, or return null when someone else just used it.
+     */
+    protected function useNumber(int $numberId, callable $apply): ?PocketPayCard
+    {
+        return DB::transaction(function () use ($numberId, $apply) {
+            $number = PocketPayCardNumber::query()
+                ->whereKey($numberId)
+                ->where('status', PocketPayCardNumber::STATUS_AVAILABLE)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $number) {
+                return null;
+            }
+
+            $card = $apply($number);
+
+            $number->update([
+                'status' => PocketPayCardNumber::STATUS_ASSIGNED,
+                'pocket_pay_card_id' => $card->id,
+                'assigned_at' => now(),
+            ]);
+
+            return $card;
+        });
     }
 
     protected function studentsWithoutCard(int $businessId, ?string $search = null): array

@@ -4,11 +4,12 @@
         <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Cashless canteens: student cards, canteen floats and attendants.</p>
     </div>
     <nav class="flex gap-1 rounded-lg bg-gray-100 dark:bg-gray-900 p-1 text-sm font-medium">
-        @foreach ([
+        @foreach (array_filter([
             'pocket-pay.canteens.index' => 'Canteens',
             'pocket-pay.cards.index' => 'Cards',
+            'pocket-pay.card-numbers.index' => \App\Support\PocketPayAccess::canAssignCards() ? 'Card numbers' : null,
             'pocket-pay.reversals.index' => 'Reversals',
-        ] as $route => $label)
+        ]) as $route => $label)
             <a href="{{ route($route) }}" @class([
                 'rounded-md px-3 py-1.5',
                 'bg-white text-blue-700 shadow-sm dark:bg-gray-800' => request()->routeIs($route) || ($route === 'pocket-pay.canteens.index' && request()->routeIs('pocket-pay.canteens.show')),

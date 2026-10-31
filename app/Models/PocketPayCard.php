@@ -104,7 +104,19 @@ class PocketPayCard extends Model
     public function maskedNumber(): string
     {
         $number = (string) $this->card_number;
+        $length = strlen($number);
 
-        return strlen($number) <= 4 ? $number : str_repeat('•', strlen($number) - 4).substr($number, -4);
+        if ($length <= 4) {
+            return $number;
+        }
+
+        // Keep the year prefix of issued numbers: 260412344821 → "26•• •••• 4821".
+        if ($length >= 8) {
+            $masked = mb_str_split(substr($number, 0, 2).str_repeat('•', $length - 6).substr($number, -4));
+
+            return implode(' ', array_map('implode', array_chunk($masked, 4)));
+        }
+
+        return str_repeat('•', $length - 4).substr($number, -4);
     }
 }
