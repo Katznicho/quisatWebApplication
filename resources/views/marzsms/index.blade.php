@@ -10,9 +10,7 @@
                         </p>
                     </div>
                     @if ($settings->isReady())
-                        <span class="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">Enabled</span>
-                    @elseif ($settings->hasCredentials())
-                        <span class="rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-700">Configured, disabled</span>
+                        <span class="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">Active</span>
                     @else
                         <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">Not configured</span>
                     @endif
@@ -119,13 +117,6 @@
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
-
-                        <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                            <input type="hidden" name="is_enabled" value="0">
-                            <input type="checkbox" name="is_enabled" value="1" class="rounded border-gray-300"
-                                @checked(old('is_enabled', $settings->is_enabled))>
-                            Send SMS through MarzSMS
-                        </label>
 
                         <div class="flex justify-end">
                             <button type="submit"

@@ -23,7 +23,7 @@ trait BuildsPocketPaySchema
     protected function fakeProviders(): void
     {
         MarzSmsSetting::current()->update([
-            'is_enabled' => true, 'base_url' => 'https://sms.test/api/v1', 'api_key' => 'k', 'api_secret' => 's',
+            'base_url' => 'https://sms.test/api/v1', 'api_key' => 'k', 'api_secret' => 's',
         ]);
 
         Http::fake([

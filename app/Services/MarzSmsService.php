@@ -129,7 +129,7 @@ class MarzSmsService
         $settings = $this->settings();
 
         if (! $settings->isReady()) {
-            $sms->update(['status' => 'skipped', 'error' => 'MarzSMS is disabled or not configured.']);
+            $sms->update(['status' => 'skipped', 'error' => 'MarzSMS is not configured.']);
 
             return $sms;
         }
@@ -276,7 +276,7 @@ class MarzSmsService
         }
 
         $error = match (true) {
-            ! $this->isReady() => 'MarzSMS is disabled or not configured.',
+            ! $this->isReady() => 'MarzSMS is not configured.',
             mb_strlen(trim($message)) > self::MAX_LENGTH => 'Message is longer than '.self::MAX_LENGTH.' characters.',
             default => null,
         };

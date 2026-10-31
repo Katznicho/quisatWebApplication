@@ -37,7 +37,6 @@ class MarzSmsController extends Controller
             'api_key' => 'nullable|string|max:255',
             'api_secret' => 'nullable|string|max:255',
             'low_balance_threshold' => 'required|integer|min:0',
-            'is_enabled' => 'nullable|boolean',
         ]);
 
         $settings = $marzSms->settings();
@@ -45,7 +44,6 @@ class MarzSmsController extends Controller
         $settings->fill([
             'base_url' => rtrim($validated['base_url'], '/'),
             'low_balance_threshold' => $validated['low_balance_threshold'],
-            'is_enabled' => $request->boolean('is_enabled'),
         ]);
 
         // Blank key/secret fields keep the stored credentials.
@@ -57,9 +55,9 @@ class MarzSmsController extends Controller
             $settings->api_secret = trim($validated['api_secret']);
         }
 
-        if ($settings->is_enabled && ! $settings->hasCredentials()) {
+        if (! $settings->hasCredentials()) {
             return back()->withInput()->withErrors([
-                'api_key' => 'Enter the API key and secret before enabling MarzSMS.',
+                'api_key' => 'Enter the API key and secret.',
             ]);
         }
 
@@ -109,7 +107,7 @@ class MarzSmsController extends Controller
         ]);
 
         if (! $marzSms->isReady()) {
-            return back()->withInput()->with('error', 'Enable MarzSMS and save valid credentials first.');
+            return back()->withInput()->with('error', 'Save valid MarzSMS credentials first.');
         }
 
         $sms = $marzSms->sendNow($validated['phone_number'], $validated['message'], 'test', null, null, Auth::id());

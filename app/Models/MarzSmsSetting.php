@@ -9,7 +9,6 @@ class MarzSmsSetting extends Model
     protected $table = 'marzsms_settings';
 
     protected $fillable = [
-        'is_enabled',
         'base_url',
         'api_key',
         'api_secret',
@@ -17,7 +16,6 @@ class MarzSmsSetting extends Model
     ];
 
     protected $casts = [
-        'is_enabled' => 'boolean',
         'api_key' => 'encrypted',
         'api_secret' => 'encrypted',
         'low_balance_threshold' => 'integer',
@@ -31,7 +29,6 @@ class MarzSmsSetting extends Model
     public static function current(): self
     {
         return static::query()->firstOrCreate([], [
-            'is_enabled' => false,
             'base_url' => config('marzsms.base_url'),
             'low_balance_threshold' => 5000,
         ]);
@@ -42,9 +39,12 @@ class MarzSmsSetting extends Model
         return filled($this->base_url) && filled($this->api_key) && filled($this->api_secret);
     }
 
+    /**
+     * MarzSMS sends as soon as credentials are saved; there is no separate on/off switch.
+     */
     public function isReady(): bool
     {
-        return $this->is_enabled && $this->hasCredentials();
+        return $this->hasCredentials();
     }
 
     /**

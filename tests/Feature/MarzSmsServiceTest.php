@@ -36,10 +36,9 @@ class MarzSmsServiceTest extends TestCase
         Artisan::call('migrate', ['--path' => 'database/migrations/2026_10_31_100001_create_marzsms_tables.php']);
     }
 
-    private function configure(bool $enabled = true): void
+    private function configure(): void
     {
         MarzSmsSetting::current()->update([
-            'is_enabled' => $enabled,
             'base_url' => self::BASE,
             'api_key' => 'key123',
             'api_secret' => 'secret456',
@@ -148,7 +147,7 @@ class MarzSmsServiceTest extends TestCase
 
     public function test_topup_is_initiated_and_synced(): void
     {
-        $this->configure(enabled: false);
+        $this->configure();
         Http::fake([
             self::BASE.'/account/topup' => Http::response([
                 'success' => true,
