@@ -48,13 +48,16 @@ use App\Http\Controllers\API\StudentDocumentController;
 use App\Http\Controllers\API\StudentProgressController;
 use App\Http\Controllers\API\SupportChildController;
 use App\Http\Controllers\API\TimetableController;
+use App\Http\Controllers\Api\PocketPay\AttendantAuthController;
+use App\Http\Controllers\Api\PocketPay\AttendantController;
+use App\Http\Controllers\Api\PocketPay\ParentPocketPayController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 
 // API Routes
-Route::prefix('v1')->middleware('community.package')->group(function () {
+Route::prefix('v1')->middleware(['community.package', 'attendant.isolate'])->group(function () {
 
     // Public Routes (No Authentication Required)
     // Exclude Sanctum middleware to allow public access
@@ -446,6 +449,46 @@ Route::prefix('v1')->middleware('community.package')->group(function () {
             Route::get('documents', [DocumentController::class, 'index']);
             Route::post('documents', [DocumentController::class, 'store']);
             Route::delete('documents/{document}', [DocumentController::class, 'destroy']);
+        });
+
+        // Quisat Pocket Pay: parent card controls
+        Route::prefix('parent/pocket-pay')->group(function () {
+            Route::get('cards', [ParentPocketPayController::class, 'index']);
+            Route::get('cards/{card}', [ParentPocketPayController::class, 'show']);
+            Route::post('cards/{card}/activate', [ParentPocketPayController::class, 'activate']);
+            Route::post('cards/{card}/reset-pin', [ParentPocketPayController::class, 'resetPin']);
+            Route::put('cards/{card}/limit', [ParentPocketPayController::class, 'updateLimit']);
+            Route::get('cards/{card}/statement', [ParentPocketPayController::class, 'statement']);
+            Route::post('cards/{card}/topups', [ParentPocketPayController::class, 'topup']);
+            Route::get('topups/{topup}', [ParentPocketPayController::class, 'topupStatus']);
+        });
+    });
+
+    // Quisat Attendant app (canteen attendants)
+    Route::prefix('attendant')->group(function () {
+        Route::middleware('throttle:10,1')->group(function () {
+            Route::post('auth/request-otp', [AttendantAuthController::class, 'requestOtp']);
+            Route::post('auth/verify-otp', [AttendantAuthController::class, 'verifyOtp']);
+            Route::post('auth/login', [AttendantAuthController::class, 'login']);
+        });
+
+        Route::middleware(['auth:sanctum', 'pocketpay.attendant'])->group(function () {
+            Route::get('me', [AttendantAuthController::class, 'me']);
+            Route::post('auth/change-pin', [AttendantAuthController::class, 'changePin']);
+            Route::post('auth/logout', [AttendantAuthController::class, 'logout']);
+
+            Route::get('dashboard', [AttendantController::class, 'dashboard']);
+            Route::get('cards/{cardNumber}', [AttendantController::class, 'showCard']);
+            Route::post('cards/{cardNumber}/activate', [AttendantController::class, 'activateCard']);
+            Route::post('cards/{cardNumber}/reset-pin', [AttendantController::class, 'resetCardPin']);
+            Route::post('cards/{cardNumber}/topups', [AttendantController::class, 'topupCard']);
+            Route::get('topups/{topup}', [AttendantController::class, 'topupStatus']);
+
+            Route::get('sales', [AttendantController::class, 'sales']);
+            Route::post('sales', [AttendantController::class, 'makeSale'])->middleware('throttle:30,1');
+            Route::get('sales/{sale}', [AttendantController::class, 'showSale']);
+            Route::post('sales/{sale}/reversal', [AttendantController::class, 'requestReversal']);
+            Route::get('float/statement', [AttendantController::class, 'floatStatement']);
         });
     });
 

@@ -68,5 +68,7 @@ class Kernel extends HttpKernel
         'business.scope' => \App\Http\Middleware\BusinessScope::class,
         'community.package' => \App\Http\Middleware\EnforceCommunityPackage::class,
         'super.admin' => \App\Http\Middleware\EnsureSuperAdmin::class,
+        'pocketpay.attendant' => \App\Http\Middleware\EnsureCanteenAttendant::class,
+        'attendant.isolate' => \App\Http\Middleware\RejectCanteenAttendantTokens::class,
     ];
 }

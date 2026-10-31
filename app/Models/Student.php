@@ -131,6 +131,11 @@ class Student extends Model
         return $this->hasMany(ClinicPatient::class);
     }
 
+    public function pocketPayCard()
+    {
+        return $this->hasOne(PocketPayCard::class);
+    }
+
     public function getAgeAttribute()
     {
         return $this->date_of_birth->age;

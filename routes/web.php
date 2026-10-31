@@ -160,6 +160,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('marzpay/settings', [\App\Http\Controllers\MarzPaySettingsController::class, 'edit'])->name('marzpay.settings.edit');
         Route::put('marzpay/settings', [\App\Http\Controllers\MarzPaySettingsController::class, 'update'])->name('marzpay.settings.update');
         Route::get('marzpay/transactions', [\App\Http\Controllers\MarzPayTransactionController::class, 'index'])->name('marzpay.transactions.index');
+        Route::get('marzsms', [\App\Http\Controllers\MarzSmsController::class, 'index'])->name('marzsms.index');
+        Route::put('marzsms/settings', [\App\Http\Controllers\MarzSmsController::class, 'updateSettings'])->name('marzsms.settings.update');
+        Route::post('marzsms/topups', [\App\Http\Controllers\MarzSmsController::class, 'topup'])->name('marzsms.topups.store');
+        Route::post('marzsms/topups/{topup}/sync', [\App\Http\Controllers\MarzSmsController::class, 'syncTopup'])->name('marzsms.topups.sync');
+        Route::post('marzsms/test', [\App\Http\Controllers\MarzSmsController::class, 'sendTest'])->name('marzsms.test');
         Route::get('withdrawal/settings', [WithdrawalSettingsController::class, 'edit'])->name('withdrawal.settings.edit');
         Route::get('login-adverts', function () {
             return view('login-adverts.index');
@@ -208,6 +213,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
         ->name('clinic-patients.link-by-quisat-code');
 
     Route::get('kids-church', [\App\Http\Controllers\KidsChurchController::class, 'index'])->name('kids-church.index');
+    Route::prefix('pocket-pay')->name('pocket-pay.')->group(function () {
+        Route::get('canteens', [\App\Http\Controllers\PocketPayController::class, 'canteens'])->name('canteens.index');
+        Route::get('canteens/{canteen}', [\App\Http\Controllers\PocketPayController::class, 'showCanteen'])->name('canteens.show');
+        Route::get('cards', [\App\Http\Controllers\PocketPayController::class, 'cards'])->name('cards.index');
+        Route::get('reversals', [\App\Http\Controllers\PocketPayController::class, 'reversals'])->name('reversals.index');
+    });
 
     // Admin Management Routes
     Route::prefix('admin')->name('admin.')->middleware('super.admin')->group(function () {

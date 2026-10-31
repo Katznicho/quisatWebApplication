@@ -143,6 +143,16 @@ class Business extends Model
         return $this->hasMany(WithdrawalFeeTier::class);
     }
 
+    public function canteens()
+    {
+        return $this->hasMany(Canteen::class);
+    }
+
+    public function pocketPayCards()
+    {
+        return $this->hasMany(PocketPayCard::class);
+    }
+
     public function hasWithdrawalPin(): bool
     {
         return ! empty($this->withdrawal_pin);

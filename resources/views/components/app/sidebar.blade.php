@@ -192,6 +192,21 @@
                     </li>
                     @endif
 
+                    <!-- Quisat Pocket Pay -->
+                    @if (\App\Support\PocketPayAccess::canManage())
+                    <li>
+                        <a href="{{ route('pocket-pay.canteens.index') }}"
+                            class="flex items-center pl-4 pr-3 py-2 rounded-md {{ request()->routeIs('pocket-pay.*') ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700 hover:bg-blue-50' }}">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                stroke-width="1.5" stroke="currentColor" class="w-5 h-5 shrink-0">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
+                            </svg>
+                            <span class="ml-3">Pocket Pay</span>
+                        </a>
+                    </li>
+                    @endif
+
                     <!-- Kids Church -->
                     @if (auth()->user()->business_id != 1 && $business && $business->isChurch())
                     <li>
@@ -734,6 +749,9 @@
                                 </li>
                                 <li><a href="{{ route('marzpay.transactions.index') }}"
                                         class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Mobile Money Transactions</a>
+                                </li>
+                                <li><a href="{{ route('marzsms.index') }}"
+                                        class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">MarzSMS</a>
                                 </li>
                                 <li><a href="{{ route('withdrawal.settings.edit') }}"
                                         class="block text-sm text-gray-700 hover:text-blue-700 py-1.5">Withdrawal Fee Tiers</a>
