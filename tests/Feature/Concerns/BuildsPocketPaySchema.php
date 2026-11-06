@@ -3,6 +3,7 @@
 namespace Tests\Feature\Concerns;
 
 use App\Models\MarzSmsSetting;
+use App\Models\PocketPayGatewaySetting;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
@@ -24,6 +25,11 @@ trait BuildsPocketPaySchema
     {
         MarzSmsSetting::current()->update([
             'base_url' => 'https://sms.test/api/v1', 'api_key' => 'k', 'api_secret' => 's',
+        ]);
+        PocketPayGatewaySetting::current()->update([
+            'marzpay_base_url' => 'https://pay.test/api/v1',
+            'marzpay_api_key' => 'pocket-key',
+            'marzpay_api_secret' => 'pocket-secret',
         ]);
 
         Http::fake([
@@ -124,6 +130,9 @@ trait BuildsPocketPaySchema
             '2026_10_31_120001_create_pocket_pay_tables.php',
             '2026_11_01_100001_create_pocket_pay_card_numbers_table.php',
             '2026_11_01_120001_create_canteen_float_topups_table.php',
+            '2026_11_06_210000_create_pocket_pay_gateway_settings_table.php',
+            '2026_11_06_211000_create_pocket_pay_withdrawals_table.php',
+            '2026_11_06_212000_add_webhook_secret_to_pocket_pay_gateway_settings.php',
         ] as $migration) {
             Artisan::call('migrate', ['--path' => 'database/migrations/'.$migration]);
         }

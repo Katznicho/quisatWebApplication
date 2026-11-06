@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Business;
 use App\Models\Canteen;
 use App\Models\CanteenAttendant;
 use App\Models\CanteenFloatTransaction;
@@ -27,7 +28,16 @@ class CanteenReportService
      */
     public function period(Canteen $canteen, ?string $from, ?string $to): array
     {
-        $tz = $this->timezone($canteen);
+        return $this->periodIn($this->timezone($canteen), $from, $to);
+    }
+
+    /**
+     * Same as period() for any school timezone; the card detail page uses it too.
+     *
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable}
+     */
+    public function periodIn(string $tz, ?string $from, ?string $to): array
+    {
         $today = CarbonImmutable::now($tz)->startOfDay();
 
         $start = $this->parseDate($from, $tz) ?? $today->startOfMonth();
@@ -172,7 +182,14 @@ class CanteenReportService
 
     protected function school(Canteen $canteen): array
     {
-        $business = $canteen->business;
+        return $this->schoolDetails($canteen->business);
+    }
+
+    /**
+     * Name, contacts and logo of a school for page headers and PDFs.
+     */
+    public function schoolDetails(?Business $business): array
+    {
         $logo = $business?->logo && $business->logo !== 'logo.png' ? $business->logo : null;
         $logoPath = $logo ? public_path('storage/'.$logo) : null;
 

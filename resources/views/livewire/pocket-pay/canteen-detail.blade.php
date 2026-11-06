@@ -524,7 +524,7 @@
                         <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                             @forelse ($cardholders as $cardholder)
                                 <tr class="hover:bg-gray-50/60 dark:hover:bg-gray-900/30">
-                                    <td class="{{ $td }}"><span class="font-medium text-gray-900 dark:text-white">{{ $cardholder->student?->full_name ?? '—' }}</span><span class="block text-xs text-gray-500">{{ $cardholder->student?->student_id }}</span></td>
+                                    <td class="{{ $td }}"><a href="{{ route('pocket-pay.cards.show', $cardholder) }}" class="font-medium text-gray-900 hover:text-blue-600 dark:text-white">{{ $cardholder->student?->full_name ?? '—' }}</a><span class="block text-xs text-gray-500">{{ $cardholder->student?->student_id }}</span></td>
                                     <td class="{{ $td }}">{{ $cardholder->student?->classRoom?->name ?? '—' }}</td>
                                     <td class="{{ $td }} font-mono text-xs">{{ $cardholder->maskedNumber() }}</td>
                                     <td class="{{ $td }}">

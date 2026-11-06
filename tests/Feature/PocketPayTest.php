@@ -9,7 +9,9 @@ use App\Models\CanteenAttendant;
 use App\Models\CanteenSale;
 use App\Models\ParentGuardian;
 use App\Models\PocketPayCard;
+use App\Models\PocketPayGatewaySetting;
 use App\Models\PocketPayTopup;
+use App\Models\PocketPayWithdrawal;
 use App\Models\SmsMessage;
 use App\Models\Student;
 use App\Models\User;
@@ -330,6 +332,85 @@ class PocketPayTest extends TestCase
         $this->assertSame('completed', $topup->fresh()->status);
         $this->assertNull(DB::table('businesses')->where('id', $this->school->id)->value('available_balance'));
         $this->assertParentSms('pocket_pay.topup', 'UGX 20,000 was added');
+    }
+
+    public function test_pocket_pay_webhook_is_rejected_unless_the_marz_signature_matches(): void
+    {
+        PocketPayGatewaySetting::current()->update(['marzpay_webhook_secret' => 'whsec_pocket']);
+
+        $this->withToken($this->parent->createToken('t')->plainTextToken);
+        $topupUuid = $this->postJson("/api/v1/parent/pocket-pay/cards/{$this->card->uuid}/topups", ['amount' => 20000])
+            ->assertOk()->json('data.topup.uuid');
+
+        $topup = PocketPayTopup::where('uuid', $topupUuid)->firstOrFail();
+        $body = json_encode([
+            'event_type' => 'collection.completed',
+            'transaction' => ['reference' => $topup->latestPaymentCollection()->reference, 'status' => 'completed'],
+        ]);
+
+        $this->call('POST', '/api/v1/webhooks/marzpay', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_ACCEPT' => 'application/json',
+            'HTTP_X_MARZPAY_TIMESTAMP' => '1712345678',
+            'HTTP_X_MARZPAY_SIGNATURE' => 't=1712345678,v1=deadbeef',
+        ], $body)->assertStatus(401);
+
+        $this->assertEquals(0, $this->card->fresh()->balance);
+
+        $timestamp = '1712345678';
+        $signature = hash_hmac('sha256', $timestamp.'.'.$body, 'whsec_pocket');
+        $this->call('POST', '/api/v1/webhooks/marzpay', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_ACCEPT' => 'application/json',
+            'HTTP_X_MARZPAY_TIMESTAMP' => $timestamp,
+            'HTTP_X_MARZPAY_SIGNATURE' => "t={$timestamp},v1={$signature}",
+        ], $body)->assertOk();
+
+        $this->assertEquals(20000, $this->card->fresh()->balance);
+        $this->assertSame('completed', $topup->fresh()->status);
+    }
+
+    public function test_pocket_pay_withdrawal_webhook_updates_status_when_signed(): void
+    {
+        PocketPayGatewaySetting::current()->update(['marzpay_webhook_secret' => 'whsec_pocket']);
+
+        $withdrawal = PocketPayWithdrawal::query()->create([
+            'amount' => 5000,
+            'method' => PocketPayWithdrawal::METHOD_MOBILE,
+            'phone_number' => '+256772000111',
+            'status' => 'processing',
+        ]);
+
+        $body = json_encode([
+            'event_type' => 'disbursement.completed',
+            'transaction' => [
+                'reference' => $withdrawal->uuid,
+                'status' => 'completed',
+                'uuid' => 'marz-uuid-1',
+                'provider_reference' => 'mm-99',
+            ],
+        ]);
+        $timestamp = '1712345678';
+        $signature = hash_hmac('sha256', $timestamp.'.'.$body, 'whsec_pocket');
+
+        $this->call('POST', '/api/v1/webhooks/marzpay', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_ACCEPT' => 'application/json',
+        ], $body)->assertStatus(401);
+
+        $this->assertSame('processing', $withdrawal->fresh()->status);
+
+        $this->call('POST', '/api/v1/webhooks/marzpay', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_ACCEPT' => 'application/json',
+            'HTTP_X_MARZPAY_TIMESTAMP' => $timestamp,
+            'HTTP_X_MARZPAY_SIGNATURE' => "t={$timestamp},v1={$signature}",
+        ], $body)->assertOk();
+
+        $withdrawal->refresh();
+        $this->assertSame('completed', $withdrawal->status);
+        $this->assertSame('marz-uuid-1', $withdrawal->marz_transaction_uuid);
+        $this->assertSame('mm-99', $withdrawal->provider_reference);
     }
 
     public function test_canteen_float_topup_credits_the_float(): void

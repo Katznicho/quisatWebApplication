@@ -4,23 +4,89 @@ namespace App\Services;
 
 use App\Models\MarzPaySetting;
 use App\Models\PaymentCollection;
+use App\Models\PocketPayGatewaySetting;
+use App\Models\PocketPayTopup;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class MarzPayService
 {
+    protected ?PocketPayGatewaySetting $pocketCredentials = null;
+
+    /**
+     * Use the Pocket Pay Marz Pay account. Charges and the rest of the flow stay the same.
+     */
+    public function forPocketPay(): static
+    {
+        $clone = clone $this;
+        $clone->pocketCredentials = PocketPayGatewaySetting::current();
+
+        return $clone;
+    }
+
     public function authorizationHeader(): string
     {
-        $key = (string) config('marzpay.api_key');
-        $secret = (string) config('marzpay.api_secret');
-
-        return 'Basic '.base64_encode($key.':'.$secret);
+        return 'Basic '.base64_encode($this->apiKey().':'.$this->apiSecret());
     }
 
     public function callbackUrl(): string
     {
         return (string) (config('marzpay.callback_url') ?: url('/api/v1/webhooks/marzpay'));
+    }
+
+    /**
+     * Marz Pay web signing: HMAC-SHA256 of "{timestamp}.{raw_body}" with the account signing secret.
+     * Headers: X-MarzPay-Timestamp and X-MarzPay-Signature (t={timestamp},v1={hex}).
+     */
+    public function webhookSignatureIsValid(Request $request, string $secret): bool
+    {
+        $timestamp = trim((string) $request->header('X-MarzPay-Timestamp', ''));
+        $header = trim((string) $request->header('X-MarzPay-Signature', ''));
+        $raw = $request->getContent();
+
+        if ($secret === '' || $timestamp === '' || $header === '' || $raw === '') {
+            return false;
+        }
+
+        if (! preg_match('/v1=([a-f0-9]+)/i', $header, $matches)) {
+            return false;
+        }
+
+        if (preg_match('/(?:^|,)t=([^,]+)/', $header, $stamp) && trim($stamp[1]) !== $timestamp) {
+            return false;
+        }
+
+        $expected = hash_hmac('sha256', $timestamp.'.'.$raw, $secret);
+
+        return hash_equals($expected, strtolower($matches[1]));
+    }
+
+    protected function baseUrl(): string
+    {
+        $url = $this->pocketCredentials?->marzpay_base_url ?: config('marzpay.base_url');
+
+        return rtrim((string) $url, '/');
+    }
+
+    protected function apiKey(): string
+    {
+        return $this->pocketCredentials
+            ? (string) $this->pocketCredentials->marzpay_api_key
+            : (string) config('marzpay.api_key');
+    }
+
+    protected function apiSecret(): string
+    {
+        return $this->pocketCredentials
+            ? (string) $this->pocketCredentials->marzpay_api_secret
+            : (string) config('marzpay.api_secret');
+    }
+
+    protected function hasApiCredentials(): bool
+    {
+        return $this->apiKey() !== '' && $this->apiSecret() !== '';
     }
 
     public function normalizePhone(?string $phone): ?string
@@ -73,14 +139,14 @@ class MarzPayService
                 'Authorization' => $this->authorizationHeader(),
                 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
-            ])->post(rtrim((string) config('marzpay.base_url'), '/').'/collect-money', $payload);
+            ])->post($this->baseUrl().'/collect-money', $payload);
         } else {
             $payload['phone_number'] = $this->normalizePhone($collection->phone_number);
 
             $response = Http::withHeaders([
                 'Authorization' => $this->authorizationHeader(),
                 'Accept' => 'application/json',
-            ])->asForm()->post(rtrim((string) config('marzpay.base_url'), '/').'/collect-money', $payload);
+            ])->asForm()->post($this->baseUrl().'/collect-money', $payload);
         }
 
         $body = $response->json() ?? [];
@@ -130,6 +196,13 @@ class MarzPayService
         ?string $phoneNumber = null,
         ?string $description = null,
     ): array {
+        if ($this->pocketCredentials && ! $this->pocketCredentials->hasPayCredentials()) {
+            return [
+                'success' => false,
+                'message' => 'Pocket Pay Marz Pay keys are not configured.',
+            ];
+        }
+
         $charge = MarzPaySetting::current()->calculateCharge($baseAmount, $method);
 
         $collection = PaymentCollection::create([
@@ -158,6 +231,17 @@ class MarzPayService
      */
     public function syncCollectionStatus(PaymentCollection $collection): array
     {
+        if (! $this->pocketCredentials && $collection->payable_type === PocketPayTopup::class) {
+            return $this->forPocketPay()->syncCollectionStatus($collection);
+        }
+
+        if ($this->pocketCredentials && ! $this->pocketCredentials->hasPayCredentials()) {
+            return [
+                'success' => false,
+                'message' => 'Pocket Pay Marz Pay keys are not configured.',
+            ];
+        }
+
         $identifier = $collection->marz_transaction_uuid ?: $collection->reference;
 
         if (! $identifier) {
@@ -170,9 +254,7 @@ class MarzPayService
         $response = Http::withHeaders([
             'Authorization' => $this->authorizationHeader(),
             'Accept' => 'application/json',
-        ])->get(
-            rtrim((string) config('marzpay.base_url'), '/').'/transactions/'.urlencode($identifier)
-        );
+        ])->get($this->baseUrl().'/transactions/'.urlencode($identifier));
 
         $body = $response->json() ?? [];
 
@@ -260,7 +342,7 @@ class MarzPayService
             ];
         }
 
-        if (! config('marzpay.api_key') || ! config('marzpay.api_secret')) {
+        if (! $this->hasApiCredentials()) {
             return [
                 'success' => false,
                 'message' => 'Mobile money disbursement is not configured. Contact support.',
@@ -270,7 +352,7 @@ class MarzPayService
         $response = Http::withHeaders([
             'Authorization' => $this->authorizationHeader(),
             'Accept' => 'application/json',
-        ])->asForm()->post(rtrim((string) config('marzpay.base_url'), '/').'/send-money', $payload);
+        ])->asForm()->post($this->baseUrl().'/send-money', $payload);
 
         $body = $response->json() ?? [];
         $status = data_get($body, 'data.transaction.status', data_get($body, 'transaction.status'));
@@ -336,7 +418,7 @@ class MarzPayService
             'wallet_source' => $walletSource,
         ], fn ($value) => $value !== null && $value !== '');
 
-        if (! config('marzpay.api_key') || ! config('marzpay.api_secret')) {
+        if (! $this->hasApiCredentials()) {
             return [
                 'success' => false,
                 'message' => 'Bank transfer is not configured. Contact support.',
@@ -347,7 +429,7 @@ class MarzPayService
             'Authorization' => $this->authorizationHeader(),
             'Accept' => 'application/json',
             'Content-Type' => 'application/json',
-        ])->post(rtrim((string) config('marzpay.base_url'), '/').'/bank-transfer', $payload);
+        ])->post($this->baseUrl().'/bank-transfer', $payload);
 
         $body = $response->json() ?? [];
         $status = data_get($body, 'data.bank_transfer.status', data_get($body, 'bank_transfer.status'));

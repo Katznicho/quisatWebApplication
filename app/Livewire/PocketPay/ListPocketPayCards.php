@@ -41,6 +41,7 @@ class ListPocketPayCards extends Component implements HasForms, HasTable
         return $table
             ->query(TenantScope::apply(PocketPayCard::query())->with(['student.classRoom', 'business:id,name']))
             ->defaultSort('created_at', 'desc')
+            ->recordUrl(fn (PocketPayCard $record): string => route('pocket-pay.cards.show', $record))
             ->columns([
                 Tables\Columns\TextColumn::make('card_number')->label('Card number')->searchable()->copyable()->weight('bold'),
                 Tables\Columns\TextColumn::make('student.first_name')
@@ -98,7 +99,7 @@ class ListPocketPayCards extends Component implements HasForms, HasTable
                             ->getSearchResultsUsing(fn (string $search, Get $get): array => $this->studentsWithoutCard((int) $get('business_id'), $search))
                             ->options(fn (Get $get): array => $this->studentsWithoutCard((int) $get('business_id')))
                             ->helperText('Only students without a card are listed.'),
-                        $this->cardNumberField(),
+                        self::cardNumberField(),
                     ])
                     ->action(function (array $data, Action $action): void {
                         abort_unless(PocketPayAccess::canAssignCards(), 403);
@@ -114,7 +115,7 @@ class ListPocketPayCards extends Component implements HasForms, HasTable
                             $action->halt();
                         }
 
-                        $card = $this->useNumber((int) $data['card_number_id'], fn (PocketPayCardNumber $number) => PocketPayCard::create([
+                        $card = self::useNumber((int) $data['card_number_id'], fn (PocketPayCardNumber $number) => PocketPayCard::create([
                             'business_id' => $student->business_id,
                             'student_id' => $student->id,
                             'card_number' => $number->number,
@@ -131,39 +132,17 @@ class ListPocketPayCards extends Component implements HasForms, HasTable
                     }),
             ])
             ->actions([
-                Action::make('statement')
-                    ->icon('heroicon-o-document-text')
-                    ->color('gray')
-                    ->modalHeading(fn (PocketPayCard $record): string => 'Statement: '.($record->student?->full_name ?? $record->card_number))
-                    ->modalContent(fn (PocketPayCard $record): View => view('pocket-pay.partials.card-statement', [
-                        'card' => $record,
-                        'transactions' => $record->transactions()->with('canteen:id,name')->latest('id')->limit(50)->get(),
-                        'spentToday' => app(PocketPayService::class)->spentToday($record),
-                    ]))
-                    ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('Close'),
                 Action::make('change_number')
                     ->label('Change number')
                     ->icon('heroicon-o-arrows-right-left')
                     ->color('info')
                     ->visible($canAssign)
                     ->modalDescription('Use this when a card is lost or replaced. The balance, PIN and history stay with the student.')
-                    ->form([$this->cardNumberField()])
+                    ->form([self::cardNumberField()])
                     ->action(function (PocketPayCard $record, array $data, Action $action): void {
                         abort_unless(PocketPayAccess::canAssignCards(), 403);
 
-                        $card = $this->useNumber((int) $data['card_number_id'], function (PocketPayCardNumber $number) use ($record) {
-                            PocketPayCardNumber::query()
-                                ->where('pocket_pay_card_id', $record->id)
-                                ->where('status', PocketPayCardNumber::STATUS_ASSIGNED)
-                                ->update(['status' => PocketPayCardNumber::STATUS_RETIRED]);
-
-                            $record->update(['card_number' => $number->number]);
-
-                            return $record;
-                        });
-
-                        if (! $card) {
+                        if (! self::changeNumber($record, (int) $data['card_number_id'])) {
                             Notification::make()->title('That card number is no longer available. Pick another.')->danger()->send();
                             $action->halt();
                         }
@@ -199,19 +178,22 @@ class ListPocketPayCards extends Component implements HasForms, HasTable
             ->emptyStateDescription($canAssign ? 'Generate numbers under Card numbers, then use "Assign card" to link them to students.' : 'Quisat assigns card numbers to your students.');
     }
 
-    protected function cardNumberField(): Forms\Components\Select
+    /**
+     * Shared with the card detail page.
+     */
+    public static function cardNumberField(): Forms\Components\Select
     {
         return Forms\Components\Select::make('card_number_id')
             ->label('Card number')
             ->placeholder('Search for a card number')
             ->searchable()
             ->required()
-            ->getSearchResultsUsing(fn (string $search): array => $this->availableNumbers($search))
-            ->options(fn (): array => $this->availableNumbers())
+            ->getSearchResultsUsing(fn (string $search): array => self::availableNumbers($search))
+            ->options(fn (): array => self::availableNumbers())
             ->helperText('Only unused numbers from Card numbers are listed. Search by any part of the number.');
     }
 
-    protected function availableNumbers(?string $search = null): array
+    protected static function availableNumbers(?string $search = null): array
     {
         return PocketPayCardNumber::query()
             ->where('status', PocketPayCardNumber::STATUS_AVAILABLE)
@@ -224,9 +206,27 @@ class ListPocketPayCards extends Component implements HasForms, HasTable
     }
 
     /**
+     * Move a card to a new stock number (lost or replaced card). The old number is retired;
+     * balance, PIN and history stay. Returns null when the number was just taken.
+     */
+    public static function changeNumber(PocketPayCard $card, int $numberId): ?PocketPayCard
+    {
+        return self::useNumber($numberId, function (PocketPayCardNumber $number) use ($card) {
+            PocketPayCardNumber::query()
+                ->where('pocket_pay_card_id', $card->id)
+                ->where('status', PocketPayCardNumber::STATUS_ASSIGNED)
+                ->update(['status' => PocketPayCardNumber::STATUS_RETIRED]);
+
+            $card->update(['card_number' => $number->number]);
+
+            return $card;
+        });
+    }
+
+    /**
      * Claim an available number for a card, or return null when someone else just used it.
      */
-    protected function useNumber(int $numberId, callable $apply): ?PocketPayCard
+    protected static function useNumber(int $numberId, callable $apply): ?PocketPayCard
     {
         return DB::transaction(function () use ($numberId, $apply) {
             $number = PocketPayCardNumber::query()

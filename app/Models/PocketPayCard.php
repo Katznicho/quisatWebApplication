@@ -76,6 +76,19 @@ class PocketPayCard extends Model
         return $this->morphTo();
     }
 
+    public function assigner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_by');
+    }
+
+    /**
+     * Every stock number this card has used, current one included (lost/replaced cards are retired).
+     */
+    public function cardNumbers(): HasMany
+    {
+        return $this->hasMany(PocketPayCardNumber::class);
+    }
+
     public function transactions(): HasMany
     {
         return $this->hasMany(PocketPayCardTransaction::class);

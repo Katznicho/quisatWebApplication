@@ -214,11 +214,21 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::get('kids-church', [\App\Http\Controllers\KidsChurchController::class, 'index'])->name('kids-church.index');
     Route::prefix('pocket-pay')->name('pocket-pay.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\PocketPayController::class, 'overview'])->name('overview');
+        Route::get('reports', [\App\Http\Controllers\PocketPayController::class, 'reports'])->name('reports');
+        Route::get('reports/{format}', [\App\Http\Controllers\PocketPayController::class, 'downloadReport'])->name('reports.download')->where('format', 'pdf|excel');
+        Route::get('settings', [\App\Http\Controllers\PocketPayController::class, 'editSettings'])->name('settings.edit');
+        Route::put('settings', [\App\Http\Controllers\PocketPayController::class, 'updateSettings'])->name('settings.update');
+        Route::post('withdrawals', [\App\Http\Controllers\PocketPayController::class, 'withdraw'])->name('withdrawals.store');
+        Route::post('withdrawals/bank', [\App\Http\Controllers\PocketPayController::class, 'withdrawToBank'])->name('withdrawals.bank');
         Route::get('canteens', [\App\Http\Controllers\PocketPayController::class, 'canteens'])->name('canteens.index');
         Route::get('canteens/{canteen}', [\App\Http\Controllers\PocketPayController::class, 'showCanteen'])->name('canteens.show');
         Route::get('float-topups/{topup}/proof', [\App\Http\Controllers\PocketPayController::class, 'floatTopupProof'])->name('float-topups.proof');
         Route::get('canteens/{canteen}/reports/{type}', [\App\Http\Controllers\PocketPayController::class, 'canteenReport'])->name('canteens.report');
         Route::get('cards', [\App\Http\Controllers\PocketPayController::class, 'cards'])->name('cards.index');
+        Route::get('cards/{card}', [\App\Http\Controllers\PocketPayController::class, 'showCard'])->name('cards.show');
+        Route::get('cards/{card}/statement', [\App\Http\Controllers\PocketPayController::class, 'cardStatement'])->name('cards.statement');
+        Route::get('cards/{card}/qr', [\App\Http\Controllers\PocketPayController::class, 'cardQr'])->name('cards.qr');
         Route::get('card-numbers', [\App\Http\Controllers\PocketPayController::class, 'cardNumbers'])->name('card-numbers.index');
         Route::get('reversals', [\App\Http\Controllers\PocketPayController::class, 'reversals'])->name('reversals.index');
     });

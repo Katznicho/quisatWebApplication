@@ -4,6 +4,9 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\PaymentCollection;
+use App\Models\PocketPayGatewaySetting;
+use App\Models\PocketPayTopup;
+use App\Models\PocketPayWithdrawal;
 use App\Services\MarzPayPayableResolver;
 use App\Services\MarzPayService;
 use Illuminate\Http\Request;
@@ -23,6 +26,9 @@ class MarzPayWebhookController extends Controller
     public function handleWebhook(Request $request, MarzPayPayableResolver $resolver)
     {
         $payload = $request->all();
+        if (! data_get($payload, 'transaction.reference') && is_array($payload['data'] ?? null)) {
+            $payload = array_merge($payload, $payload['data']);
+        }
 
         Log::info('MarzPay webhook received', [
             'event_type' => $payload['event_type'] ?? null,
@@ -42,6 +48,20 @@ class MarzPayWebhookController extends Controller
             ->first();
 
         if (! $collection) {
+            $pocketWithdrawal = PocketPayWithdrawal::query()
+                ->where('uuid', $reference)
+                ->first();
+
+            if ($pocketWithdrawal) {
+                if (! $this->pocketCallbackIsTrusted($request)) {
+                    return response()->json(['message' => 'Invalid signature'], 401);
+                }
+
+                $this->handlePocketWithdrawalWebhook($pocketWithdrawal, $status, $payload);
+
+                return response()->json(['message' => 'Withdrawal updated'], 200);
+            }
+
             $withdrawal = \App\Models\WithdrawalRequest::query()
                 ->where('uuid', $reference)
                 ->first();
@@ -55,6 +75,10 @@ class MarzPayWebhookController extends Controller
             Log::warning('MarzPay webhook for unknown reference', ['reference' => $reference]);
 
             return response()->json(['message' => 'Unknown reference'], 200);
+        }
+
+        if ($collection->payable_type === PocketPayTopup::class && ! $this->pocketCallbackIsTrusted($request)) {
+            return response()->json(['message' => 'Invalid signature'], 401);
         }
 
         if ($collection->isFinal() && $collection->status === $status) {
@@ -166,6 +190,37 @@ class MarzPayWebhookController extends Controller
     protected function isGatewaySuccess(string $gatewayStatus): bool
     {
         return in_array($gatewayStatus, ['SUCCESS', 'COMPLETED'], true);
+    }
+
+    /**
+     * Pocket Pay's Marz account signs callbacks when web signing is on.
+     * School-fee callbacks on this same URL are left unchanged.
+     * Until the signing secret is saved, Pocket Pay callbacks are still accepted.
+     */
+    protected function pocketCallbackIsTrusted(Request $request): bool
+    {
+        $secret = (string) PocketPayGatewaySetting::current()->marzpay_webhook_secret;
+
+        if ($secret === '') {
+            return true;
+        }
+
+        return app(MarzPayService::class)->webhookSignatureIsValid($request, $secret);
+    }
+
+    protected function handlePocketWithdrawalWebhook(PocketPayWithdrawal $withdrawal, string $status, array $payload): void
+    {
+        $mapped = match ($status) {
+            'completed', 'sandbox' => 'completed',
+            'failed', 'cancelled' => 'failed',
+            default => 'processing',
+        };
+
+        $withdrawal->update([
+            'status' => $mapped,
+            'marz_transaction_uuid' => data_get($payload, 'transaction.uuid', $withdrawal->marz_transaction_uuid),
+            'provider_reference' => data_get($payload, 'transaction.provider_reference', $withdrawal->provider_reference),
+        ]);
     }
 
     protected function handleWithdrawalWebhook(\App\Models\WithdrawalRequest $withdrawal, string $status, array $payload): void

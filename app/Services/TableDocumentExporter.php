@@ -28,6 +28,34 @@ class TableDocumentExporter
         };
     }
 
+    /**
+     * @param  array<int, array{title: string, headings: array, rows: array}>  $sections
+     */
+    public function downloadBundle(string $format, string $title, array $sections)
+    {
+        $safeTitle = trim($title) !== '' ? $title : 'List';
+        $stamp = now()->format('Y-m-d');
+        $base = Str::slug($safeTitle) ?: 'list';
+        $sections = array_map(function (array $section) {
+            $headings = array_map(fn ($heading) => $this->plain($heading), $section['headings'] ?? []);
+            $rows = array_map(function ($row) {
+                return array_map(fn ($cell) => $this->plain($cell), array_values($row));
+            }, $section['rows'] ?? []);
+
+            return [
+                'title' => $this->plain($section['title'] ?? 'Report'),
+                'headings' => $headings,
+                'rows' => $rows,
+            ];
+        }, $sections);
+
+        if ($format === 'excel') {
+            return $this->workbook("{$base}-{$stamp}.xlsx", $sections);
+        }
+
+        return $this->pdfSections("{$base}-{$stamp}.pdf", $safeTitle, $sections);
+    }
+
     private function excel(string $filename, array $headings, array $rows)
     {
         $path = $this->tempPath('xlsx');
@@ -67,6 +95,58 @@ class TableDocumentExporter
         $zip->close();
 
         return $this->file($path, $filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    }
+
+    private function workbook(string $filename, array $sections)
+    {
+        $path = $this->tempPath('xlsx');
+        $writer = new Writer();
+        $writer->openToFile($path);
+        $used = [];
+        foreach ($sections as $index => $section) {
+            if ($index > 0) {
+                $writer->addNewSheetAndMakeItCurrent();
+            }
+            $writer->getCurrentSheet()->setName($this->sheetName($section['title'], $used));
+            $writer->addRow(Row::fromValues($section['headings']));
+            foreach ($section['rows'] as $row) {
+                $writer->addRow(Row::fromValues($row));
+            }
+        }
+        $writer->close();
+
+        return $this->file($path, $filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    }
+
+    private function sheetName(string $title, array &$used): string
+    {
+        $name = trim(preg_replace('/[\\\\\\/\\?\\*\\:\\[\\]]+/', ' ', $title) ?? '');
+        $name = $name !== '' ? $name : 'Report';
+        $base = mb_substr($name, 0, 31);
+        $name = $base;
+        $i = 2;
+        while (in_array(mb_strtolower($name), $used, true)) {
+            $suffix = ' '.$i;
+            $name = mb_substr($base, 0, 31 - mb_strlen($suffix)).$suffix;
+            $i++;
+        }
+        $used[] = mb_strtolower($name);
+
+        return $name;
+    }
+
+    private function pdfSections(string $filename, string $title, array $sections)
+    {
+        $binary = Pdf::loadView('exports.table-sections', [
+            'title' => $title,
+            'sections' => $sections,
+            'generatedAt' => now()->format('d M Y H:i'),
+        ])->setPaper('a4', 'landscape')->output();
+
+        $path = $this->tempPath('pdf');
+        file_put_contents($path, $binary);
+
+        return $this->file($path, $filename, 'application/pdf');
     }
 
     private function pdf(string $filename, string $title, array $headings, array $rows)

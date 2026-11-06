@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\PocketPay\CanteenDetail;
+use App\Livewire\PocketPay\CardDetail;
 use App\Livewire\PocketPay\ListCanteens;
 use App\Livewire\PocketPay\ListCanteenSales;
 use App\Livewire\PocketPay\ListPocketPayCardNumbers;
@@ -14,6 +15,8 @@ use App\Models\CanteenFloatTopup;
 use App\Models\CanteenSale;
 use App\Models\ParentGuardian;
 use App\Models\PocketPayCard;
+use App\Models\PocketPayGatewaySetting;
+use App\Models\PocketPayWithdrawal;
 use App\Models\PocketPayCardNumber;
 use App\Models\PocketPayTopup;
 use App\Models\Role;
@@ -22,6 +25,7 @@ use App\Models\Student;
 use App\Models\User;
 use App\Services\PocketPayService;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
@@ -324,6 +328,87 @@ class PocketPayAdminTest extends TestCase
         $this->assertSame(PocketPayCard::STATUS_ACTIVE, $card->fresh()->status);
     }
 
+    public function test_card_detail_shows_figures_tabs_alerts_and_statement_pdf(): void
+    {
+        [, , $card] = $this->canteenWithSales();
+        $this->actingAs($this->schoolAdmin);
+
+        $component = Livewire::test(CardDetail::class, ['card' => $card->fresh()])
+            ->assertSee('Amani N')
+            ->assertSee('Ruth N')
+            ->assertSee('UGX 16,500');
+
+        $summary = $component->instance()->report['summary'];
+        $this->assertEquals(3500, $summary['spent']);
+        $this->assertSame(2, $summary['purchases']);
+        $this->assertEquals(16500, $summary['balance']);
+        $this->assertEquals(3500, $summary['spent_today']);
+        $this->assertEquals(3500, $summary['lifetime_spent']);
+
+        foreach (CardDetail::TABS as $tab) {
+            $component->call('setTab', $tab)->assertOk()->assertSet('tab', $tab);
+        }
+
+        $component->call('setTab', 'purchases')->assertSee('Main Canteen')->assertSee('Grace');
+        $component->call('setTab', 'alerts')->assertSee('Card activated')->assertSee('0772000111');
+        $component->call('setTab', 'purchases')->call('preset', 'last_month')->assertSee('No purchases in this period');
+
+        $response = $this->get(route('pocket-pay.cards.statement', $card));
+        $response->assertOk()->assertHeader('content-type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF', $response->getContent());
+
+        // Card QR codes are for Quisat only, like the card number stock.
+        $this->get(route('pocket-pay.cards.qr', $card))->assertForbidden();
+        $this->actingAs($this->superAdmin)->get(route('pocket-pay.cards.qr', $card))->assertOk();
+    }
+
+    public function test_card_detail_actions_change_limit_lock_status_and_number(): void
+    {
+        [, , $card] = $this->canteenWithSales();
+        $this->actingAs($this->schoolAdmin);
+
+        Livewire::test(CardDetail::class, ['card' => $card->fresh()])
+            ->assertActionHidden('unlock')
+            ->assertActionHidden('changeNumber')
+            ->callAction('limit', data: ['daily_limit' => 5000])
+            ->assertHasNoActionErrors();
+        $this->assertEquals(5000, $card->fresh()->daily_limit);
+        $this->assertTrue(SmsMessage::where('purpose', 'pocket_pay.limit_changed')->exists());
+
+        Livewire::test(CardDetail::class, ['card' => $card->fresh()])->callAction('limit', data: ['daily_limit' => null]);
+        $this->assertNull($card->fresh()->daily_limit);
+
+        $card->forceFill(['locked_until' => now()->addMinutes(30)])->save();
+        Livewire::test(CardDetail::class, ['card' => $card->fresh()])
+            ->assertSee('PIN locked')
+            ->callAction('unlock');
+        $this->assertNull($card->fresh()->locked_until);
+        $this->assertTrue(SmsMessage::where('purpose', 'pocket_pay.card_unlocked')->exists());
+
+        Livewire::test(CardDetail::class, ['card' => $card->fresh()])->callAction('deactivate');
+        $this->assertSame(PocketPayCard::STATUS_BLOCKED, $card->fresh()->status);
+        Livewire::test(CardDetail::class, ['card' => $card->fresh()])->callAction('activate');
+        $this->assertSame(PocketPayCard::STATUS_ACTIVE, $card->fresh()->status);
+
+        $this->actingAs($this->superAdmin);
+        [$replacement] = PocketPayCardNumber::generate(1)->all();
+        Livewire::test(CardDetail::class, ['card' => $card->fresh()])
+            ->callAction('changeNumber', data: ['card_number_id' => $replacement->id])
+            ->assertHasNoActionErrors();
+        $this->assertSame($replacement->number, $card->fresh()->card_number);
+        $this->assertEquals(16500, $card->fresh()->balance);
+    }
+
+    public function test_school_admin_cannot_open_another_schools_card(): void
+    {
+        $theirStudent = Student::forceCreate(['first_name' => 'Zed', 'last_name' => 'Q', 'business_id' => $this->otherSchool->id]);
+        $theirs = PocketPayCard::create(['business_id' => $this->otherSchool->id, 'student_id' => $theirStudent->id, 'card_number' => '269999999999']);
+        $this->actingAs($this->schoolAdmin);
+
+        Livewire::test(CardDetail::class, ['card' => $theirs])->assertForbidden();
+        $this->get(route('pocket-pay.cards.statement', $theirs))->assertForbidden();
+    }
+
     /**
      * A canteen topped up with 10,000 and two sales (2,000 + 1,500) by Amani.
      *
@@ -386,6 +471,231 @@ class PocketPayAdminTest extends TestCase
         $this->assertSame(CanteenSale::STATUS_REVERSED, $sale->fresh()->status);
         $this->assertEquals(5000, $card->fresh()->balance);
         $this->assertSame($this->superAdmin->id, $sale->fresh()->reversal_reviewed_by);
+    }
+
+    public function test_super_admin_manages_pocket_pay_balances_and_marz_keys(): void
+    {
+        $card = PocketPayCard::create([
+            'business_id' => $this->school->id,
+            'student_id' => $this->student->id,
+            'card_number' => 'HILL1',
+            'status' => PocketPayCard::STATUS_ACTIVE,
+        ]);
+        $card->forceFill(['balance' => 12500])->save();
+        Canteen::create([
+            'business_id' => $this->school->id,
+            'name' => 'Main Canteen',
+            'float_balance' => 8000,
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($this->schoolAdmin)->get(route('pocket-pay.overview'))->assertForbidden();
+        $this->actingAs($this->schoolAdmin)->get(route('pocket-pay.settings.edit'))->assertForbidden();
+
+        $this->actingAs($this->superAdmin)
+            ->get(route('pocket-pay.overview'))
+            ->assertOk()
+            ->assertSee('UGX 20,500')
+            ->assertSee('UGX 12,500')
+            ->assertSee('UGX 8,000')
+            ->assertSee('Hill Primary')
+            ->assertSee('Amani');
+
+        $this->actingAs($this->superAdmin)
+            ->put(route('pocket-pay.settings.update'), [
+                'marzpay_base_url' => 'https://pocket-pay.test/api/v1',
+                'marzpay_api_key' => 'pp-key',
+                'marzpay_api_secret' => 'pp-secret',
+            ])
+            ->assertRedirect(route('pocket-pay.settings.edit'));
+
+        $settings = PocketPayGatewaySetting::current()->fresh();
+        $this->assertSame('https://pocket-pay.test/api/v1', $settings->marzpay_base_url);
+        $this->assertSame('pp-key', $settings->marzpay_api_key);
+        $this->assertSame('pp-secret', $settings->marzpay_api_secret);
+        $this->assertTrue($settings->hasPayCredentials());
+
+        Http::fake([
+            'https://pocket-pay.test/api/v1/send-money' => Http::response([
+                'status' => 'success',
+                'message' => 'Sent',
+                'data' => ['transaction' => ['uuid' => 'wd-1', 'status' => 'completed', 'provider_reference' => 'MM1']],
+            ]),
+        ]);
+
+        $this->actingAs($this->schoolAdmin)->post(route('pocket-pay.withdrawals.store'), [
+            'amount' => 5000,
+            'phone_number' => '0772000111',
+        ])->assertForbidden();
+
+        $this->actingAs($this->superAdmin)->post(route('pocket-pay.withdrawals.store'), [
+            'amount' => 5000,
+            'phone_number' => '0772000111',
+        ])->assertRedirect();
+
+        $withdrawal = PocketPayWithdrawal::firstOrFail();
+        $this->assertSame('5000.00', $withdrawal->amount);
+        $this->assertSame('completed', $withdrawal->status);
+        $this->assertSame('+256772000111', $withdrawal->phone_number);
+        $this->assertSame(12500.0, (float) $card->fresh()->balance);
+    }
+
+    public function test_super_admin_downloads_every_pocket_pay_money_report(): void
+    {
+        $card = PocketPayCard::create([
+            'business_id' => $this->school->id,
+            'student_id' => $this->student->id,
+            'card_number' => 'HILL1001',
+            'status' => PocketPayCard::STATUS_ACTIVE,
+        ]);
+        $card->forceFill(['balance' => 12500])->save();
+        $canteen = Canteen::create([
+            'business_id' => $this->school->id,
+            'name' => 'Main Canteen',
+            'float_balance' => 8000,
+            'status' => 'active',
+        ]);
+        $otherCanteen = Canteen::create([
+            'business_id' => $this->otherSchool->id,
+            'name' => 'Lake Canteen',
+            'float_balance' => 1000,
+            'status' => 'active',
+        ]);
+        $otherStudent = Student::forceCreate([
+            'first_name' => 'Kato', 'last_name' => 'L', 'business_id' => $this->otherSchool->id,
+        ]);
+        $otherCard = PocketPayCard::create([
+            'business_id' => $this->otherSchool->id,
+            'student_id' => $otherStudent->id,
+            'card_number' => 'LAKE1001',
+            'status' => PocketPayCard::STATUS_ACTIVE,
+        ]);
+
+        CanteenSale::create([
+            'business_id' => $this->school->id,
+            'canteen_id' => $canteen->id,
+            'pocket_pay_card_id' => $card->id,
+            'student_id' => $this->student->id,
+            'amount' => 1500,
+            'receipt_number' => 'QPP-HILL-1',
+            'status' => CanteenSale::STATUS_COMPLETED,
+            'description' => 'Rice',
+        ]);
+        CanteenSale::create([
+            'business_id' => $this->otherSchool->id,
+            'canteen_id' => $otherCanteen->id,
+            'pocket_pay_card_id' => $otherCard->id,
+            'student_id' => $otherStudent->id,
+            'amount' => 900,
+            'receipt_number' => 'QPP-LAKE-1',
+            'status' => CanteenSale::STATUS_COMPLETED,
+        ]);
+        CanteenSale::create([
+            'business_id' => $this->school->id,
+            'canteen_id' => $canteen->id,
+            'pocket_pay_card_id' => $card->id,
+            'student_id' => $this->student->id,
+            'amount' => 400,
+            'receipt_number' => 'QPP-HILL-REV',
+            'status' => CanteenSale::STATUS_REVERSED,
+            'reversal_status' => CanteenSale::REVERSAL_APPROVED,
+            'reversal_reason' => 'Wrong item',
+            'reversal_requested_at' => now(),
+        ]);
+        PocketPayTopup::create([
+            'business_id' => $this->school->id,
+            'topupable_type' => PocketPayCard::class,
+            'topupable_id' => $card->id,
+            'amount' => 3000,
+            'phone_number' => '+256772000111',
+            'status' => 'completed',
+            'credited_at' => now(),
+        ]);
+        CanteenFloatTopup::create([
+            'business_id' => $this->school->id,
+            'canteen_id' => $canteen->id,
+            'amount' => 4000,
+            'paid_on' => now()->toDateString(),
+            'payment_reference' => 'CASH-44',
+            'proof_path' => 'pocket-pay/float-proofs/proof.pdf',
+            'recorded_by' => $this->superAdmin->id,
+        ]);
+        \App\Models\PocketPayCardTransaction::create([
+            'pocket_pay_card_id' => $card->id,
+            'business_id' => $this->school->id,
+            'type' => 'sale',
+            'direction' => 'debit',
+            'amount' => 1500,
+            'balance_after' => 11000,
+            'canteen_id' => $canteen->id,
+            'description' => 'Rice',
+        ]);
+        \App\Models\CanteenFloatTransaction::create([
+            'canteen_id' => $canteen->id,
+            'business_id' => $this->school->id,
+            'type' => 'sale',
+            'direction' => 'debit',
+            'amount' => 1500,
+            'balance_after' => 6500,
+            'description' => 'Rice',
+        ]);
+        PocketPayWithdrawal::create([
+            'amount' => 5000,
+            'method' => PocketPayWithdrawal::METHOD_MOBILE,
+            'phone_number' => '+256772000111',
+            'status' => 'completed',
+            'requested_by' => $this->superAdmin->id,
+        ]);
+
+        $this->actingAs($this->schoolAdmin)->get(route('pocket-pay.reports'))->assertForbidden();
+        $this->actingAs($this->schoolAdmin)->get(route('pocket-pay.reports.download', ['format' => 'excel', 'report' => 'everything']))->assertForbidden();
+
+        $this->actingAs($this->superAdmin)
+            ->get(route('pocket-pay.reports', ['range' => 'all']))
+            ->assertOk()
+            ->assertSee('Money reports')
+            ->assertSee('Hill Primary')
+            ->assertSee('UGX 20,500.00')
+            ->assertSee('UGX 1,500.00');
+
+        $this->actingAs($this->superAdmin)
+            ->get(route('pocket-pay.reports', ['report' => 'sales', 'range' => 'all', 'school' => $this->school->id]))
+            ->assertOk()
+            ->assertSee('QPP-HILL-1')
+            ->assertDontSee('QPP-LAKE-1');
+
+        $this->actingAs($this->superAdmin)
+            ->get(route('pocket-pay.reports', ['report' => 'topups', 'range' => 'all']))
+            ->assertOk()
+            ->assertSee('+256772000111')
+            ->assertSee('Student card');
+
+        $this->actingAs($this->superAdmin)
+            ->get(route('pocket-pay.reports', ['report' => 'float-topups', 'range' => 'all']))
+            ->assertOk()
+            ->assertSee('CASH-44');
+
+        $this->actingAs($this->superAdmin)
+            ->get(route('pocket-pay.reports', ['report' => 'reversals', 'range' => 'all']))
+            ->assertOk()
+            ->assertSee('QPP-HILL-REV')
+            ->assertSee('Wrong item');
+
+        $this->actingAs($this->superAdmin)
+            ->get(route('pocket-pay.reports', ['report' => 'withdrawals', 'range' => 'all']))
+            ->assertOk()
+            ->assertSee('UGX 5,000.00');
+
+        $excel = $this->actingAs($this->superAdmin)
+            ->get(route('pocket-pay.reports.download', ['format' => 'excel', 'report' => 'everything', 'range' => 'all']));
+        $excel->assertOk();
+        $this->assertStringContainsString('spreadsheetml', (string) $excel->headers->get('content-type'));
+        $this->assertStringStartsWith('PK', file_get_contents($excel->baseResponse->getFile()->getPathname()));
+
+        $pdf = $this->actingAs($this->superAdmin)
+            ->get(route('pocket-pay.reports.download', ['format' => 'pdf', 'report' => 'sales', 'range' => 'all']));
+        $pdf->assertOk();
+        $this->assertStringStartsWith('%PDF', file_get_contents($pdf->baseResponse->getFile()->getPathname()));
     }
 
     public function test_super_admin_sees_the_marzsms_log(): void

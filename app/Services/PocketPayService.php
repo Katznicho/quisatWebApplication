@@ -11,8 +11,10 @@ use App\Models\CanteenFloatTransaction;
 use App\Models\CanteenSale;
 use App\Models\ParentGuardian;
 use App\Models\PocketPayCard;
+use App\Models\PocketPayGatewaySetting;
 use App\Models\PocketPayCardTransaction;
 use App\Models\PocketPayTopup;
+use App\Models\PocketPayWithdrawal;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -165,6 +167,22 @@ class PocketPayService
         $left = self::MAX_PIN_ATTEMPTS - $attempts;
 
         throw new PocketPayException("Wrong PIN. {$left} attempt(s) left.", 422, 'wrong_pin');
+    }
+
+    /**
+     * Clear a PIN lock early so the student can buy again with their current PIN.
+     */
+    public function unlockCard(PocketPayCard $card, Model $actor): PocketPayCard
+    {
+        $card->forceFill(['failed_pin_attempts' => 0, 'locked_until' => null])->save();
+
+        $this->notifyParent(
+            $card,
+            "{$this->studentName($card)}'s Pocket Pay card {$card->maskedNumber()} was unlocked by {$this->actorLabel($actor)}.",
+            'pocket_pay.card_unlocked',
+        );
+
+        return $card;
     }
 
     public function setDailyLimit(PocketPayCard $card, ?float $limit, Model $actor): PocketPayCard
@@ -419,6 +437,12 @@ class PocketPayService
             throw new PocketPayException('Enter a valid mobile money number.', 422, 'invalid_phone');
         }
 
+        $gateway = PocketPayGatewaySetting::current();
+
+        if (! $gateway->hasPayCredentials()) {
+            throw new PocketPayException('Pocket Pay mobile money is not set up yet.', 422, 'gateway_not_configured');
+        }
+
         $topup = PocketPayTopup::create([
             'business_id' => $target->business_id,
             'topupable_type' => $target::class,
@@ -430,7 +454,7 @@ class PocketPayService
             'initiated_by_id' => $initiator->getKey(),
         ]);
 
-        $payment = $this->marzPay->createAndInitiate(
+        $payment = $this->marzPay->forPocketPay()->createAndInitiate(
             $topup,
             (int) round($amount),
             'mobile_money',
@@ -447,6 +471,113 @@ class PocketPayService
         $topup->update(['status' => 'processing']);
 
         return ['topup' => $topup->fresh(), 'payment' => $payment['data']];
+    }
+
+    /**
+     * Send money out of the Pocket Pay Marz Pay account. Student cards and canteen floats are not reduced.
+     */
+    public function withdrawToPhone(User $actor, float $amount, string $phone, ?string $notes = null): PocketPayWithdrawal
+    {
+        $this->assertGatewayReady();
+        $this->assertWithdrawalAmount($amount);
+        $normalized = $this->sms->normalizePhone($phone);
+
+        if (! $normalized) {
+            throw new PocketPayException('Enter a valid mobile money number.', 422, 'invalid_phone');
+        }
+
+        $withdrawal = PocketPayWithdrawal::create([
+            'amount' => $amount,
+            'method' => PocketPayWithdrawal::METHOD_MOBILE,
+            'phone_number' => $normalized,
+            'status' => 'processing',
+            'notes' => $notes,
+            'requested_by' => $actor->id,
+        ]);
+
+        $result = $this->marzPay->forPocketPay()->sendMoney(
+            $withdrawal->uuid,
+            $amount,
+            $normalized,
+            'Quisat Pocket Pay withdrawal',
+        );
+
+        return $this->finishWithdrawal($withdrawal, $result);
+    }
+
+    public function withdrawToBank(
+        User $actor,
+        float $amount,
+        string $bankName,
+        string $accountNumber,
+        ?string $accountName = null,
+        ?string $bankBranch = null,
+        ?string $notes = null,
+    ): PocketPayWithdrawal {
+        $this->assertGatewayReady();
+        $this->assertWithdrawalAmount($amount);
+
+        $withdrawal = PocketPayWithdrawal::create([
+            'amount' => $amount,
+            'method' => PocketPayWithdrawal::METHOD_BANK,
+            'bank_name' => $bankName,
+            'bank_account_number' => $accountNumber,
+            'bank_account_name' => $accountName,
+            'bank_branch' => $bankBranch,
+            'status' => 'processing',
+            'notes' => $notes,
+            'requested_by' => $actor->id,
+        ]);
+
+        $result = $this->marzPay->forPocketPay()->createBankTransfer(
+            $withdrawal->uuid,
+            $amount,
+            $bankName,
+            $accountNumber,
+            'main',
+            $accountName,
+            $bankBranch,
+            'Quisat Pocket Pay withdrawal',
+        );
+
+        return $this->finishWithdrawal($withdrawal, $result);
+    }
+
+    protected function assertGatewayReady(): void
+    {
+        if (! PocketPayGatewaySetting::current()->hasPayCredentials()) {
+            throw new PocketPayException('Pocket Pay Marz Pay keys are not set up yet.', 422, 'gateway_not_configured');
+        }
+    }
+
+    protected function assertWithdrawalAmount(float $amount): void
+    {
+        if ($amount < self::MIN_TOPUP || $amount > self::MAX_TOPUP) {
+            throw new PocketPayException(
+                'Withdrawal must be between UGX '.$this->money(self::MIN_TOPUP).' and UGX '.$this->money(self::MAX_TOPUP).'.'
+            );
+        }
+    }
+
+    protected function finishWithdrawal(PocketPayWithdrawal $withdrawal, array $result): PocketPayWithdrawal
+    {
+        if (! ($result['success'] ?? false)) {
+            $withdrawal->update([
+                'status' => 'failed',
+                'notes' => $result['message'] ?? $withdrawal->notes,
+            ]);
+
+            throw new PocketPayException($result['message'] ?: 'Withdrawal could not be sent.', 422, 'withdrawal_failed');
+        }
+
+        $status = (string) ($result['status'] ?? 'processing');
+        $withdrawal->update([
+            'status' => in_array($status, ['completed', 'sandbox'], true) ? 'completed' : 'processing',
+            'marz_transaction_uuid' => $result['transaction_uuid'] ?? null,
+            'provider_reference' => $result['provider_reference'] ?? null,
+        ]);
+
+        return $withdrawal->fresh();
     }
 
     /**

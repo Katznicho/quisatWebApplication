@@ -48,6 +48,11 @@ class CanteenFloatTopup extends Model
         return 'uuid';
     }
 
+    public function business(): BelongsTo
+    {
+        return $this->belongsTo(Business::class);
+    }
+
     public function canteen(): BelongsTo
     {
         return $this->belongsTo(Canteen::class);

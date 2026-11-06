@@ -195,7 +195,7 @@
                     <!-- Quisat Pocket Pay -->
                     @if (\App\Support\PocketPayAccess::canManage())
                     <li>
-                        <a href="{{ route('pocket-pay.canteens.index') }}"
+                        <a href="{{ \App\Support\PocketPayAccess::canAssignCards() ? route('pocket-pay.overview') : route('pocket-pay.canteens.index') }}"
                             class="flex items-center pl-4 pr-3 py-2 rounded-md {{ request()->routeIs('pocket-pay.*') ? 'border border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-700 hover:text-blue-700 hover:bg-blue-50' }}">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                                 stroke-width="1.5" stroke="currentColor" class="w-5 h-5 shrink-0">
