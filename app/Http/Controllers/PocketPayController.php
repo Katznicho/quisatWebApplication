@@ -9,6 +9,7 @@ use App\Models\CanteenSale;
 use App\Exceptions\PocketPayException;
 use App\Models\PocketPayCard;
 use App\Models\PocketPayGatewaySetting;
+use App\Models\PocketPayTopup;
 use App\Models\PocketPayWithdrawal;
 use App\Services\PocketPayService;
 use App\Services\PocketPayMoneyReport;
@@ -70,9 +71,25 @@ class PocketPayController extends Controller
             ];
         })->sortByDesc('total')->values();
 
-        $students = PocketPayCard::query()
-            ->with(['student:id,first_name,last_name,student_id', 'business:id,name'])
-            ->when($request->filled('school'), fn ($query) => $query->where('business_id', (int) $request->query('school')))
+        return view('pocket-pay.overview', $this->nav() + [
+            'schools' => $schools,
+            'cardTotal' => (float) $cards->sum('card_balance'),
+            'floatTotal' => (float) $floats->sum('float_balance'),
+            'activeCards' => (int) $cards->sum('active_cards'),
+            'gateway' => $gateway = PocketPayGatewaySetting::current(),
+            'marzBalance' => $this->marzWallet($gateway, $request->boolean('refresh_balance')),
+            'withdrawals' => PocketPayWithdrawal::query()->with('requestedBy:id,name')->latest()->limit(8)->get(),
+        ]);
+    }
+
+    public function school(Request $request, Business $business, PocketPayMoneyReport $reports)
+    {
+        abort_unless(PocketPayAccess::canAssignCards(), 403);
+
+        [$from, $to] = $reports->period('month', null, null);
+        $cards = PocketPayCard::query()
+            ->with(['student:id,first_name,last_name,student_id'])
+            ->where('business_id', $business->id)
             ->when($request->filled('q'), function ($query) use ($request) {
                 $term = '%'.trim((string) $request->query('q')).'%';
                 $query->where(function ($inner) use ($term) {
@@ -86,19 +103,42 @@ class PocketPayController extends Controller
             })
             ->orderByDesc('balance')
             ->orderBy('id')
-            ->paginate(15)
+            ->paginate(20)
             ->withQueryString();
 
-        return view('pocket-pay.overview', $this->nav() + [
-            'schools' => $schools,
-            'students' => $students,
-            'cardTotal' => (float) $cards->sum('card_balance'),
-            'floatTotal' => (float) $floats->sum('float_balance'),
-            'activeCards' => (int) $cards->sum('active_cards'),
-            'gateway' => $gateway = PocketPayGatewaySetting::current(),
-            'marzBalance' => $this->marzWallet($gateway, $request->boolean('refresh_balance')),
-            'schoolFilter' => $businesses,
-            'withdrawals' => PocketPayWithdrawal::query()->with('requestedBy:id,name')->latest()->limit(12)->get(),
+        $topups = PocketPayTopup::query()
+            ->where('business_id', $business->id)
+            ->latest()
+            ->limit(8)
+            ->get();
+        $topups->loadMorph('topupable', [
+            PocketPayCard::class => ['student:id,first_name,last_name'],
+            Canteen::class => [],
+        ]);
+
+        return view('pocket-pay.school', $this->nav() + [
+            'business' => $business,
+            'summary' => $reports->summary($from, $to, $business->id),
+            'periodLabel' => $reports->periodLabel($from, $to, false),
+            'canteens' => Canteen::query()
+                ->where('business_id', $business->id)
+                ->withCount('attendants')
+                ->orderBy('name')
+                ->get(),
+            'cards' => $cards,
+            'sales' => CanteenSale::query()
+                ->with(['student:id,first_name,last_name', 'canteen:id,name'])
+                ->where('business_id', $business->id)
+                ->latest()
+                ->limit(8)
+                ->get(),
+            'topups' => $topups,
+            'deposits' => CanteenFloatTopup::query()
+                ->with('canteen:id,name')
+                ->where('business_id', $business->id)
+                ->latest('paid_on')
+                ->limit(8)
+                ->get(),
         ]);
     }
 

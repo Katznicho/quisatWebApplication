@@ -58,14 +58,18 @@
                             'shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold',
                             'bg-emerald-100 text-emerald-800' => $settings->hasWebhookSecret(),
                             'bg-slate-100 text-slate-600' => ! $settings->hasWebhookSecret(),
-                        ])>{{ $settings->hasWebhookSecret() ? 'Checking signatures' : 'Optional' }}</span>
+                        ])>{{ $settings->hasWebhookSecret() ? 'Saved' : 'Optional' }}</span>
                     </div>
                     <div class="mt-6 space-y-4">
                         <label class="block text-sm font-medium text-slate-700 dark:text-slate-200">Signing secret
-                            <input type="text" name="pp_sign" autocomplete="off" spellcheck="false" value="{{ old('pp_sign', old('marzpay_webhook_secret')) }}" placeholder="Paste the signing secret" class="{{ $field }} mt-1.5 font-normal">
+                            <input type="text" name="pp_sign" autocomplete="off" spellcheck="false" value="{{ old('pp_sign', old('marzpay_webhook_secret')) }}" placeholder="{{ $settings->hasWebhookSecret() ? 'Signing secret saved' : 'Paste the signing secret' }}" class="{{ $field }} mt-1.5 font-normal">
                         </label>
                         @error('marzpay_webhook_secret') <p class="text-sm text-rose-600">{{ $message }}</p> @enderror
-                        <p class="text-xs leading-5 text-slate-400">Marz Pay → Business Settings → Webhooks & Security → Sign outgoing webhooks → Reveal. Paste it and save to store it.</p>
+                        @if ($settings->hasWebhookSecret())
+                            <p class="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">Signing secret is saved. Pocket Pay callbacks are verified with it. Paste a new one only to replace it.</p>
+                        @else
+                            <p class="text-xs leading-5 text-slate-400">Marz Pay → Business Settings → Webhooks & Security → Sign outgoing webhooks → Reveal. Paste it and save to store it.</p>
+                        @endif
                     </div>
                 </section>
 

@@ -215,6 +215,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('kids-church', [\App\Http\Controllers\KidsChurchController::class, 'index'])->name('kids-church.index');
     Route::prefix('pocket-pay')->name('pocket-pay.')->group(function () {
         Route::get('/', [\App\Http\Controllers\PocketPayController::class, 'overview'])->name('overview');
+        Route::get('schools/{business}', [\App\Http\Controllers\PocketPayController::class, 'school'])->name('schools.show');
         Route::get('reports', [\App\Http\Controllers\PocketPayController::class, 'reports'])->name('reports');
         Route::get('reports/{format}', [\App\Http\Controllers\PocketPayController::class, 'downloadReport'])->name('reports.download')->where('format', 'pdf|excel');
         Route::get('settings', [\App\Http\Controllers\PocketPayController::class, 'editSettings'])->name('settings.edit');

@@ -491,6 +491,7 @@ class PocketPayAdminTest extends TestCase
 
         $this->actingAs($this->schoolAdmin)->get(route('pocket-pay.overview'))->assertForbidden();
         $this->actingAs($this->schoolAdmin)->get(route('pocket-pay.settings.edit'))->assertForbidden();
+        $this->actingAs($this->schoolAdmin)->get(route('pocket-pay.schools.show', $this->school))->assertForbidden();
 
         $this->actingAs($this->superAdmin)
             ->get(route('pocket-pay.overview'))
@@ -499,7 +500,15 @@ class PocketPayAdminTest extends TestCase
             ->assertSee('UGX 12,500')
             ->assertSee('UGX 8,000')
             ->assertSee('Hill Primary')
-            ->assertSee('Amani');
+            ->assertSee(route('pocket-pay.schools.show', $this->school), false);
+
+        $this->actingAs($this->superAdmin)
+            ->get(route('pocket-pay.schools.show', $this->school))
+            ->assertOk()
+            ->assertSee('Amani')
+            ->assertSee('Main Canteen')
+            ->assertSee('UGX 12,500')
+            ->assertSee('UGX 8,000');
 
         $this->actingAs($this->superAdmin)
             ->put(route('pocket-pay.settings.update'), [

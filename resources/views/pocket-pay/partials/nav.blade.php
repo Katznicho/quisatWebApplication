@@ -14,11 +14,13 @@
             'pocket-pay.reports' => request()->routeIs('pocket-pay.reports*'),
             'pocket-pay.cards.index' => request()->routeIs('pocket-pay.cards.*'),
             'pocket-pay.settings.edit' => request()->routeIs('pocket-pay.settings.*'),
+            'pocket-pay.overview' => request()->routeIs('pocket-pay.overview', 'pocket-pay.schools.show'),
             default => request()->routeIs($route),
         };
     };
     $intro = match (true) {
-        request()->routeIs('pocket-pay.overview') => 'Money sitting on student cards and in canteen floats, across every school.',
+        request()->routeIs('pocket-pay.schools.show') => 'Cards, canteens, sales, and top-ups for this school.',
+        request()->routeIs('pocket-pay.overview') => 'Choose a school to see its cards, canteens, and movements.',
         request()->routeIs('pocket-pay.reports*') => 'Balances held now, and every movement in the dates you choose.',
         request()->routeIs('pocket-pay.settings.*') => 'The Marz Pay account used for Pocket Pay collections and withdrawals.',
         request()->routeIs('pocket-pay.reversals.*') => 'Sale reversals waiting for a decision, and the ones already reviewed.',
