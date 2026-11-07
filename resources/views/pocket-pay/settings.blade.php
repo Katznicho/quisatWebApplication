@@ -30,15 +30,17 @@
                         @error('marzpay_base_url') <p class="text-sm text-rose-600">{{ $message }}</p> @enderror
                         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                             <label class="block text-sm font-medium text-slate-700 dark:text-slate-200">API key
-                                <input type="password" name="marzpay_api_key" autocomplete="new-password" placeholder="{{ $settings->maskedPayKey() ?: 'Paste the API key' }}" class="{{ $field }} mt-1.5 font-normal">
+                                <input type="text" name="marzpay_api_key" autocomplete="off" spellcheck="false" value="{{ old('marzpay_api_key') }}" placeholder="{{ $settings->maskedPayKey() ?: 'Paste the API key' }}" class="{{ $field }} mt-1.5 font-normal">
                             </label>
                             <label class="block text-sm font-medium text-slate-700 dark:text-slate-200">API secret
-                                <input type="password" name="marzpay_api_secret" autocomplete="new-password" placeholder="{{ $settings->marzpay_api_secret ? 'Secret saved' : 'Paste the API secret' }}" class="{{ $field }} mt-1.5 font-normal">
+                                <input type="text" name="marzpay_api_secret" autocomplete="off" spellcheck="false" value="{{ old('marzpay_api_secret') }}" placeholder="{{ $settings->hasPayCredentials() ? 'Secret saved' : 'Paste the API secret' }}" class="{{ $field }} mt-1.5 font-normal">
                             </label>
                         </div>
                         @error('marzpay_api_key') <p class="text-sm text-rose-600">{{ $message }}</p> @enderror
                         @error('marzpay_api_secret') <p class="text-sm text-rose-600">{{ $message }}</p> @enderror
-                        @if ($settings->maskedPayKey())
+                        @if ($settings->credentialsUnreadable())
+                            <p class="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">A key was saved but could not be read. Paste the API key and secret again.</p>
+                        @elseif ($settings->maskedPayKey())
                             <p class="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200">Saved API key <span class="font-mono">{{ $settings->maskedPayKey() }}</span>. The secret is stored. Leave both blank to keep them.</p>
                         @else
                             <p class="text-xs leading-5 text-slate-400">Paste the API key and API secret together. Leave them blank later to keep what is already saved.</p>
@@ -64,7 +66,7 @@
                     </div>
                     <div class="mt-6 space-y-4">
                         <label class="block text-sm font-medium text-slate-700 dark:text-slate-200">Signing secret
-                            <input type="password" name="marzpay_webhook_secret" autocomplete="new-password" placeholder="{{ $settings->hasWebhookSecret() ? 'Signing secret saved' : 'Paste the signing secret' }}" class="{{ $field }} mt-1.5 font-normal">
+                            <input type="text" name="marzpay_webhook_secret" autocomplete="off" spellcheck="false" value="{{ old('marzpay_webhook_secret') }}" placeholder="{{ $settings->hasWebhookSecret() ? 'Signing secret saved' : 'Paste the signing secret' }}" class="{{ $field }} mt-1.5 font-normal">
                         </label>
                         @error('marzpay_webhook_secret') <p class="text-sm text-rose-600">{{ $message }}</p> @enderror
                         <p class="text-xs leading-5 text-slate-400">Marz Pay → Business Settings → Webhooks & Security → Sign outgoing webhooks → Reveal. Leave blank to keep the saved secret.</p>

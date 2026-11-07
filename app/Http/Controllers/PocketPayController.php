@@ -224,40 +224,45 @@ class PocketPayController extends Controller
         ]);
 
         $settings = PocketPayGatewaySetting::current();
-        $payload = [
-            'marzpay_base_url' => trim((string) ($data['marzpay_base_url'] ?? '')) ?: config('marzpay.base_url'),
-        ];
+        $settings->marzpay_base_url = trim((string) ($data['marzpay_base_url'] ?? '')) ?: config('marzpay.base_url');
 
         if ($request->boolean('clear_marzpay')) {
-            $payload['marzpay_api_key'] = null;
-            $payload['marzpay_api_secret'] = null;
+            $settings->marzpay_api_key = null;
+            $settings->marzpay_api_secret = null;
         } else {
+            $alreadySaved = $settings->hasPayCredentials();
             $apiKey = trim((string) ($data['marzpay_api_key'] ?? ''));
             $apiSecret = trim((string) ($data['marzpay_api_secret'] ?? ''));
             if ($apiKey !== '') {
-                $payload['marzpay_api_key'] = $apiKey;
+                $settings->marzpay_api_key = $apiKey;
             }
             if ($apiSecret !== '') {
-                $payload['marzpay_api_secret'] = $apiSecret;
+                $settings->marzpay_api_secret = $apiSecret;
             }
-            if ($apiKey !== '' && $apiSecret === '' && ! $settings->marzpay_api_secret) {
-                return back()->withErrors(['marzpay_api_secret' => 'Enter the API secret with the API key.'])->withInput();
-            }
-            if ($apiSecret !== '' && $apiKey === '' && ! $settings->marzpay_api_key) {
-                return back()->withErrors(['marzpay_api_key' => 'Enter the API key with the API secret.'])->withInput();
+            if (! $alreadySaved && ($apiKey === '' || $apiSecret === '')) {
+                return back()->withErrors([
+                    'marzpay_api_key' => 'Paste the API key and the API secret together. Nothing was stored.',
+                ])->withInput();
             }
         }
 
         if ($request->boolean('clear_webhook_secret')) {
-            $payload['marzpay_webhook_secret'] = null;
+            $settings->marzpay_webhook_secret = null;
         } else {
             $webhookSecret = trim((string) ($data['marzpay_webhook_secret'] ?? ''));
             if ($webhookSecret !== '') {
-                $payload['marzpay_webhook_secret'] = $webhookSecret;
+                $settings->marzpay_webhook_secret = $webhookSecret;
             }
         }
 
-        $settings->update($payload);
+        $settings->save();
+        $fresh = $settings->fresh();
+
+        if (! $request->boolean('clear_marzpay') && ! $fresh->hasPayCredentials()) {
+            return back()->withErrors([
+                'marzpay_api_key' => 'The API key and secret could not be stored. Paste both again.',
+            ])->withInput();
+        }
 
         return redirect()->route('pocket-pay.settings.edit')->with('success', 'Pocket Pay Marz Pay account saved.');
     }

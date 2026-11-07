@@ -540,6 +540,24 @@ class PocketPayAdminTest extends TestCase
         $this->assertSame(12500.0, (float) $card->fresh()->balance);
     }
 
+    public function test_pocket_pay_account_is_not_marked_saved_when_the_keys_are_missing(): void
+    {
+        $settings = PocketPayGatewaySetting::current();
+        $settings->marzpay_api_key = null;
+        $settings->marzpay_api_secret = null;
+        $settings->save();
+
+        $this->actingAs($this->superAdmin)
+            ->from(route('pocket-pay.settings.edit'))
+            ->put(route('pocket-pay.settings.update'), [
+                'marzpay_base_url' => 'https://wallet.wearemarz.com/api/v1',
+            ])
+            ->assertRedirect(route('pocket-pay.settings.edit'))
+            ->assertSessionHasErrors('marzpay_api_key');
+
+        $this->assertFalse(PocketPayGatewaySetting::current()->fresh()->hasPayCredentials());
+    }
+
     public function test_pocket_pay_account_saves_without_a_base_url_and_pulls_the_marz_balance(): void
     {
         $secret = str_repeat('s', 300);
