@@ -524,6 +524,7 @@ class PocketPayTest extends TestCase
     {
         $sms = SmsMessage::where('purpose', 'pocket_pay.attendant_otp')->latest('id')->firstOrFail();
         $this->assertSame('sent', $sms->status);
+        $this->assertLessThanOrEqual(160, strlen($sms->message));
         preg_match('/one-time PIN is (\d{4})/', $sms->message, $m);
 
         return $m[1];
@@ -536,6 +537,7 @@ class PocketPayTest extends TestCase
         $this->assertNotNull($sms, "No {$purpose} SMS recorded");
         $this->assertSame('+256772000111', $sms->recipient);
         $this->assertStringContainsString($contains, $sms->message);
+        $this->assertLessThanOrEqual(160, strlen($sms->message));
         $this->assertSame('sent', $sms->status);
     }
 

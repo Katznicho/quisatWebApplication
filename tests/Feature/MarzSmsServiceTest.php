@@ -56,6 +56,19 @@ class MarzSmsServiceTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_a_long_or_unicode_message_is_sent_as_one_sms(): void
+    {
+        $this->configure();
+        Http::fake([self::BASE.'/sms/send' => Http::response(['success' => true, 'data' => ['results' => [['status' => 'success']]]])]);
+
+        $sms = app(MarzSmsService::class)->sendNow('0772000111', 'Card 26••4821. '.str_repeat('A', 200), 'test');
+
+        $this->assertSame('sent', $sms->status);
+        $this->assertLessThanOrEqual(160, strlen($sms->message));
+        $this->assertStringStartsWith('Card 26**4821.', $sms->message);
+        $this->assertStringNotContainsString('•', $sms->message);
+    }
+
     public function test_invalid_phone_is_not_recorded(): void
     {
         $this->configure();

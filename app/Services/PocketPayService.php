@@ -96,7 +96,7 @@ class PocketPayService
 
         $this->notifyParent(
             $card,
-            "{$this->studentName($card)}'s Quisat Pocket Pay card {$card->maskedNumber()} has been activated by {$this->actorLabel($actor)}.",
+            "{$this->studentName($card)}'s card {$this->cardTail($card)} was activated by {$this->actorLabel($actor)}.",
             'pocket_pay.card_activated',
         );
 
@@ -119,7 +119,7 @@ class PocketPayService
 
         $this->notifyParent(
             $card,
-            "The PIN for {$this->studentName($card)}'s Pocket Pay card {$card->maskedNumber()} was reset by {$this->actorLabel($actor)}. If you did not expect this, contact the school.",
+            "PIN for {$this->studentName($card)}'s card {$this->cardTail($card)} was reset by {$this->actorLabel($actor)}. Call the school if this was not you.",
             'pocket_pay.pin_reset',
         );
 
@@ -158,7 +158,7 @@ class PocketPayService
         if ($locked) {
             $this->notifyParent(
                 $card,
-                "{$this->studentName($card)}'s Pocket Pay card was locked after too many wrong PIN attempts.",
+                "{$this->studentName($card)}'s card is locked after too many wrong PINs.",
                 'pocket_pay.card_locked',
             );
 
@@ -179,7 +179,7 @@ class PocketPayService
 
         $this->notifyParent(
             $card,
-            "{$this->studentName($card)}'s Pocket Pay card {$card->maskedNumber()} was unlocked by {$this->actorLabel($actor)}.",
+            "{$this->studentName($card)}'s card {$this->cardTail($card)} was unlocked by {$this->actorLabel($actor)}.",
             'pocket_pay.card_unlocked',
         );
 
@@ -195,8 +195,8 @@ class PocketPayService
         $card->forceFill(['daily_limit' => $limit])->save();
 
         $message = $limit === null
-            ? "The daily spending limit on {$this->studentName($card)}'s Pocket Pay card was removed by {$this->actorLabel($actor)}."
-            : "{$this->studentName($card)}'s Pocket Pay daily spending limit is now UGX ".$this->money($limit)." (set by {$this->actorLabel($actor)}).";
+            ? "The daily spending limit on {$this->studentName($card)}'s card was removed by {$this->actorLabel($actor)}."
+            : "{$this->studentName($card)}'s daily spending limit is now UGX ".$this->money($limit)." (set by {$this->actorLabel($actor)}).";
 
         $this->notifyParent($card, $message, 'pocket_pay.limit_changed');
 
@@ -213,7 +213,7 @@ class PocketPayService
 
         $this->notifyParent(
             $card,
-            "{$this->studentName($card)}'s Pocket Pay card {$card->maskedNumber()} was ".($blocked ? 'deactivated' : 'activated')." by {$this->actorLabel($actor)}.",
+            "{$this->studentName($card)}'s card {$this->cardTail($card)} was ".($blocked ? 'deactivated' : 'activated')." by {$this->actorLabel($actor)}.",
             $blocked ? 'pocket_pay.card_blocked' : 'pocket_pay.card_unblocked',
         );
 
@@ -324,7 +324,7 @@ class PocketPayService
         $card->refresh();
         $this->notifyParent(
             $card,
-            "{$this->studentName($card)} spent UGX {$this->money($amount)} at {$canteen->name}. Card balance: UGX {$this->money($card->balance)}. Ref {$sale->receipt_number}.",
+            "{$this->studentName($card)} spent UGX {$this->money($amount)} at {$this->clip($canteen->name, 22)}. Card balance: UGX {$this->money($card->balance)}. Ref {$sale->receipt_number}.",
             'pocket_pay.sale',
             $sale,
         );
@@ -396,7 +396,7 @@ class PocketPayService
         $card = $sale->card()->first();
         $this->notifyParent(
             $card,
-            "UGX {$this->money($sale->amount)} for sale {$sale->receipt_number} was refunded to {$this->studentName($card)}'s card. Balance: UGX {$this->money($card->balance)}.",
+            "UGX {$this->money($sale->amount)} for {$sale->receipt_number} was refunded to {$this->studentName($card)}'s card. Balance: UGX {$this->money($card->balance)}.",
             'pocket_pay.reversal',
             $sale,
         );
@@ -773,7 +773,7 @@ class PocketPayService
             $card = $credited->topupable()->first();
             $this->notifyParent(
                 $card,
-                "UGX {$this->money($credited->amount)} was added to {$this->studentName($card)}'s Pocket Pay card. Balance: UGX {$this->money($card->balance)}.",
+                "UGX {$this->money($credited->amount)} was added to {$this->studentName($card)}'s card. Balance: UGX {$this->money($card->balance)}.",
                 'pocket_pay.topup',
                 $credited,
             );
@@ -863,7 +863,7 @@ class PocketPayService
             return;
         }
 
-        $this->sms->queue($phone, 'Quisat Pocket Pay: '.$message, $purpose, $card->business, $related ?? $card);
+        $this->sms->queue($phone, 'Pocket Pay: '.$message, $purpose, $card->business, $related ?? $card);
     }
 
     /**
@@ -882,17 +882,35 @@ class PocketPayService
 
     protected function studentName(?PocketPayCard $card): string
     {
-        return $card?->student?->first_name ?: 'Your child';
+        return $this->clip($card?->student?->first_name ?: 'Your child', 18);
+    }
+
+    protected function cardTail(PocketPayCard $card): string
+    {
+        $number = (string) $card->card_number;
+
+        return strlen($number) <= 4 ? $number : substr($number, -4);
     }
 
     protected function actorLabel(Model $actor): string
     {
         return match (true) {
-            $actor instanceof CanteenAttendant => 'attendant '.$actor->name.($actor->canteen ? ' ('.$actor->canteen->name.')' : ''),
-            $actor instanceof ParentGuardian => 'a parent in the Quisat app',
-            $actor instanceof User => $actor->isAdmin() ? 'Quisat' : 'the school admin',
+            $actor instanceof CanteenAttendant => 'attendant '.$this->clip($actor->name, 16),
+            $actor instanceof ParentGuardian => 'a parent',
+            $actor instanceof User => $actor->isAdmin() ? 'Quisat' : 'the school',
             default => 'Quisat',
         };
+    }
+
+    protected function clip(string $value, int $limit): string
+    {
+        $value = trim($value);
+
+        if (mb_strlen($value) <= $limit) {
+            return $value;
+        }
+
+        return rtrim(mb_substr($value, 0, $limit - 1)).'.';
     }
 
     protected function money(float|string|null $amount): string

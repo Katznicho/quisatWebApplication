@@ -49,13 +49,19 @@ class CanteenAttendantAuthService
             'otp_attempts' => 0,
         ])->save();
 
-        $intro = $attendant->status === CanteenAttendant::STATUS_PENDING_SETUP
-            ? "Welcome to Quisat Attendant, {$attendant->name}. "
-            : '';
+        $name = trim($attendant->name);
+        if (mb_strlen($name) > 40) {
+            $name = rtrim(mb_substr($name, 0, 39)).'.';
+        }
+
+        $text = 'Your one-time PIN is '.$otp.'. It expires in '.self::OTP_TTL_MINUTES.' minutes. Do not share it.';
+        if ($attendant->status === CanteenAttendant::STATUS_PENDING_SETUP && $name !== '') {
+            $text .= ' Welcome '.$name.'.';
+        }
 
         $this->sms->sendNow(
             $attendant->phone,
-            "{$intro}Your one-time PIN is {$otp}. It expires in ".self::OTP_TTL_MINUTES.' minutes. Do not share it.',
+            $text,
             'pocket_pay.attendant_otp',
             $attendant->business,
             $attendant,

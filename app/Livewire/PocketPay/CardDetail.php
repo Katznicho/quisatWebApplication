@@ -242,12 +242,23 @@ class CardDetail extends Component implements HasActions, HasForms
             ->color('success')
             ->size('sm')
             ->requiresConfirmation()
-            ->modalDescription('The card is refunded and the amount returns to the canteen float.')
+            ->modalDescription(function (array $arguments): string {
+                $collects = $this->sale($arguments)->canteen?->collectsSales();
+
+                return $collects
+                    ? 'The card is refunded and the amount leaves this canteen’s sales balance.'
+                    : 'The card is refunded and the amount returns to the canteen float.';
+            })
             ->form([Forms\Components\Textarea::make('note')->label('Note (optional)')->maxLength(255)->placeholder('e.g. Confirmed with the student, wrong amount keyed')])
-            ->action(fn (array $arguments, array $data) => $this->review(
-                fn () => app(PocketPayService::class)->approveReversal($this->sale($arguments), Auth::user(), $data['note'] ?? null),
-                'Reversal approved. Card and float refunded.',
-            ));
+            ->action(function (array $arguments, array $data): void {
+                $sale = $this->sale($arguments);
+                $this->review(
+                    fn () => app(PocketPayService::class)->approveReversal($sale, Auth::user(), $data['note'] ?? null),
+                    $sale->canteen?->collectsSales()
+                        ? 'Reversal approved. The money went back to the card and left the canteen balance.'
+                        : 'Reversal approved. The money went back to the card and the float.',
+                );
+            });
     }
 
     public function rejectReversalAction(): Action

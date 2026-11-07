@@ -21,8 +21,8 @@ use Illuminate\Support\Str;
  */
 class MarzSmsService
 {
-    /** MarzSMS rejects messages longer than 2 SMS units. */
-    public const MAX_LENGTH = 320;
+    /** One GSM text. A longer message is billed as a second SMS. */
+    public const MAX_LENGTH = 160;
 
     public function __construct(
         protected MarzPayService $marzPay,
@@ -269,22 +269,19 @@ class MarzSmsService
         ?Model $related,
         ?int $sentBy,
     ): ?SmsMessage {
+        $message = $this->singleSegment($message);
         $recipient = $this->normalizePhone($phone);
 
-        if (! $recipient || trim($message) === '') {
+        if (! $recipient || $message === '') {
             return null;
         }
 
-        $error = match (true) {
-            ! $this->isReady() => 'MarzSMS is not configured.',
-            mb_strlen(trim($message)) > self::MAX_LENGTH => 'Message is longer than '.self::MAX_LENGTH.' characters.',
-            default => null,
-        };
+        $error = ! $this->isReady() ? 'MarzSMS is not configured.' : null;
 
         return SmsMessage::create([
             'business_id' => $business?->id,
             'recipient' => $recipient,
-            'message' => trim($message),
+            'message' => $message,
             'purpose' => $purpose,
             'related_type' => $related ? $related::class : null,
             'related_id' => $related?->getKey(),
@@ -292,6 +289,35 @@ class MarzSmsService
             'error' => $error,
             'sent_by' => $sentBy,
         ]);
+    }
+
+    /**
+     * Keep the text in the GSM alphabet and within one SMS so it is charged once.
+     */
+    public function singleSegment(string $message): string
+    {
+        $message = strtr($message, [
+            '•' => '*',
+            '’' => "'",
+            '‘' => "'",
+            '“' => '"',
+            '”' => '"',
+            '–' => '-',
+            '—' => '-',
+            '…' => '...',
+        ]);
+
+        $ascii = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $message);
+        $message = $ascii === false ? $message : $ascii;
+        $message = preg_replace('/[^\\n\\x20-\\x7E]/', '', $message) ?? '';
+        $message = str_replace(['^', '{', '}', '\\', '[', '~', ']', '|'], '', $message);
+        $message = trim((string) preg_replace('/[ \\t]+/', ' ', $message));
+
+        if (strlen($message) <= self::MAX_LENGTH) {
+            return $message;
+        }
+
+        return rtrim(substr($message, 0, self::MAX_LENGTH));
     }
 
     protected function client(MarzSmsSetting $settings): PendingRequest

@@ -104,11 +104,21 @@ class ListCanteenSales extends Component implements HasForms, HasTable
                     ->color('success')
                     ->visible(fn (CanteenSale $record): bool => $record->hasPendingReversal() && PocketPayAccess::canReviewReversals())
                     ->modalHeading(fn (CanteenSale $record): string => 'Approve reversal of '.$record->receipt_number)
-                    ->modalDescription(fn (CanteenSale $record): string => 'UGX '.number_format($record->amount).' goes back to the student card and to the canteen float. Reason given: "'.$record->reversal_reason.'"')
+                    ->modalDescription(function (CanteenSale $record): string {
+                        $amount = 'UGX '.number_format($record->amount);
+                        $movement = $record->canteen?->collectsSales()
+                            ? 'goes back to the student card and leaves the canteen sales balance'
+                            : 'goes back to the student card and to the canteen float';
+
+                        return $amount.' '.$movement.'. Reason given: "'.$record->reversal_reason.'"';
+                    })
                     ->form([Forms\Components\Textarea::make('note')->label('Note (optional)')->maxLength(255)->placeholder('e.g. Confirmed with the student, wrong amount keyed')])
                     ->action(function (CanteenSale $record, array $data): void {
                         abort_unless(PocketPayAccess::canReviewReversals(), 403);
-                        $this->review(fn () => app(PocketPayService::class)->approveReversal($record, Auth::user(), $data['note'] ?? null), 'Reversal approved. Card and float refunded.');
+                        $message = $record->canteen?->collectsSales()
+                            ? 'Reversal approved. The money went back to the card and left the canteen balance.'
+                            : 'Reversal approved. The money went back to the card and the float.';
+                        $this->review(fn () => app(PocketPayService::class)->approveReversal($record, Auth::user(), $data['note'] ?? null), $message);
                     }),
                 Action::make('reject')
                     ->label('Reject')
