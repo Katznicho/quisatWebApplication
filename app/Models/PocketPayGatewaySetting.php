@@ -32,7 +32,40 @@ class PocketPayGatewaySetting extends Model
 
     public static function current(): self
     {
-        return static::query()->firstOrCreate([]);
+        return static::query()->getConnection()->transaction(function () {
+            $primary = static::query()->orderBy('id')->lockForUpdate()->first();
+
+            if (! $primary) {
+                return static::query()->create([]);
+            }
+
+            static::query()
+                ->where('id', '!=', $primary->id)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->each(function (self $other) use ($primary) {
+                    if (! $primary->hasPayCredentials() && $other->hasPayCredentials()) {
+                        $primary->marzpay_api_key = $other->marzpay_api_key;
+                        $primary->marzpay_api_secret = $other->marzpay_api_secret;
+                        if (filled($other->marzpay_base_url)) {
+                            $primary->marzpay_base_url = $other->marzpay_base_url;
+                        }
+                    }
+
+                    if (! $primary->hasWebhookSecret() && $other->hasWebhookSecret()) {
+                        $primary->marzpay_webhook_secret = $other->marzpay_webhook_secret;
+                    }
+
+                    $other->delete();
+                });
+
+            if ($primary->isDirty()) {
+                $primary->save();
+            }
+
+            return $primary;
+        });
     }
 
     public function hasPayCredentials(): bool

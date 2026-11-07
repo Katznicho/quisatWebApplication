@@ -219,52 +219,54 @@ class PocketPayController extends Controller
             'marzpay_api_key' => 'nullable|string|max:4000',
             'marzpay_api_secret' => 'nullable|string|max:4000',
             'marzpay_webhook_secret' => 'nullable|string|max:4000',
-            'clear_marzpay' => 'nullable|boolean',
-            'clear_webhook_secret' => 'nullable|boolean',
+            'pp_key' => 'nullable|string|max:4000',
+            'pp_token' => 'nullable|string|max:4000',
+            'pp_sign' => 'nullable|string|max:4000',
         ]);
 
         $settings = PocketPayGatewaySetting::current();
         $settings->marzpay_base_url = trim((string) ($data['marzpay_base_url'] ?? '')) ?: config('marzpay.base_url');
 
-        if ($request->boolean('clear_marzpay')) {
-            $settings->marzpay_api_key = null;
-            $settings->marzpay_api_secret = null;
-        } else {
-            $alreadySaved = $settings->hasPayCredentials();
-            $apiKey = trim((string) ($data['marzpay_api_key'] ?? ''));
-            $apiSecret = trim((string) ($data['marzpay_api_secret'] ?? ''));
-            if ($apiKey !== '') {
-                $settings->marzpay_api_key = $apiKey;
-            }
-            if ($apiSecret !== '') {
-                $settings->marzpay_api_secret = $apiSecret;
-            }
-            if (! $alreadySaved && ($apiKey === '' || $apiSecret === '')) {
-                return back()->withErrors([
-                    'marzpay_api_key' => 'Paste the API key and the API secret together. Nothing was stored.',
-                ])->withInput();
-            }
+        $apiKey = trim((string) ($data['pp_key'] ?? $data['marzpay_api_key'] ?? ''));
+        $apiSecret = trim((string) ($data['pp_token'] ?? $data['marzpay_api_secret'] ?? ''));
+        $hadKeys = $settings->hasPayCredentials();
+
+        if (($apiKey === '') xor ($apiSecret === '')) {
+            return back()->withErrors([
+                'marzpay_api_key' => 'Paste the API key and the API secret together.',
+            ])->withInput();
         }
 
-        if ($request->boolean('clear_webhook_secret')) {
-            $settings->marzpay_webhook_secret = null;
-        } else {
-            $webhookSecret = trim((string) ($data['marzpay_webhook_secret'] ?? ''));
-            if ($webhookSecret !== '') {
-                $settings->marzpay_webhook_secret = $webhookSecret;
+        if ($apiKey === '' || $apiSecret === '') {
+            if (! $hadKeys) {
+                return back()->withErrors([
+                    'marzpay_api_key' => 'The API key and secret did not get saved. Paste both into the boxes and save again.',
+                ])->withInput();
             }
+        } else {
+            $settings->marzpay_api_key = $apiKey;
+            $settings->marzpay_api_secret = $apiSecret;
+        }
+
+        $webhookSecret = trim((string) ($data['pp_sign'] ?? $data['marzpay_webhook_secret'] ?? ''));
+        if ($webhookSecret !== '') {
+            $settings->marzpay_webhook_secret = $webhookSecret;
         }
 
         $settings->save();
         $fresh = $settings->fresh();
 
-        if (! $request->boolean('clear_marzpay') && ! $fresh->hasPayCredentials()) {
+        if (! $fresh || ! $fresh->hasPayCredentials()) {
             return back()->withErrors([
-                'marzpay_api_key' => 'The API key and secret could not be stored. Paste both again.',
+                'marzpay_api_key' => $fresh && $fresh->credentialsUnreadable()
+                    ? 'The key was written but could not be read back. Paste both values again.'
+                    : 'The API key and secret were not stored. Paste both again.',
             ])->withInput();
         }
 
-        return redirect()->route('pocket-pay.settings.edit')->with('success', 'Pocket Pay Marz Pay account saved.');
+        return redirect()
+            ->route('pocket-pay.settings.edit')
+            ->with('success', 'Pocket Pay account is ready. Saved key '.$fresh->maskedPayKey().'.');
     }
 
     public function canteens()

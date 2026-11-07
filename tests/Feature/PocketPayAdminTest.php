@@ -558,6 +558,38 @@ class PocketPayAdminTest extends TestCase
         $this->assertFalse(PocketPayGatewaySetting::current()->fresh()->hasPayCredentials());
     }
 
+    public function test_pocket_pay_account_uses_the_saved_row_when_a_blank_row_is_first(): void
+    {
+        $blank = PocketPayGatewaySetting::current();
+        $blank->marzpay_api_key = null;
+        $blank->marzpay_api_secret = null;
+        $blank->save();
+
+        PocketPayGatewaySetting::create([
+            'marzpay_base_url' => 'https://pocket-pay.test/api/v1',
+            'marzpay_api_key' => 'live-key',
+            'marzpay_api_secret' => 'live-secret',
+        ]);
+
+        $settings = PocketPayGatewaySetting::current();
+
+        $this->assertSame('live-key', $settings->marzpay_api_key);
+        $this->assertSame('live-secret', $settings->marzpay_api_secret);
+        $this->assertSame(1, PocketPayGatewaySetting::query()->count());
+
+        $this->actingAs($this->superAdmin)
+            ->put(route('pocket-pay.settings.update'), [
+                'pp_key' => 'replaced-key',
+                'pp_token' => 'replaced-secret',
+            ])
+            ->assertRedirect(route('pocket-pay.settings.edit'))
+            ->assertSessionHas('success');
+
+        $saved = PocketPayGatewaySetting::current();
+        $this->assertSame('replaced-key', $saved->marzpay_api_key);
+        $this->assertTrue($saved->hasPayCredentials());
+    }
+
     public function test_pocket_pay_account_saves_without_a_base_url_and_pulls_the_marz_balance(): void
     {
         $secret = str_repeat('s', 300);
