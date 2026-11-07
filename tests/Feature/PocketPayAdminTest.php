@@ -540,6 +540,54 @@ class PocketPayAdminTest extends TestCase
         $this->assertSame(12500.0, (float) $card->fresh()->balance);
     }
 
+    public function test_pocket_pay_account_saves_without_a_base_url_and_pulls_the_marz_balance(): void
+    {
+        $secret = str_repeat('s', 300);
+
+        $this->actingAs($this->superAdmin)
+            ->put(route('pocket-pay.settings.update'), [
+                'marzpay_api_key' => 'pocket-live-key',
+                'marzpay_api_secret' => $secret,
+            ])
+            ->assertRedirect(route('pocket-pay.settings.edit'));
+
+        $settings = PocketPayGatewaySetting::current()->fresh();
+        $this->assertSame('pocket-live-key', $settings->marzpay_api_key);
+        $this->assertSame($secret, $settings->marzpay_api_secret);
+        $this->assertSame(config('marzpay.base_url'), $settings->payBaseUrl());
+        $this->assertTrue($settings->hasPayCredentials());
+
+        Http::fake([
+            rtrim((string) config('marzpay.base_url'), '/').'/balance*' => Http::response([
+                'status' => 'success',
+                'data' => [
+                    'account' => [
+                        'business_name' => 'Pocket Pay Ltd',
+                        'available_balance' => ['raw' => 2500000, 'currency' => 'UGX'],
+                        'card_balance' => ['raw' => 125000, 'currency' => 'UGX'],
+                        'total_balance' => ['raw' => 2625000, 'currency' => 'UGX'],
+                    ],
+                    'wallets' => [
+                        ['total_balance' => ['raw' => 2625000, 'currency' => 'UGX']],
+                    ],
+                ],
+            ]),
+        ]);
+
+        $this->actingAs($this->superAdmin)
+            ->get(route('pocket-pay.overview', ['refresh_balance' => 1]))
+            ->assertOk()
+            ->assertSee('UGX 2,500,000')
+            ->assertSee('Pocket Pay Ltd')
+            ->assertSee('Pull balance');
+
+        $this->actingAs($this->superAdmin)
+            ->get(route('pocket-pay.settings.edit'))
+            ->assertOk()
+            ->assertSee('pock…-key')
+            ->assertSee('Ready');
+    }
+
     public function test_super_admin_downloads_every_pocket_pay_money_report(): void
     {
         $card = PocketPayCard::create([

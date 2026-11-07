@@ -51,19 +51,9 @@
                             <dd class="text-sm text-slate-500">With a card or a canteen</dd>
                         </div>
                         <div>
-                            <dt class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Marz Pay</dt>
+                            <dt class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Marz Pay wallet</dt>
                             <dd class="mt-2">
-                                <span @class([
-                                    'inline-flex rounded-full px-2.5 py-1 text-xs font-semibold',
-                                    'bg-emerald-100 text-emerald-800' => $gateway->hasPayCredentials(),
-                                    'bg-amber-100 text-amber-900' => ! $gateway->hasPayCredentials(),
-                                ])>{{ $gateway->hasPayCredentials() ? 'Account ready' : 'Account missing' }}</span>
-                                @if ($gateway->hasWebhookSecret())
-                                    <span class="ml-1 inline-flex rounded-full bg-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700">Web signing on</span>
-                                @endif
-                            </dd>
-                            <dd class="mt-2 text-sm text-slate-500">
-                                <a href="{{ route('pocket-pay.settings.edit') }}" class="font-medium text-slate-900 underline decoration-slate-300 underline-offset-4 hover:decoration-slate-900 dark:text-white">Open account settings</a>
+                                @include('pocket-pay.partials.marz-balance', ['refreshUrl' => route('pocket-pay.overview', ['refresh_balance' => 1])])
                             </dd>
                         </div>
                         <div>

@@ -25,7 +25,7 @@
                     </div>
                     <div class="mt-6 space-y-4">
                         <label class="block text-sm font-medium text-slate-700 dark:text-slate-200">Base URL
-                            <input type="url" name="marzpay_base_url" value="{{ old('marzpay_base_url', $settings->marzpay_base_url) }}" placeholder="https://wallet.wearemarz.com/api/v1" class="{{ $field }} mt-1.5 font-normal">
+                            <input type="url" name="marzpay_base_url" value="{{ old('marzpay_base_url', $settings->payBaseUrl()) }}" class="{{ $field }} mt-1.5 font-normal">
                         </label>
                         @error('marzpay_base_url') <p class="text-sm text-rose-600">{{ $message }}</p> @enderror
                         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -38,7 +38,11 @@
                         </div>
                         @error('marzpay_api_key') <p class="text-sm text-rose-600">{{ $message }}</p> @enderror
                         @error('marzpay_api_secret') <p class="text-sm text-rose-600">{{ $message }}</p> @enderror
-                        <p class="text-xs leading-5 text-slate-400">Leave the key and secret blank to keep what is already saved.</p>
+                        @if ($settings->maskedPayKey())
+                            <p class="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200">Saved API key <span class="font-mono">{{ $settings->maskedPayKey() }}</span>. The secret is stored. Leave both blank to keep them.</p>
+                        @else
+                            <p class="text-xs leading-5 text-slate-400">Paste the API key and API secret together. Leave them blank later to keep what is already saved.</p>
+                        @endif
                         <label class="flex items-center gap-2 text-sm text-slate-600">
                             <input type="checkbox" name="clear_marzpay" value="1" class="rounded border-slate-300">
                             Remove the saved key and secret
@@ -76,7 +80,13 @@
                 </div>
             </div>
 
-            <aside class="h-fit rounded-2xl border border-slate-200 bg-white p-5 text-sm leading-6 text-slate-600 shadow-sm dark:border-slate-800 dark:bg-gray-900 dark:text-slate-300">
+            <aside class="h-fit space-y-4 rounded-2xl border border-slate-200 bg-white p-5 text-sm leading-6 text-slate-600 shadow-sm dark:border-slate-800 dark:bg-gray-900 dark:text-slate-300">
+                <div>
+                    <h2 class="font-semibold text-slate-950 dark:text-white">Wallet on Marz Pay</h2>
+                    <div class="mt-3">
+                        @include('pocket-pay.partials.marz-balance', ['refreshUrl' => route('pocket-pay.settings.edit', ['refresh_balance' => 1])])
+                    </div>
+                </div>
                 <h2 class="font-semibold text-slate-950 dark:text-white">What this account does</h2>
                 <ul class="mt-3 space-y-3">
                     <li>Parent and canteen mobile-money top-ups are collected here.</li>

@@ -65,9 +65,62 @@ class MarzPayService
 
     protected function baseUrl(): string
     {
-        $url = $this->pocketCredentials?->marzpay_base_url ?: config('marzpay.base_url');
+        $url = $this->pocketCredentials
+            ? $this->pocketCredentials->payBaseUrl()
+            : config('marzpay.base_url');
 
         return rtrim((string) $url, '/');
+    }
+
+    /**
+     * Mobile money wallet on the selected Marz Pay account.
+     *
+     * @return array{success:bool,message:string,business_name?:string,currency?:string,available?:float,updated_at?:string}
+     */
+    public function walletBalance(bool $fresh = false): array
+    {
+        if (! $this->hasApiCredentials()) {
+            return ['success' => false, 'message' => 'Marz Pay keys are not saved.'];
+        }
+
+        $cacheKey = 'marzpay.wallet-balance.'.md5($this->baseUrl().'|'.$this->apiKey());
+        if (! $fresh && \Illuminate\Support\Facades\Cache::has($cacheKey)) {
+            return \Illuminate\Support\Facades\Cache::get($cacheKey);
+        }
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => $this->authorizationHeader(),
+                'Accept' => 'application/json',
+            ])->timeout(12)->get($this->baseUrl().'/balance', [
+                'country' => config('marzpay.country', 'UG'),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('MarzPay balance request failed', ['message' => $e->getMessage()]);
+
+            return ['success' => false, 'message' => 'Could not reach Marz Pay.'];
+        }
+
+        $body = $response->json() ?? [];
+        if (! $response->successful() || data_get($body, 'status') !== 'success') {
+            return [
+                'success' => false,
+                'message' => (string) data_get($body, 'message', 'Marz Pay did not return a balance.'),
+            ];
+        }
+
+        $result = [
+            'success' => true,
+            'message' => 'Balance updated.',
+            'business_name' => (string) data_get($body, 'data.account.business_name', ''),
+            'currency' => (string) data_get($body, 'data.account.available_balance.currency', 'UGX'),
+            'available' => (float) data_get($body, 'data.account.available_balance.raw', 0),
+            'updated_at' => (string) data_get($body, 'data.metadata.last_updated', ''),
+        ];
+
+        \Illuminate\Support\Facades\Cache::put($cacheKey, $result, now()->addMinute());
+
+        return $result;
     }
 
     protected function apiKey(): string

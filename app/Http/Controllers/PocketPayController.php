@@ -95,7 +95,8 @@ class PocketPayController extends Controller
             'cardTotal' => (float) $cards->sum('card_balance'),
             'floatTotal' => (float) $floats->sum('float_balance'),
             'activeCards' => (int) $cards->sum('active_cards'),
-            'gateway' => PocketPayGatewaySetting::current(),
+            'gateway' => $gateway = PocketPayGatewaySetting::current(),
+            'marzBalance' => $this->marzWallet($gateway, $request->boolean('refresh_balance')),
             'schoolFilter' => $businesses,
             'withdrawals' => PocketPayWithdrawal::query()->with('requestedBy:id,name')->latest()->limit(12)->get(),
         ]);
@@ -197,12 +198,15 @@ class PocketPayController extends Controller
         return back()->with('success', 'Bank withdrawal sent from the Pocket Pay Marz Pay account.');
     }
 
-    public function editSettings()
+    public function editSettings(Request $request)
     {
         abort_unless(PocketPayAccess::canAssignCards(), 403);
 
+        $settings = PocketPayGatewaySetting::current();
+
         return view('pocket-pay.settings', $this->nav() + [
-            'settings' => PocketPayGatewaySetting::current(),
+            'settings' => $settings,
+            'marzBalance' => $this->marzWallet($settings, $request->boolean('refresh_balance')),
         ]);
     }
 
@@ -212,37 +216,45 @@ class PocketPayController extends Controller
 
         $data = $request->validate([
             'marzpay_base_url' => 'nullable|url|max:255',
-            'marzpay_api_key' => 'nullable|string|max:255',
-            'marzpay_api_secret' => 'nullable|string|max:255',
-            'marzpay_webhook_secret' => 'nullable|string|max:255',
+            'marzpay_api_key' => 'nullable|string|max:4000',
+            'marzpay_api_secret' => 'nullable|string|max:4000',
+            'marzpay_webhook_secret' => 'nullable|string|max:4000',
             'clear_marzpay' => 'nullable|boolean',
             'clear_webhook_secret' => 'nullable|boolean',
         ]);
 
         $settings = PocketPayGatewaySetting::current();
         $payload = [
-            'marzpay_base_url' => $data['marzpay_base_url'] ?: null,
+            'marzpay_base_url' => trim((string) ($data['marzpay_base_url'] ?? '')) ?: config('marzpay.base_url'),
         ];
 
         if ($request->boolean('clear_marzpay')) {
             $payload['marzpay_api_key'] = null;
             $payload['marzpay_api_secret'] = null;
         } else {
-            if ($request->filled('marzpay_api_key')) {
-                $payload['marzpay_api_key'] = $data['marzpay_api_key'];
+            $apiKey = trim((string) ($data['marzpay_api_key'] ?? ''));
+            $apiSecret = trim((string) ($data['marzpay_api_secret'] ?? ''));
+            if ($apiKey !== '') {
+                $payload['marzpay_api_key'] = $apiKey;
             }
-            if ($request->filled('marzpay_api_secret')) {
-                $payload['marzpay_api_secret'] = $data['marzpay_api_secret'];
+            if ($apiSecret !== '') {
+                $payload['marzpay_api_secret'] = $apiSecret;
             }
-            if ($request->filled('marzpay_api_key') && ! $request->filled('marzpay_api_secret') && ! $settings->marzpay_api_secret) {
+            if ($apiKey !== '' && $apiSecret === '' && ! $settings->marzpay_api_secret) {
                 return back()->withErrors(['marzpay_api_secret' => 'Enter the API secret with the API key.'])->withInput();
+            }
+            if ($apiSecret !== '' && $apiKey === '' && ! $settings->marzpay_api_key) {
+                return back()->withErrors(['marzpay_api_key' => 'Enter the API key with the API secret.'])->withInput();
             }
         }
 
         if ($request->boolean('clear_webhook_secret')) {
             $payload['marzpay_webhook_secret'] = null;
-        } elseif ($request->filled('marzpay_webhook_secret')) {
-            $payload['marzpay_webhook_secret'] = $data['marzpay_webhook_secret'];
+        } else {
+            $webhookSecret = trim((string) ($data['marzpay_webhook_secret'] ?? ''));
+            if ($webhookSecret !== '') {
+                $payload['marzpay_webhook_secret'] = $webhookSecret;
+            }
         }
 
         $settings->update($payload);
@@ -376,6 +388,15 @@ class PocketPayController extends Controller
         abort_unless(PocketPayAccess::canReviewReversals(), 403);
 
         return view('pocket-pay.reversals', $this->nav());
+    }
+
+    protected function marzWallet(PocketPayGatewaySetting $settings, bool $fresh): ?array
+    {
+        if (! $settings->hasPayCredentials()) {
+            return null;
+        }
+
+        return app(\App\Services\MarzPayService::class)->forPocketPay()->walletBalance($fresh);
     }
 
     protected function nav(): array

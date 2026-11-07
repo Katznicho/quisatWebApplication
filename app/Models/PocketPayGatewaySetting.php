@@ -36,9 +36,14 @@ class PocketPayGatewaySetting extends Model
 
     public function hasPayCredentials(): bool
     {
-        return filled($this->marzpay_base_url)
-            && filled($this->marzpay_api_key)
-            && filled($this->marzpay_api_secret);
+        return filled($this->marzpay_api_key) && filled($this->marzpay_api_secret);
+    }
+
+    public function payBaseUrl(): string
+    {
+        $url = trim((string) $this->marzpay_base_url);
+
+        return $url !== '' ? $url : (string) config('marzpay.base_url');
     }
 
     public function hasWebhookSecret(): bool
