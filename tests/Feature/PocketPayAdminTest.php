@@ -187,12 +187,42 @@ class PocketPayAdminTest extends TestCase
         Livewire::test(ListCanteens::class)->assertForbidden();
     }
 
+    public function test_collect_canteen_requires_a_person_who_can_withdraw(): void
+    {
+        $this->actingAs($this->schoolAdmin);
+
+        Livewire::test(ListCanteens::class)
+            ->callTableAction('create', data: [
+                'name' => 'Tuck Shop',
+                'settlement_mode' => 'collect',
+            ])
+            ->assertHasTableActionErrors(['withdrawer_id' => 'required']);
+
+        Livewire::test(ListCanteens::class)
+            ->callTableAction('create', data: [
+                'name' => 'Tuck Shop',
+                'settlement_mode' => 'collect',
+                'withdrawer_id' => $this->schoolAdmin->id,
+            ])
+            ->assertHasNoTableActionErrors();
+
+        $canteen = Canteen::query()->where('name', 'Tuck Shop')->firstOrFail();
+        $this->assertSame(Canteen::MODE_COLLECT, $canteen->settlement_mode);
+        $this->assertSame($this->schoolAdmin->id, $canteen->withdrawer_id);
+        $this->assertTrue($canteen->collectsSales());
+    }
+
     public function test_school_admin_creates_canteen_tops_up_float_and_adds_attendant(): void
     {
         $this->actingAs($this->schoolAdmin);
 
         Livewire::test(ListCanteens::class)
-            ->callTableAction('create', data: ['name' => 'Main Canteen', 'location' => 'Block A', 'low_float_threshold' => 20000])
+            ->callTableAction('create', data: [
+                'name' => 'Main Canteen',
+                'location' => 'Block A',
+                'low_float_threshold' => 20000,
+                'settlement_mode' => 'float',
+            ])
             ->assertHasNoTableActionErrors();
 
         $canteen = Canteen::firstOrFail();

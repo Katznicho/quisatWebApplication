@@ -56,7 +56,10 @@
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                         {{ $canteen->location ?: 'No location set' }}
                         <span class="mx-1.5">·</span> Opened {{ $canteen->created_at?->format('d M Y') }}
-                        @if ($canteen->low_float_threshold > 0)
+                        <span class="mx-1.5">·</span> {{ $canteen->collectsSales() ? 'Sales build a balance' : 'Uses a float' }}
+                        @if ($canteen->collectsSales())
+                            <span class="mx-1.5">·</span> {{ $canteen->withdrawer?->name ? $canteen->withdrawer->name.' can withdraw' : 'No one assigned to withdraw' }}
+                        @elseif ($canteen->low_float_threshold > 0)
                             <span class="mx-1.5">·</span> Low-float alert at {{ $money($canteen->low_float_threshold) }}
                         @endif
                     </p>
@@ -64,6 +67,7 @@
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
+                {{ $this->withdrawAction }}
                 {{ $this->topupAction }}
                 {{ $this->editAction }}
                 <div x-data="{ open: false }" class="relative" @click.outside="open = false">
@@ -144,10 +148,10 @@
                 @endforeach
             </div>
             <div class="flex items-center gap-2 text-sm">
-                <input type="date" wire:model.live="from" max="{{ $to }}"
+                <input type="date" wire:model.live="from" max="{{ $to }}" placeholder="Start date"
                     class="rounded-lg border-gray-300 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200">
                 <span class="text-gray-400">to</span>
-                <input type="date" wire:model.live="to" min="{{ $from }}"
+                <input type="date" wire:model.live="to" min="{{ $from }}" placeholder="End date"
                     class="rounded-lg border-gray-300 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200">
             </div>
         </div>
@@ -159,7 +163,7 @@
             ['Net sales', $money($summary['net_sales']), $summary['reversed_amount'] > 0 ? $money($summary['reversed_amount']).' reversed' : 'No reversals', 'heroicon-o-banknotes', 'text-blue-600 bg-blue-50 dark:bg-blue-500/10'],
             ['Transactions', number_format($summary['transactions']), 'Avg '.$money($summary['average_sale']), 'heroicon-o-receipt-percent', 'text-violet-600 bg-violet-50 dark:bg-violet-500/10'],
             ['Students served', number_format($summary['students_served']), 'of '.number_format($summary['cardholders']).' cardholders', 'heroicon-o-academic-cap', 'text-teal-600 bg-teal-50 dark:bg-teal-500/10'],
-            ['Float balance', $money($summary['float_balance']), $summary['pending_topups'] > 0 ? $money($summary['pending_topups']).' top-up pending' : 'Current balance', 'heroicon-o-wallet', $canteen->isFloatLow() ? 'text-rose-600 bg-rose-50 dark:bg-rose-500/10' : 'text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10'],
+            [$canteen->collectsSales() ? 'Available to withdraw' : 'Float balance', $money($summary['float_balance']), $summary['pending_topups'] > 0 ? $money($summary['pending_topups']).' top-up pending' : 'Current balance', 'heroicon-o-wallet', $canteen->isFloatLow() ? 'text-rose-600 bg-rose-50 dark:bg-rose-500/10' : 'text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10'],
             ['Float top-ups', $money($summary['float_topups']), 'Credited in period', 'heroicon-o-arrow-down-tray', 'text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10'],
             ['Opening float', $money($summary['float_opening']), 'Closing '.$money($summary['float_closing']), 'heroicon-o-scale', 'text-gray-600 bg-gray-100 dark:bg-gray-500/10'],
             ['Reversals', number_format($summary['reversed_count']), $money($summary['reversed_amount']).' refunded', 'heroicon-o-arrow-uturn-left', 'text-rose-600 bg-rose-50 dark:bg-rose-500/10'],

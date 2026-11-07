@@ -69,6 +69,7 @@ class PocketPayPresenter
             'location' => $canteen->location,
             'status' => $canteen->status,
             'float_balance' => (float) $canteen->float_balance,
+            'settlement_mode' => $canteen->collectsSales() ? 'collect' : 'float',
             'is_float_low' => $canteen->isFloatLow(),
         ];
     }

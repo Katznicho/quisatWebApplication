@@ -26,6 +26,7 @@ class PocketPayWithdrawal extends Model
         'provider_reference',
         'notes',
         'requested_by',
+        'canteen_id',
     ];
 
     protected $casts = [
@@ -44,5 +45,10 @@ class PocketPayWithdrawal extends Model
     public function requestedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'requested_by');
+    }
+
+    public function canteen(): BelongsTo
+    {
+        return $this->belongsTo(Canteen::class);
     }
 }

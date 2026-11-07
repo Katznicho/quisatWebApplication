@@ -28,7 +28,7 @@
                 <p class="mt-2 text-sm text-slate-500">{{ number_format($activeCards) }} active {{ \Illuminate\Support\Str::plural('card', $activeCards) }}</p>
             </div>
             <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-gray-900">
-                <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">In canteen floats</p>
+                <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">At canteens</p>
                 <p class="mt-3 text-3xl font-semibold tracking-tight text-slate-950 tabular-nums dark:text-white">{{ $money($floatTotal) }}</p>
                 <p class="mt-2 text-sm text-slate-500">Available for sales</p>
             </div>
@@ -85,14 +85,14 @@
                         @csrf
                         <p class="text-sm font-semibold text-slate-950 dark:text-white">Mobile money</p>
                         <label class="block text-xs font-medium text-slate-500">Amount (UGX)
-                            <input type="number" name="amount" min="500" step="1" required value="{{ old('phone_number') ? old('amount') : '' }}" class="{{ $field }} mt-1">
+                            <input type="number" name="amount" min="500" step="1" required value="{{ old('phone_number') ? old('amount') : '' }}" placeholder="e.g. 50000" class="{{ $field }} mt-1">
                         </label>
                         <label class="block text-xs font-medium text-slate-500">Mobile money number
-                            <input type="text" name="phone_number" required value="{{ old('phone_number') }}" placeholder="07…" class="{{ $field }} mt-1">
+                            <input type="text" name="phone_number" required value="{{ old('phone_number') }}" placeholder="e.g. 0772 123 456" class="{{ $field }} mt-1">
                         </label>
                         @error('phone_number') <p class="text-sm text-rose-600">{{ $message }}</p> @enderror
                         <label class="block text-xs font-medium text-slate-500">Note
-                            <input type="text" name="notes" value="{{ old('notes') }}" class="{{ $field }} mt-1">
+                            <input type="text" name="notes" value="{{ old('notes') }}" placeholder="e.g. Weekly withdrawal" class="{{ $field }} mt-1">
                         </label>
                         <button class="inline-flex h-10 items-center rounded-lg bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300" @disabled(! $gateway->hasPayCredentials())>Withdraw</button>
                     </form>
@@ -100,16 +100,16 @@
                         @csrf
                         <p class="text-sm font-semibold text-slate-950 dark:text-white">Bank</p>
                         <label class="block text-xs font-medium text-slate-500">Amount (UGX)
-                            <input type="number" name="amount" min="500" step="1" required value="{{ old('bank_account_number') ? old('amount') : '' }}" class="{{ $field }} mt-1">
+                            <input type="number" name="amount" min="500" step="1" required value="{{ old('bank_account_number') ? old('amount') : '' }}" placeholder="e.g. 500000" class="{{ $field }} mt-1">
                         </label>
                         <label class="block text-xs font-medium text-slate-500">Bank name
-                            <input type="text" name="bank_name" required value="{{ old('bank_name') }}" class="{{ $field }} mt-1">
+                            <input type="text" name="bank_name" required value="{{ old('bank_name') }}" placeholder="e.g. Stanbic" class="{{ $field }} mt-1">
                         </label>
                         <label class="block text-xs font-medium text-slate-500">Account number
-                            <input type="text" name="bank_account_number" required value="{{ old('bank_account_number') }}" class="{{ $field }} mt-1">
+                            <input type="text" name="bank_account_number" required value="{{ old('bank_account_number') }}" placeholder="e.g. 9030012345678" class="{{ $field }} mt-1">
                         </label>
                         <label class="block text-xs font-medium text-slate-500">Account name
-                            <input type="text" name="bank_account_name" value="{{ old('bank_account_name') }}" class="{{ $field }} mt-1">
+                            <input type="text" name="bank_account_name" value="{{ old('bank_account_name') }}" placeholder="e.g. Quisat Pocket Pay" class="{{ $field }} mt-1">
                         </label>
                         @error('bank_account_number') <p class="text-sm text-rose-600">{{ $message }}</p> @enderror
                         <button class="inline-flex h-10 items-center rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400 dark:border-slate-700 dark:text-white" @disabled(! $gateway->hasPayCredentials())>Withdraw to bank</button>

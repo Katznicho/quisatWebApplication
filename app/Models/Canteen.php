@@ -13,6 +13,10 @@ class Canteen extends Model
 {
     use SoftDeletes;
 
+    public const MODE_FLOAT = 'float';
+
+    public const MODE_COLLECT = 'collect';
+
     protected $fillable = [
         'uuid',
         'business_id',
@@ -21,6 +25,8 @@ class Canteen extends Model
         'float_balance',
         'low_float_threshold',
         'status',
+        'settlement_mode',
+        'withdrawer_id',
         'created_by',
     ];
 
@@ -46,6 +52,34 @@ class Canteen extends Model
     public function business(): BelongsTo
     {
         return $this->belongsTo(Business::class);
+    }
+
+    public function withdrawer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'withdrawer_id');
+    }
+
+    public function collectsSales(): bool
+    {
+        return $this->settlement_mode === self::MODE_COLLECT;
+    }
+
+    public function usesFloat(): bool
+    {
+        return ! $this->collectsSales();
+    }
+
+    public function canBeWithdrawnBy(?User $user): bool
+    {
+        if (! $user || ! $this->collectsSales()) {
+            return false;
+        }
+
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        return (int) $this->withdrawer_id === (int) $user->id;
     }
 
     public function attendants(): HasMany
@@ -80,6 +114,8 @@ class Canteen extends Model
 
     public function isFloatLow(): bool
     {
-        return $this->low_float_threshold > 0 && (float) $this->float_balance < $this->low_float_threshold;
+        return $this->usesFloat()
+            && $this->low_float_threshold > 0
+            && (float) $this->float_balance < $this->low_float_threshold;
     }
 }

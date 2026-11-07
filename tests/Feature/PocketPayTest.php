@@ -18,6 +18,7 @@ use App\Models\User;
 use App\Services\CanteenAttendantAuthService;
 use App\Services\PocketPayService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Tests\Feature\Concerns\BuildsPocketPaySchema;
 use Tests\TestCase;
 
@@ -433,6 +434,57 @@ class PocketPayTest extends TestCase
     // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
+
+    public function test_collect_canteen_sale_adds_to_the_balance_and_only_the_assigned_person_can_withdraw(): void
+    {
+        $this->readyCard(balance: 10000, float: 0);
+        $this->canteen->forceFill([
+            'settlement_mode' => Canteen::MODE_COLLECT,
+            'withdrawer_id' => $this->admin->id,
+            'float_balance' => 0,
+        ])->save();
+
+        $service = app(PocketPayService::class);
+        $service->makeSale($this->attendant, 'QP00012345', 2500, '1111');
+
+        $this->assertEquals(7500, $this->card->fresh()->balance);
+        $this->assertEquals(2500, $this->canteen->fresh()->float_balance);
+
+        $sale = CanteenSale::query()->firstOrFail();
+        $service->requestReversal($this->attendant, $sale, 'Wrong item');
+        $service->approveReversal($sale->fresh(), $this->admin, 'ok');
+        $this->assertEquals(10000, $this->card->fresh()->balance);
+        $this->assertEquals(0, $this->canteen->fresh()->float_balance);
+
+        $service->makeSale($this->attendant, 'QP00012345', 2500, '1111');
+        $other = User::forceCreate(['name' => 'Bursar', 'email' => 'bursar@hill.test', 'business_id' => $this->school->id]);
+
+        try {
+            $service->withdrawCanteenBalance($other, $this->canteen->fresh(), 2500, '0772000111');
+            $this->fail('Expected the withdrawal to be refused.');
+        } catch (PocketPayException $e) {
+            $this->assertSame('withdraw_forbidden', $e->errorCode);
+        }
+
+        Http::fake([
+            'https://pay.test/api/v1/send-money' => Http::response([
+                'status' => 'success',
+                'data' => ['transaction' => ['uuid' => 'wd-canteen', 'status' => 'completed', 'provider_reference' => 'MM9']],
+            ]),
+        ]);
+
+        $withdrawal = $service->withdrawCanteenBalance($this->admin, $this->canteen->fresh(), 2500, '0772000111', 'Week');
+        $this->assertEquals(0, $this->canteen->fresh()->float_balance);
+        $this->assertSame($this->canteen->id, $withdrawal->canteen_id);
+        $this->assertSame('completed', $withdrawal->status);
+
+        try {
+            $service->recordFloatTopup($this->canteen->fresh(), 5000, 'proof.jpg', $this->admin);
+            $this->fail('Expected a float top-up to be refused.');
+        } catch (PocketPayException $e) {
+            $this->assertSame('float_not_used', $e->errorCode);
+        }
+    }
 
     private function readyCard(float $balance, float $float): void
     {

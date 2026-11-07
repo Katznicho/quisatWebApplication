@@ -25,8 +25,9 @@ use Illuminate\Support\Facades\Hash;
  * Quisat Pocket Pay: student canteen cards, canteen floats, sales, reversals and top-ups.
  *
  * Money rules:
- * - A sale debits the student card AND the canteen float. It is refused if either is short
- *   or the card's daily limit would be exceeded.
+ * - A float canteen: a sale debits the student card and the float. It is refused when the float is short.
+ * - A collect canteen: a sale debits the card and adds the same amount to the canteen balance.
+ *   The assigned person withdraws that balance. A sale is refused when the daily limit would be exceeded.
  * - A reversal is requested by an attendant and only moves money once an admin approves it.
  * - Card and float top-ups are mobile money (MarzPay). They are credited here, not to the
  *   school's business wallet.
@@ -291,7 +292,7 @@ class PocketPayService
                 );
             }
 
-            if ((float) $canteen->float_balance < $amount) {
+            if ($canteen->usesFloat() && (float) $canteen->float_balance < $amount) {
                 throw new PocketPayException(
                     'Canteen float is too low for this sale. Ask Quisat to top up the float.',
                     422,
@@ -311,7 +312,11 @@ class PocketPayService
             ]);
 
             $this->moveCard($card, 'sale', 'debit', $amount, $sale, "Purchase at {$canteen->name}", $canteen->id);
-            $this->moveFloat($canteen, 'sale', 'debit', $amount, $sale, "Sale {$sale->receipt_number}");
+            if ($canteen->collectsSales()) {
+                $this->moveFloat($canteen, 'sale', 'credit', $amount, $sale, "Sale {$sale->receipt_number}");
+            } else {
+                $this->moveFloat($canteen, 'sale', 'debit', $amount, $sale, "Sale {$sale->receipt_number}");
+            }
 
             return $sale;
         });
@@ -370,8 +375,20 @@ class PocketPayService
             ]);
 
             $amount = (float) $sale->amount;
+            if ($canteen->collectsSales() && (float) $canteen->float_balance < $amount) {
+                throw new PocketPayException(
+                    'This sale cannot be reversed because the canteen has already withdrawn the money.',
+                    422,
+                    'balance_already_withdrawn'
+                );
+            }
+
             $this->moveCard($card, 'reversal', 'credit', $amount, $sale, "Refund of {$sale->receipt_number}", $canteen->id);
-            $this->moveFloat($canteen, 'reversal', 'credit', $amount, $sale, "Reversal of {$sale->receipt_number}");
+            if ($canteen->collectsSales()) {
+                $this->moveFloat($canteen, 'reversal', 'debit', $amount, $sale, "Reversal of {$sale->receipt_number}");
+            } else {
+                $this->moveFloat($canteen, 'reversal', 'credit', $amount, $sale, "Reversal of {$sale->receipt_number}");
+            }
 
             return $sale;
         });
@@ -505,6 +522,69 @@ class PocketPayService
         return $this->finishWithdrawal($withdrawal, $result);
     }
 
+    /**
+     * Pay out a canteen that keeps its sales. The sale balance is reduced, then the money is sent from Marz Pay.
+     */
+    public function withdrawCanteenBalance(User $actor, Canteen $canteen, float $amount, string $phone, ?string $notes = null): PocketPayWithdrawal
+    {
+        if (! $canteen->collectsSales()) {
+            throw new PocketPayException('This canteen is paid from a float. There is no sales balance to withdraw.', 422, 'not_collect_canteen');
+        }
+
+        if (! $canteen->canBeWithdrawnBy($actor)) {
+            throw new PocketPayException('You are not allowed to withdraw this canteen’s balance.', 403, 'withdraw_forbidden');
+        }
+
+        $this->assertGatewayReady();
+        $this->assertWithdrawalAmount($amount);
+        $normalized = $this->sms->normalizePhone($phone);
+
+        if (! $normalized) {
+            throw new PocketPayException('Enter a valid mobile money number.', 422, 'invalid_phone');
+        }
+
+        $withdrawal = DB::transaction(function () use ($actor, $canteen, $amount, $normalized, $notes) {
+            $canteen = Canteen::query()->lockForUpdate()->findOrFail($canteen->id);
+
+            if ((float) $canteen->float_balance < $amount) {
+                throw new PocketPayException(
+                    'The canteen balance is UGX '.$this->money($canteen->float_balance).'.',
+                    422,
+                    'insufficient_canteen_balance'
+                );
+            }
+
+            $withdrawal = PocketPayWithdrawal::create([
+                'amount' => $amount,
+                'method' => PocketPayWithdrawal::METHOD_MOBILE,
+                'phone_number' => $normalized,
+                'status' => 'processing',
+                'notes' => $notes,
+                'requested_by' => $actor->id,
+                'canteen_id' => $canteen->id,
+            ]);
+
+            $this->moveFloat($canteen, 'withdrawal', 'debit', $amount, $withdrawal, "Withdrawal to {$normalized}");
+
+            return $withdrawal;
+        });
+
+        try {
+            $result = $this->marzPay->forPocketPay()->sendMoney(
+                $withdrawal->uuid,
+                $amount,
+                $normalized,
+                'Quisat Pocket Pay canteen withdrawal',
+            );
+
+            return $this->finishWithdrawal($withdrawal, $result);
+        } catch (PocketPayException $e) {
+            $this->restoreCanteenWithdrawal($withdrawal);
+
+            throw $e;
+        }
+    }
+
     public function withdrawToBank(
         User $actor,
         float $amount,
@@ -580,6 +660,33 @@ class PocketPayService
         return $withdrawal->fresh();
     }
 
+    protected function restoreCanteenWithdrawal(PocketPayWithdrawal $withdrawal): void
+    {
+        if (! $withdrawal->canteen_id) {
+            return;
+        }
+
+        DB::transaction(function () use ($withdrawal) {
+            $canteen = Canteen::query()->lockForUpdate()->find($withdrawal->canteen_id);
+
+            if (! $canteen) {
+                return;
+            }
+
+            $alreadyRestored = CanteenFloatTransaction::query()
+                ->where('reference_type', $withdrawal::class)
+                ->where('reference_id', $withdrawal->id)
+                ->where('type', 'wd_restore')
+                ->exists();
+
+            if ($alreadyRestored) {
+                return;
+            }
+
+            $this->moveFloat($canteen, 'wd_restore', 'credit', (float) $withdrawal->amount, $withdrawal, 'Withdrawal could not be sent');
+        });
+    }
+
     /**
      * Credit a completed top-up exactly once (webhook and manual sync can both call this).
      */
@@ -596,6 +703,10 @@ class PocketPayService
         ?string $reference = null,
         ?string $note = null,
     ): CanteenFloatTopup {
+        if ($canteen->collectsSales()) {
+            throw new PocketPayException('This canteen does not use a float. Each sale adds to its balance.', 422, 'float_not_used');
+        }
+
         if ($amount < self::MIN_TOPUP || $amount > self::MAX_FLOAT_TOPUP) {
             throw new PocketPayException(
                 'Top-up amount must be between UGX '.$this->money(self::MIN_TOPUP).' and UGX '.$this->money(self::MAX_FLOAT_TOPUP).'.',

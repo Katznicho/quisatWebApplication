@@ -59,7 +59,7 @@
                     <a href="{{ route('pocket-pay.canteens.show', $canteen) }}" class="flex items-center justify-between gap-6 px-6 py-4 hover:bg-slate-50 dark:hover:bg-slate-900/40">
                         <div>
                             <p class="font-medium text-slate-950 dark:text-white">{{ $canteen->name }}</p>
-                            <p class="mt-1 text-sm text-slate-500">{{ ucfirst($canteen->status) }} · {{ number_format($canteen->attendants_count) }} {{ \Illuminate\Support\Str::plural('attendant', $canteen->attendants_count) }}</p>
+                            <p class="mt-1 text-sm text-slate-500">{{ $canteen->collectsSales() ? 'Sales balance' : 'Float' }} · {{ ucfirst($canteen->status) }} · {{ number_format($canteen->attendants_count) }} {{ \Illuminate\Support\Str::plural('attendant', $canteen->attendants_count) }}</p>
                         </div>
                         <p class="font-semibold tabular-nums text-slate-950 dark:text-white">{{ $money($canteen->float_balance) }}</p>
                     </a>

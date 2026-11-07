@@ -58,10 +58,10 @@
                     </select>
                 </label>
                 <label class="text-xs font-medium text-slate-500">From
-                    <input type="date" name="from" value="{{ request('from') }}" class="{{ $field }} mt-1">
+                    <input type="date" name="from" value="{{ request('from') }}" placeholder="Start date" class="{{ $field }} mt-1">
                 </label>
                 <label class="text-xs font-medium text-slate-500">To
-                    <input type="date" name="to" value="{{ request('to') }}" class="{{ $field }} mt-1">
+                    <input type="date" name="to" value="{{ request('to') }}" placeholder="End date" class="{{ $field }} mt-1">
                 </label>
                 <label class="text-xs font-medium text-slate-500">School
                     <select name="school" class="{{ $field }} mt-1">

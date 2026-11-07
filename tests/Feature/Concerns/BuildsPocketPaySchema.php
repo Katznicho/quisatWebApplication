@@ -133,6 +133,7 @@ trait BuildsPocketPaySchema
             '2026_11_06_210000_create_pocket_pay_gateway_settings_table.php',
             '2026_11_06_211000_create_pocket_pay_withdrawals_table.php',
             '2026_11_06_212000_add_webhook_secret_to_pocket_pay_gateway_settings.php',
+            '2026_11_07_110000_add_canteen_settlement_mode.php',
         ] as $migration) {
             Artisan::call('migrate', ['--path' => 'database/migrations/'.$migration]);
         }

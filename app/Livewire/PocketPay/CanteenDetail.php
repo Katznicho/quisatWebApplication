@@ -63,7 +63,7 @@ class CanteenDetail extends Component implements HasActions, HasForms
         PocketPayAccess::authorize();
         TenantScope::authorizeModel($canteen);
 
-        $this->canteen = $canteen->load('business');
+        $this->canteen = $canteen->load('business', 'withdrawer:id,name');
 
         if (! in_array($this->tab, self::TABS, true)) {
             $this->tab = 'overview';
@@ -178,7 +178,7 @@ class CanteenDetail extends Component implements HasActions, HasForms
             ->label('Top up float')
             ->icon('heroicon-o-banknotes')
             ->color('success')
-            ->visible(fn (): bool => $this->canteen->isActive() && PocketPayAccess::canManageFloat())
+            ->visible(fn (): bool => $this->canteen->isActive() && $this->canteen->usesFloat() && PocketPayAccess::canManageFloat())
             ->modalHeading('Top up '.$this->canteen->name)
             ->modalDescription('Record cash paid at the canteen. The float is credited immediately and the proof is kept with the statement.')
             ->form(ListCanteens::floatTopupFields())
@@ -191,7 +191,7 @@ class CanteenDetail extends Component implements HasActions, HasForms
             ->label('Edit')
             ->icon('heroicon-o-pencil-square')
             ->color('gray')
-            ->fillForm(fn (): array => $this->canteen->only(['name', 'location', 'low_float_threshold', 'status']))
+            ->fillForm(fn (): array => $this->canteen->only(['name', 'location', 'low_float_threshold', 'status', 'settlement_mode', 'withdrawer_id']))
             ->form([
                 ...ListCanteens::canteenFields(),
                 Forms\Components\Select::make('status')
@@ -201,14 +201,76 @@ class CanteenDetail extends Component implements HasActions, HasForms
                     ->helperText('Attendants of an inactive canteen cannot sell.'),
             ])
             ->action(function (array $data): void {
+                $mode = ($data['settlement_mode'] ?? Canteen::MODE_FLOAT) === Canteen::MODE_COLLECT
+                    ? Canteen::MODE_COLLECT
+                    : Canteen::MODE_FLOAT;
+
+                if ($mode !== $this->canteen->settlement_mode && (float) $this->canteen->float_balance !== 0.0) {
+                    Notification::make()->title('This canteen already has a balance, so how it is paid cannot change.')->danger()->send();
+
+                    return;
+                }
+
+                if ($mode === Canteen::MODE_COLLECT && ! ListCanteens::withdrawerBelongsToSchool((int) ($data['withdrawer_id'] ?? 0), (int) $this->canteen->business_id)) {
+                    Notification::make()->title('Choose a person from this school who can withdraw.')->danger()->send();
+
+                    return;
+                }
+
                 $this->canteen->update([
                     'name' => $data['name'],
                     'location' => $data['location'] ?? null,
-                    'low_float_threshold' => (int) ($data['low_float_threshold'] ?? 0),
+                    'settlement_mode' => $mode,
+                    'low_float_threshold' => $mode === Canteen::MODE_COLLECT ? 0 : (int) ($data['low_float_threshold'] ?? 0),
+                    'withdrawer_id' => $mode === Canteen::MODE_COLLECT ? (int) $data['withdrawer_id'] : null,
                     'status' => $data['status'],
                 ]);
 
                 Notification::make()->title('Canteen updated')->success()->send();
+            });
+    }
+
+    public function withdrawAction(): Action
+    {
+        return Action::make('withdraw')
+            ->label('Withdraw balance')
+            ->icon('heroicon-o-banknotes')
+            ->color('success')
+            ->visible(fn (): bool => $this->canteen->canBeWithdrawnBy(Auth::user()))
+            ->modalHeading('Withdraw '.$this->canteen->name)
+            ->modalDescription('This sends mobile money from the Pocket Pay account and reduces this canteen’s sales balance.')
+            ->form([
+                Forms\Components\TextInput::make('amount')
+                    ->label('Amount (UGX)')
+                    ->placeholder('e.g. 50000')
+                    ->numeric()
+                    ->required()
+                    ->minValue(PocketPayService::MIN_TOPUP)
+                    ->maxValue(PocketPayService::MAX_TOPUP),
+                Forms\Components\TextInput::make('phone_number')
+                    ->label('Mobile money number')
+                    ->placeholder('e.g. 0772 123 456')
+                    ->tel()
+                    ->required(),
+                Forms\Components\TextInput::make('notes')
+                    ->label('Note')
+                    ->placeholder('e.g. Week of 3 Nov')
+                    ->maxLength(255),
+            ])
+            ->action(function (array $data): void {
+                try {
+                    app(PocketPayService::class)->withdrawCanteenBalance(
+                        Auth::user(),
+                        $this->canteen,
+                        (float) $data['amount'],
+                        $data['phone_number'],
+                        $data['notes'] ?? null,
+                    );
+                    $this->canteen->refresh();
+                    Notification::make()->title('Withdrawal sent')->success()->send();
+                } catch (PocketPayException $e) {
+                    Notification::make()->title($e->getMessage())->danger()->send();
+                }
             });
     }
 

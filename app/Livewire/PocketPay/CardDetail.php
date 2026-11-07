@@ -243,7 +243,7 @@ class CardDetail extends Component implements HasActions, HasForms
             ->size('sm')
             ->requiresConfirmation()
             ->modalDescription('The card is refunded and the amount returns to the canteen float.')
-            ->form([Forms\Components\Textarea::make('note')->label('Note (optional)')->maxLength(255)])
+            ->form([Forms\Components\Textarea::make('note')->label('Note (optional)')->maxLength(255)->placeholder('e.g. Confirmed with the student, wrong amount keyed')])
             ->action(fn (array $arguments, array $data) => $this->review(
                 fn () => app(PocketPayService::class)->approveReversal($this->sale($arguments), Auth::user(), $data['note'] ?? null),
                 'Reversal approved. Card and float refunded.',
@@ -258,7 +258,7 @@ class CardDetail extends Component implements HasActions, HasForms
             ->icon('heroicon-o-x-mark')
             ->color('danger')
             ->size('sm')
-            ->form([Forms\Components\Textarea::make('note')->label('Reason')->required()->maxLength(255)])
+            ->form([Forms\Components\Textarea::make('note')->label('Reason')->required()->maxLength(255)->placeholder('e.g. The student received the item')])
             ->action(fn (array $arguments, array $data) => $this->review(
                 fn () => app(PocketPayService::class)->rejectReversal($this->sale($arguments), Auth::user(), $data['note']),
                 'Reversal rejected. The sale stands.',

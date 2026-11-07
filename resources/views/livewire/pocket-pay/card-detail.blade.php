@@ -199,10 +199,10 @@
                 @endforeach
             </div>
             <div class="flex items-center gap-2 text-sm">
-                <input type="date" wire:model.live="from" max="{{ $to }}"
+                <input type="date" wire:model.live="from" max="{{ $to }}" placeholder="Start date"
                     class="rounded-lg border-gray-300 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200">
                 <span class="text-gray-400">to</span>
-                <input type="date" wire:model.live="to" min="{{ $from }}"
+                <input type="date" wire:model.live="to" min="{{ $from }}" placeholder="End date"
                     class="rounded-lg border-gray-300 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200">
             </div>
         </div>

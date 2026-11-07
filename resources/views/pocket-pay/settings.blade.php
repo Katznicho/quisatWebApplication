@@ -25,7 +25,7 @@
                     </div>
                     <div class="mt-6 space-y-4">
                         <label class="block text-sm font-medium text-slate-700 dark:text-slate-200">Base URL
-                            <input type="url" name="marzpay_base_url" value="{{ old('marzpay_base_url', $settings->payBaseUrl()) }}" class="{{ $field }} mt-1.5 font-normal">
+                            <input type="url" name="marzpay_base_url" value="{{ old('marzpay_base_url', $settings->payBaseUrl()) }}" placeholder="https://wallet.wearemarz.com/api/v1" class="{{ $field }} mt-1.5 font-normal">
                         </label>
                         @error('marzpay_base_url') <p class="text-sm text-rose-600">{{ $message }}</p> @enderror
                         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
