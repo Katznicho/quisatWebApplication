@@ -82,6 +82,16 @@ class Canteen extends Model
         return (int) $this->withdrawer_id === (int) $user->id;
     }
 
+    public function attendantCanWithdraw(?CanteenAttendant $attendant): bool
+    {
+        return $this->collectsSales()
+            && $attendant
+            && (int) $attendant->canteen_id === (int) $this->id
+            && $attendant->can_withdraw
+            && $attendant->status === CanteenAttendant::STATUS_ACTIVE
+            && ! $attendant->trashed();
+    }
+
     public function attendants(): HasMany
     {
         return $this->hasMany(CanteenAttendant::class);

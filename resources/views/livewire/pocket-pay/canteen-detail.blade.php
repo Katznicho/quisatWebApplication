@@ -471,6 +471,9 @@
                                         <div class="flex items-center gap-3">
                                             <div class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-blue-700 dark:bg-blue-500/10 dark:text-blue-400">{{ mb_strtoupper(mb_substr($attendant->name, 0, 1)) }}</div>
                                             <span class="font-medium text-gray-900 dark:text-white">{{ $attendant->name }}</span>
+                                            @if ($attendant->can_withdraw)
+                                                <span class="{{ $pill('active') }}">Can withdraw</span>
+                                            @endif
                                         </div>
                                     </td>
                                     <td class="{{ $td }}">{{ $attendant->phone }}</td>
@@ -496,6 +499,9 @@
                                                     {{ ($this->enableAttendantAction)(['attendant' => $attendant->id]) }}
                                                 @else
                                                     {{ ($this->sendOtpAction)(['attendant' => $attendant->id]) }}
+                                                    @if ($canteen->collectsSales())
+                                                        {{ ($this->allowWithdrawalsAction)(['attendant' => $attendant->id]) }}
+                                                    @endif
                                                     {{ ($this->disableAttendantAction)(['attendant' => $attendant->id]) }}
                                                 @endif
                                             </div>

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CanteenAttendant;
 use App\Models\CanteenSale;
 use App\Models\PocketPayCard;
+use App\Models\PocketPayWithdrawal;
 use App\Models\PocketPayTopup;
 use App\Services\MarzPayService;
 use App\Services\PocketPayService;
@@ -199,6 +200,68 @@ class AttendantController extends Controller
                 'pagination' => PocketPayPresenter::pagination($transactions),
             ],
         ]);
+    }
+
+    public function withdrawals(Request $request)
+    {
+        $attendant = $this->attendant($request);
+        $canteen = $attendant->canteen;
+
+        $rows = PocketPayWithdrawal::query()
+            ->where('canteen_id', $canteen->id)
+            ->latest()
+            ->limit(20)
+            ->get()
+            ->map(fn (PocketPayWithdrawal $withdrawal): array => [
+                'uuid' => $withdrawal->uuid,
+                'amount' => (float) $withdrawal->amount,
+                'phone_number' => $withdrawal->phone_number,
+                'status' => $withdrawal->status,
+                'notes' => $withdrawal->notes,
+                'created_at' => $withdrawal->created_at?->toISOString(),
+            ])
+            ->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'canteen' => PocketPayPresenter::canteen($canteen),
+                'can_withdraw' => $canteen->attendantCanWithdraw($attendant),
+                'withdrawals' => $rows,
+            ],
+        ]);
+    }
+
+    public function withdraw(Request $request)
+    {
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:500|max:5000000',
+            'phone_number' => 'required|string|max:20',
+            'notes' => 'nullable|string|max:255',
+        ]);
+
+        $attendant = $this->attendant($request);
+        $withdrawal = $this->pocketPay->withdrawCanteenBalance(
+            $attendant,
+            $attendant->canteen,
+            (float) $validated['amount'],
+            $validated['phone_number'],
+            $validated['notes'] ?? null,
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Withdrawal sent.',
+            'data' => [
+                'canteen' => PocketPayPresenter::canteen($attendant->canteen->fresh()),
+                'withdrawal' => [
+                    'uuid' => $withdrawal->uuid,
+                    'amount' => (float) $withdrawal->amount,
+                    'phone_number' => $withdrawal->phone_number,
+                    'status' => $withdrawal->status,
+                ],
+            ],
+        ], 201);
     }
 
     protected function attendant(Request $request): CanteenAttendant

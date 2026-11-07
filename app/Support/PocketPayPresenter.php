@@ -81,6 +81,7 @@ class PocketPayPresenter
             'name' => $attendant->name,
             'phone' => $attendant->phone,
             'status' => $attendant->status,
+            'can_withdraw' => (bool) $attendant->can_withdraw,
             'canteen' => $attendant->canteen ? self::canteen($attendant->canteen) : null,
             'school' => $attendant->business ? [
                 'id' => $attendant->business->id,

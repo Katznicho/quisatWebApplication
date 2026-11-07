@@ -27,6 +27,7 @@ class PocketPayWithdrawal extends Model
         'notes',
         'requested_by',
         'canteen_id',
+        'canteen_attendant_id',
     ];
 
     protected $casts = [
@@ -50,5 +51,10 @@ class PocketPayWithdrawal extends Model
     public function canteen(): BelongsTo
     {
         return $this->belongsTo(Canteen::class);
+    }
+
+    public function attendant(): BelongsTo
+    {
+        return $this->belongsTo(CanteenAttendant::class, 'canteen_attendant_id');
     }
 }

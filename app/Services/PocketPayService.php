@@ -525,13 +525,17 @@ class PocketPayService
     /**
      * Pay out a canteen that keeps its sales. The sale balance is reduced, then the money is sent from Marz Pay.
      */
-    public function withdrawCanteenBalance(User $actor, Canteen $canteen, float $amount, string $phone, ?string $notes = null): PocketPayWithdrawal
+    public function withdrawCanteenBalance(User|CanteenAttendant $actor, Canteen $canteen, float $amount, string $phone, ?string $notes = null): PocketPayWithdrawal
     {
         if (! $canteen->collectsSales()) {
             throw new PocketPayException('This canteen is paid from a float. There is no sales balance to withdraw.', 422, 'not_collect_canteen');
         }
 
-        if (! $canteen->canBeWithdrawnBy($actor)) {
+        $allowed = $actor instanceof CanteenAttendant
+            ? $canteen->attendantCanWithdraw($actor)
+            : $canteen->canBeWithdrawnBy($actor);
+
+        if (! $allowed) {
             throw new PocketPayException('You are not allowed to withdraw this canteen’s balance.', 403, 'withdraw_forbidden');
         }
 
@@ -560,8 +564,9 @@ class PocketPayService
                 'phone_number' => $normalized,
                 'status' => 'processing',
                 'notes' => $notes,
-                'requested_by' => $actor->id,
+                'requested_by' => $actor instanceof User ? $actor->id : null,
                 'canteen_id' => $canteen->id,
+                'canteen_attendant_id' => $actor instanceof CanteenAttendant ? $actor->id : null,
             ]);
 
             $this->moveFloat($canteen, 'withdrawal', 'debit', $amount, $withdrawal, "Withdrawal to {$normalized}");

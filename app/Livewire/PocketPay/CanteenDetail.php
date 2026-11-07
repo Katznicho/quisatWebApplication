@@ -191,7 +191,10 @@ class CanteenDetail extends Component implements HasActions, HasForms
             ->label('Edit')
             ->icon('heroicon-o-pencil-square')
             ->color('gray')
-            ->fillForm(fn (): array => $this->canteen->only(['name', 'location', 'low_float_threshold', 'status', 'settlement_mode', 'withdrawer_id']))
+            ->fillForm(fn (): array => [
+                ...$this->canteen->only(['name', 'location', 'low_float_threshold', 'status', 'withdrawer_id']),
+                'settlement_mode' => $this->canteen->collectsSales() ? Canteen::MODE_COLLECT : Canteen::MODE_FLOAT,
+            ])
             ->form([
                 ...ListCanteens::canteenFields(),
                 Forms\Components\Select::make('status')
@@ -211,20 +214,17 @@ class CanteenDetail extends Component implements HasActions, HasForms
                     return;
                 }
 
-                if ($mode === Canteen::MODE_COLLECT && ! ListCanteens::withdrawerBelongsToSchool((int) ($data['withdrawer_id'] ?? 0), (int) $this->canteen->business_id)) {
-                    Notification::make()->title('Choose a person from this school who can withdraw.')->danger()->send();
-
-                    return;
-                }
-
                 $this->canteen->update([
                     'name' => $data['name'],
                     'location' => $data['location'] ?? null,
                     'settlement_mode' => $mode,
                     'low_float_threshold' => $mode === Canteen::MODE_COLLECT ? 0 : (int) ($data['low_float_threshold'] ?? 0),
-                    'withdrawer_id' => $mode === Canteen::MODE_COLLECT ? (int) $data['withdrawer_id'] : null,
                     'status' => $data['status'],
                 ]);
+
+                if ($mode === Canteen::MODE_FLOAT) {
+                    $this->canteen->attendants()->update(['can_withdraw' => false]);
+                }
 
                 Notification::make()->title('Canteen updated')->success()->send();
             });
@@ -311,6 +311,36 @@ class CanteenDetail extends Component implements HasActions, HasForms
                 ]);
 
                 $this->sendOtp($attendant, 'Attendant added');
+            });
+    }
+
+    public function allowWithdrawalsAction(): Action
+    {
+        return Action::make('allowWithdrawals')
+            ->label('Allow withdrawals')
+            ->icon('heroicon-o-banknotes')
+            ->color('gray')
+            ->size('sm')
+            ->link()
+            ->visible(fn (): bool => $this->canteen->collectsSales())
+            ->requiresConfirmation()
+            ->modalHeading('Who can withdraw')
+            ->modalDescription('This person withdraws the canteen balance from the Quisat Attendant app. Only one attendant can do it. Choosing them again turns it off.')
+            ->action(function (array $arguments): void {
+                $attendant = $this->attendant($arguments);
+
+                if ($attendant->can_withdraw) {
+                    $attendant->update(['can_withdraw' => false]);
+                    Notification::make()->title($attendant->name.' can no longer withdraw.')->success()->send();
+
+                    return;
+                }
+
+                CanteenAttendant::query()
+                    ->where('canteen_id', $this->canteen->id)
+                    ->update(['can_withdraw' => false]);
+                $attendant->update(['can_withdraw' => true]);
+                Notification::make()->title($attendant->name.' can withdraw from the attendant app.')->success()->send();
             });
     }
 

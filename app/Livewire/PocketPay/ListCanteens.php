@@ -6,7 +6,6 @@ use App\Exceptions\PocketPayException;
 use App\Models\Business;
 use App\Models\Canteen;
 use App\Models\CanteenFloatTopup;
-use App\Models\User;
 use App\Services\PocketPayService;
 use App\Support\PocketPayAccess;
 use App\Support\TenantScope;
@@ -85,19 +84,12 @@ class ListCanteens extends Component implements HasForms, HasTable
                             ? Canteen::MODE_COLLECT
                             : Canteen::MODE_FLOAT;
 
-                        if ($mode === Canteen::MODE_COLLECT && ! static::withdrawerBelongsToSchool((int) ($data['withdrawer_id'] ?? 0), $businessId)) {
-                            Notification::make()->title('Choose a person from this school who can withdraw.')->danger()->send();
-
-                            return;
-                        }
-
                         Canteen::create([
                             'business_id' => $businessId,
                             'name' => $data['name'],
                             'location' => $data['location'] ?? null,
                             'settlement_mode' => $mode,
                             'low_float_threshold' => $mode === Canteen::MODE_COLLECT ? 0 : (int) ($data['low_float_threshold'] ?? 0),
-                            'withdrawer_id' => $mode === Canteen::MODE_COLLECT ? (int) $data['withdrawer_id'] : null,
                             'created_by' => Auth::id(),
                         ]);
 
@@ -117,7 +109,10 @@ class ListCanteens extends Component implements HasForms, HasTable
                 Action::make('edit')
                     ->icon('heroicon-o-pencil-square')
                     ->color('gray')
-                    ->fillForm(fn (Canteen $record): array => $record->only(['name', 'location', 'low_float_threshold', 'status', 'settlement_mode', 'withdrawer_id']))
+                    ->fillForm(fn (Canteen $record): array => [
+                        ...$record->only(['name', 'location', 'low_float_threshold', 'status', 'withdrawer_id']),
+                        'settlement_mode' => $record->collectsSales() ? Canteen::MODE_COLLECT : Canteen::MODE_FLOAT,
+                    ])
                     ->form([
                         ...static::canteenFields(),
                         Forms\Components\Select::make('status')
@@ -137,20 +132,17 @@ class ListCanteens extends Component implements HasForms, HasTable
                             return;
                         }
 
-                        if ($mode === Canteen::MODE_COLLECT && ! static::withdrawerBelongsToSchool((int) ($data['withdrawer_id'] ?? 0), (int) $record->business_id)) {
-                            Notification::make()->title('Choose a person from this school who can withdraw.')->danger()->send();
-
-                            return;
-                        }
-
                         $record->update([
                             'name' => $data['name'],
                             'location' => $data['location'] ?? null,
                             'settlement_mode' => $mode,
                             'low_float_threshold' => $mode === Canteen::MODE_COLLECT ? 0 : (int) ($data['low_float_threshold'] ?? 0),
-                            'withdrawer_id' => $mode === Canteen::MODE_COLLECT ? (int) $data['withdrawer_id'] : null,
                             'status' => $data['status'],
                         ]);
+
+                        if ($mode === Canteen::MODE_FLOAT) {
+                            $record->attendants()->update(['can_withdraw' => false]);
+                        }
 
                         Notification::make()->title('Canteen updated')->success()->send();
                     }),
@@ -166,15 +158,15 @@ class ListCanteens extends Component implements HasForms, HasTable
             Forms\Components\TextInput::make('location')->maxLength(120)->placeholder('e.g. Block A, ground floor'),
             Forms\Components\Select::make('settlement_mode')
                 ->label('How this canteen is paid')
-                ->placeholder('Choose how this canteen is paid')
                 ->options([
                     Canteen::MODE_FLOAT => 'Uses a float',
                     Canteen::MODE_COLLECT => 'Sales build a balance to withdraw',
                 ])
                 ->default(Canteen::MODE_FLOAT)
+                ->selectablePlaceholder(false)
                 ->required()
                 ->live()
-                ->helperText('A float is money given to the canteen before sales. The other choice adds every sale to a balance that one person can withdraw.'),
+                ->helperText('Uses a float is already selected. Change it when each sale should add to a balance. Then, on Attendants, choose who can withdraw that balance in the Quisat Attendant app.'),
             Forms\Components\TextInput::make('low_float_threshold')
                 ->label('Low float warning (UGX)')
                 ->placeholder('e.g. 50000')
@@ -182,44 +174,7 @@ class ListCanteens extends Component implements HasForms, HasTable
                 ->minValue(0)
                 ->default(0)
                 ->visible(fn (Get $get): bool => $get('settlement_mode') !== Canteen::MODE_COLLECT),
-            Forms\Components\Select::make('withdrawer_id')
-                ->label('Who can withdraw')
-                ->placeholder('Choose the person who can withdraw')
-                ->options(function (Get $get, $livewire): array {
-                    $businessId = null;
-
-                    if (is_object($livewire) && method_exists($livewire, 'getMountedTableActionRecord')) {
-                        $businessId = $livewire->getMountedTableActionRecord()?->business_id;
-                    }
-
-                    if (! $businessId && is_object($livewire) && isset($livewire->canteen)) {
-                        $businessId = $livewire->canteen->business_id;
-                    }
-
-                    if (! $businessId) {
-                        $businessId = TenantScope::isSuperAdmin() ? (int) $get('business_id') : TenantScope::businessId();
-                    }
-
-                    if (! $businessId) {
-                        return [];
-                    }
-
-                    return User::query()
-                        ->where('business_id', $businessId)
-                        ->orderBy('name')
-                        ->pluck('name', 'id')
-                        ->all();
-                })
-                ->searchable()
-                ->required(fn (Get $get): bool => $get('settlement_mode') === Canteen::MODE_COLLECT)
-                ->visible(fn (Get $get): bool => $get('settlement_mode') === Canteen::MODE_COLLECT)
-                ->helperText('Each sale adds to this canteen’s balance. Only this person can withdraw it.'),
         ];
-    }
-
-    public static function withdrawerBelongsToSchool(int $userId, int $businessId): bool
-    {
-        return User::query()->whereKey($userId)->where('business_id', $businessId)->exists();
     }
 
     /**

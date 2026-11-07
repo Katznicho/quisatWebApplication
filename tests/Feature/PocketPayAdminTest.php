@@ -187,7 +187,7 @@ class PocketPayAdminTest extends TestCase
         Livewire::test(ListCanteens::class)->assertForbidden();
     }
 
-    public function test_collect_canteen_requires_a_person_who_can_withdraw(): void
+    public function test_collect_canteen_can_name_an_attendant_who_withdraws_in_the_app(): void
     {
         $this->actingAs($this->schoolAdmin);
 
@@ -196,20 +196,24 @@ class PocketPayAdminTest extends TestCase
                 'name' => 'Tuck Shop',
                 'settlement_mode' => 'collect',
             ])
-            ->assertHasTableActionErrors(['withdrawer_id' => 'required']);
-
-        Livewire::test(ListCanteens::class)
-            ->callTableAction('create', data: [
-                'name' => 'Tuck Shop',
-                'settlement_mode' => 'collect',
-                'withdrawer_id' => $this->schoolAdmin->id,
-            ])
             ->assertHasNoTableActionErrors();
 
         $canteen = Canteen::query()->where('name', 'Tuck Shop')->firstOrFail();
-        $this->assertSame(Canteen::MODE_COLLECT, $canteen->settlement_mode);
-        $this->assertSame($this->schoolAdmin->id, $canteen->withdrawer_id);
         $this->assertTrue($canteen->collectsSales());
+
+        $attendant = CanteenAttendant::create([
+            'business_id' => $this->school->id,
+            'canteen_id' => $canteen->id,
+            'name' => 'Grace',
+            'phone' => '+256700000099',
+            'status' => CanteenAttendant::STATUS_ACTIVE,
+        ]);
+
+        Livewire::test(CanteenDetail::class, ['canteen' => $canteen])
+            ->callAction('allowWithdrawals', arguments: ['attendant' => $attendant->id])
+            ->assertHasNoActionErrors();
+
+        $this->assertTrue($attendant->fresh()->can_withdraw);
     }
 
     public function test_school_admin_creates_canteen_tops_up_float_and_adds_attendant(): void

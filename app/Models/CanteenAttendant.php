@@ -31,6 +31,7 @@ class CanteenAttendant extends Model implements AuthenticatableContract
         'name',
         'phone',
         'status',
+        'can_withdraw',
         'created_by',
     ];
 
@@ -43,6 +44,7 @@ class CanteenAttendant extends Model implements AuthenticatableContract
         'otp_expires_at' => 'datetime',
         'locked_until' => 'datetime',
         'last_login_at' => 'datetime',
+        'can_withdraw' => 'boolean',
     ];
 
     protected static function booted(): void

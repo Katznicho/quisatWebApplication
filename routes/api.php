@@ -489,6 +489,8 @@ Route::prefix('v1')->middleware(['community.package', 'attendant.isolate'])->gro
             Route::get('sales/{sale}', [AttendantController::class, 'showSale']);
             Route::post('sales/{sale}/reversal', [AttendantController::class, 'requestReversal']);
             Route::get('float/statement', [AttendantController::class, 'floatStatement']);
+            Route::get('withdrawals', [AttendantController::class, 'withdrawals']);
+            Route::post('withdrawals', [AttendantController::class, 'withdraw'])->middleware('throttle:10,1');
         });
     });
 

@@ -440,9 +440,9 @@ class PocketPayTest extends TestCase
         $this->readyCard(balance: 10000, float: 0);
         $this->canteen->forceFill([
             'settlement_mode' => Canteen::MODE_COLLECT,
-            'withdrawer_id' => $this->admin->id,
             'float_balance' => 0,
         ])->save();
+        $this->attendant->forceFill(['can_withdraw' => true])->save();
 
         $service = app(PocketPayService::class);
         $service->makeSale($this->attendant, 'QP00012345', 2500, '1111');
@@ -457,7 +457,13 @@ class PocketPayTest extends TestCase
         $this->assertEquals(0, $this->canteen->fresh()->float_balance);
 
         $service->makeSale($this->attendant, 'QP00012345', 2500, '1111');
-        $other = User::forceCreate(['name' => 'Bursar', 'email' => 'bursar@hill.test', 'business_id' => $this->school->id]);
+        $other = CanteenAttendant::create([
+            'business_id' => $this->school->id,
+            'canteen_id' => $this->canteen->id,
+            'name' => 'Peter',
+            'phone' => '+256700000002',
+            'status' => CanteenAttendant::STATUS_ACTIVE,
+        ]);
 
         try {
             $service->withdrawCanteenBalance($other, $this->canteen->fresh(), 2500, '0772000111');
@@ -473,10 +479,18 @@ class PocketPayTest extends TestCase
             ]),
         ]);
 
-        $withdrawal = $service->withdrawCanteenBalance($this->admin, $this->canteen->fresh(), 2500, '0772000111', 'Week');
+        $token = $this->attendantToken();
+        $this->withToken($token)->postJson('/api/v1/attendant/withdrawals', [
+            'amount' => 2500,
+            'phone_number' => '0772000111',
+            'notes' => 'Week',
+        ])->assertCreated()
+            ->assertJsonPath('data.canteen.float_balance', 0)
+            ->assertJsonPath('data.canteen.settlement_mode', 'collect')
+            ->assertJsonPath('data.withdrawal.status', 'completed');
+
         $this->assertEquals(0, $this->canteen->fresh()->float_balance);
-        $this->assertSame($this->canteen->id, $withdrawal->canteen_id);
-        $this->assertSame('completed', $withdrawal->status);
+        $this->assertSame($this->attendant->id, PocketPayWithdrawal::query()->value('canteen_attendant_id'));
 
         try {
             $service->recordFloatTopup($this->canteen->fresh(), 5000, 'proof.jpg', $this->admin);
