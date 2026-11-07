@@ -1,39 +1,48 @@
-<div class="flex flex-wrap items-end justify-between gap-4">
-    <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Quisat</p>
-        <h2 class="mt-1 text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Pocket Pay</h2>
-        <p class="mt-1 max-w-xl text-sm text-slate-500 dark:text-slate-400">Student cards, canteen floats, and the Pocket Pay Marz Pay account.</p>
-    </div>
-    @php
-        $links = array_filter([
-            'pocket-pay.overview' => \App\Support\PocketPayAccess::canAssignCards() ? 'Overview' : null,
-            'pocket-pay.reports' => \App\Support\PocketPayAccess::canAssignCards() ? 'Reports' : null,
-            'pocket-pay.canteens.index' => 'Canteens',
-            'pocket-pay.cards.index' => 'Cards',
-            'pocket-pay.card-numbers.index' => \App\Support\PocketPayAccess::canAssignCards() ? 'Card numbers' : null,
-            'pocket-pay.reversals.index' => \App\Support\PocketPayAccess::canReviewReversals() ? 'Reversals' : null,
-            'pocket-pay.settings.edit' => \App\Support\PocketPayAccess::canAssignCards() ? 'Marz Pay' : null,
-        ]);
-        $isCurrent = function (string $route): bool {
-            return match ($route) {
-                'pocket-pay.canteens.index' => request()->routeIs('pocket-pay.canteens.*'),
-                'pocket-pay.reports' => request()->routeIs('pocket-pay.reports'),
-                'pocket-pay.cards.index' => request()->routeIs('pocket-pay.cards.*'),
-                'pocket-pay.settings.edit' => request()->routeIs('pocket-pay.settings.*'),
-                default => request()->routeIs($route),
-            };
+@php
+    $links = array_filter([
+        'pocket-pay.overview' => \App\Support\PocketPayAccess::canAssignCards() ? 'Overview' : null,
+        'pocket-pay.reports' => \App\Support\PocketPayAccess::canAssignCards() ? 'Reports' : null,
+        'pocket-pay.canteens.index' => 'Canteens',
+        'pocket-pay.cards.index' => 'Cards',
+        'pocket-pay.card-numbers.index' => \App\Support\PocketPayAccess::canAssignCards() ? 'Card numbers' : null,
+        'pocket-pay.reversals.index' => \App\Support\PocketPayAccess::canReviewReversals() ? 'Reversals' : null,
+        'pocket-pay.settings.edit' => \App\Support\PocketPayAccess::canAssignCards() ? 'Marz Pay' : null,
+    ]);
+    $isCurrent = function (string $route): bool {
+        return match ($route) {
+            'pocket-pay.canteens.index' => request()->routeIs('pocket-pay.canteens.*'),
+            'pocket-pay.reports' => request()->routeIs('pocket-pay.reports*'),
+            'pocket-pay.cards.index' => request()->routeIs('pocket-pay.cards.*'),
+            'pocket-pay.settings.edit' => request()->routeIs('pocket-pay.settings.*'),
+            default => request()->routeIs($route),
         };
-    @endphp
-    <nav class="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1 text-sm font-medium dark:bg-slate-900">
+    };
+    $intro = match (true) {
+        request()->routeIs('pocket-pay.overview') => 'Money sitting on student cards and in canteen floats, across every school.',
+        request()->routeIs('pocket-pay.reports*') => 'Balances held now, and every movement in the dates you choose.',
+        request()->routeIs('pocket-pay.settings.*') => 'The Marz Pay account used for Pocket Pay collections and withdrawals.',
+        request()->routeIs('pocket-pay.reversals.*') => 'Sale reversals waiting for a decision, and the ones already reviewed.',
+        default => 'Student cards, canteen floats, and the sales made against them.',
+    };
+@endphp
+<div class="pt-6">
+    <div class="flex flex-wrap items-end justify-between gap-4">
+        <div>
+            <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Pocket Pay</p>
+            <h1 class="mt-1 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">{{ request()->routeIs('pocket-pay.reports*') ? 'Money reports' : 'Pocket Pay' }}</h1>
+            <p class="mt-1 max-w-2xl text-sm leading-6 text-slate-500">{{ $intro }}</p>
+        </div>
+    </div>
+    <nav class="-mb-px mt-5 flex gap-1 overflow-x-auto" aria-label="Pocket Pay">
         @foreach ($links as $route => $label)
             <a href="{{ route($route) }}" @class([
-                'rounded-lg px-3 py-1.5',
-                'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white' => $isCurrent($route),
-                'text-slate-600 hover:text-slate-900 dark:text-slate-400' => ! $isCurrent($route),
+                'inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-3 text-sm font-medium',
+                'border-slate-950 text-slate-950 dark:border-white dark:text-white' => $isCurrent($route),
+                'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800 dark:text-slate-400' => ! $isCurrent($route),
             ])>
                 {{ $label }}
-                @if ($route === 'pocket-pay.reversals.index' && $pendingReversals > 0)
-                    <span class="ml-1 rounded-full bg-amber-400 px-1.5 py-0.5 text-xs font-bold text-amber-950">{{ $pendingReversals }}</span>
+                @if ($route === 'pocket-pay.reversals.index' && ($pendingReversals ?? 0) > 0)
+                    <span class="rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-900">{{ $pendingReversals }}</span>
                 @endif
             </a>
         @endforeach
